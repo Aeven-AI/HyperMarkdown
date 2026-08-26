@@ -28,7 +28,7 @@ import MarkdownSyntax from "./streaming/markdown-syntax";
 
 const markdownSyntax = new MarkdownSyntax();
 
-export interface MarkdownRenderOptions {
+export interface StoreOptions {
   /** Markdown to render in one go. Ignored while `streaming` is true. */
   md?: string;
   /** Feed content through `streamMd()` instead of the `md` prop. */
@@ -39,13 +39,13 @@ export interface MarkdownRenderOptions {
   scrollDown?: () => void;
 }
 
-class MarkdownRenderStore {
+class Store {
   // Ported from JavaScript: the streaming machinery keeps a lot of mutable
   // bookkeeping on the instance. Declared loosely here and annotated field by
   // field as the port is tightened.
   [key: string]: any;
 
-  private options: MarkdownRenderOptions;
+  private options: StoreOptions;
   private listeners = new Set<() => void>();
 
   /** setState-style callbacks waiting for the host's next commit. */
@@ -55,7 +55,7 @@ class MarkdownRenderStore {
   version = 0;
 
 
-  constructor(options: MarkdownRenderOptions = {}) {
+  constructor(options: StoreOptions = {}) {
     const props = options;
     this.options = options;
 
@@ -207,7 +207,7 @@ class MarkdownRenderStore {
    * Update the options the engine reads while rendering. Called on every host
    * render, so it must stay cheap and must not invalidate cached output.
    */
-  setOptions(next: Partial<MarkdownRenderOptions>) {
+  setOptions(next: Partial<StoreOptions>) {
     this.options = { ...this.options, ...next };
   }
 
@@ -4201,4 +4201,4 @@ class MarkdownRenderStore {
   }
 }
 
-export default MarkdownRenderStore;
+export default Store;

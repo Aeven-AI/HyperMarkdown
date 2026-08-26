@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import MarkdownRenderStore from "./lib/markdown-render-store";
+import Store from "./lib/store";
 import { emitter, guid } from "./lib/platform/runtime";
 
 // Layout effects warn during server rendering, where there is no DOM to
@@ -59,13 +59,13 @@ export interface HyperMarkdownHandle {
   /** Discard everything rendered so far and start a new stream. */
   reset(): void;
   /** Escape hatch for callers that need the engine itself. */
-  readonly stream: MarkdownRenderStore;
+  readonly stream: Store;
 }
 
 /**
  * Renders markdown, including markdown that is still arriving.
  *
- * The work happens in {@link MarkdownRenderStore}. This component owns one
+ * The work happens in {@link Store}. This component owns one
  * instance, subscribes to its updates, and renders its current snapshot.
  */
 const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
@@ -75,10 +75,10 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     // One engine per mounted component, created lazily so a re-render never
     // builds a second one.
-    const streamRef = useRef<MarkdownRenderStore | null>(null);
+    const streamRef = useRef<Store | null>(null);
 
     if (streamRef.current === null) {
-      streamRef.current = new MarkdownRenderStore({
+      streamRef.current = new Store({
         md,
         streaming,
         animation,
@@ -189,10 +189,10 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 HyperMarkdown.displayName = "HyperMarkdown";
 
 /** @deprecated Prefer the HyperMarkdown component and its imperative handle. */
-export { default as MarkdownStream } from "./lib/markdown-render-store";
+export { default as MarkdownStream } from "./lib/store";
 /** @deprecated Internal engine options retained for API compatibility. */
 export type {
-  MarkdownRenderOptions as MarkdownStreamOptions,
-} from "./lib/markdown-render-store";
+  StoreOptions as MarkdownStreamOptions,
+} from "./lib/store";
 export { HyperMarkdown };
 export default HyperMarkdown;
