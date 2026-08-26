@@ -129,6 +129,12 @@ class MarkdownRenderStore {
 
     this.preCompile();
 
+    // rehype-react keys elements by the identity of the component it was given,
+    // so a map rebuilt per processor makes the same block look like a different
+    // component each time it moves between processors — which remounts it,
+    // dropping fullscreen and restarting its animations. One map, built once.
+    this.components = this.createComponents();
+
     this.processor = this.createProcessor("regular");
     this.processorStream = this.createProcessor("regular-stream");
     this.processorAnimation = this.createProcessor("regular-animation");
@@ -255,6 +261,59 @@ class MarkdownRenderStore {
     vm.inlineTokenEdgeRegexCache = new Map();
   }
 
+  /** The tags this renderer replaces with components of its own. */
+  createComponents() {
+    const vm = this;
+
+    return {
+      a: function MarkdownLinkTag(props) {
+        return (
+          <MarkdownLink
+            {...props}
+            renderer={vm}
+            scrollDown={vm.options.scrollDown}
+          />
+        );
+      },
+      m: function MermaidDiagramTag(props) {
+        return (
+          <MermaidDiagram
+            {...props}
+            renderer={vm}
+            scrollDown={vm.options.scrollDown}
+          />
+        );
+      },
+      img: function MarkdownImageTag(props) {
+        return (
+          <MarkdownImage
+            {...props}
+            renderer={vm}
+            scrollDown={vm.options.scrollDown}
+          />
+        );
+      },
+      pre: function MarkdownCodeBlockTag(props) {
+        return (
+          <MarkdownCodeBlock
+            {...props}
+            renderer={vm}
+            scrollDown={vm.options.scrollDown}
+          />
+        );
+      },
+      table: function MarkdownTableTag(props) {
+        return (
+          <MarkdownTable
+            {...props}
+            renderer={vm}
+            scrollDown={vm.options.scrollDown}
+          />
+        );
+      },
+    };
+  }
+
   createProcessor(type) {
     const vm = this;
 
@@ -284,53 +343,7 @@ class MarkdownRenderStore {
             jsxs: customJsxs,
             Fragment: React.Fragment,
             createElement: React.createElement,
-            components: {
-              a: (props) => {
-                return (
-                  <MarkdownLink
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              m: (props) => {
-                return (
-                  <MermaidDiagram
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              img: (props) => {
-                return (
-                  <MarkdownImage
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              pre: (props) => {
-                return (
-                  <MarkdownCodeBlock
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              table: (props) => {
-                return (
-                  <MarkdownTable
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-            },
+            components: vm.components,
           });
 
       case "cached":
@@ -405,53 +418,7 @@ class MarkdownRenderStore {
             jsxs: customJsxs,
             Fragment: React.Fragment,
             createElement: React.createElement,
-            components: {
-              a: (props) => {
-                return (
-                  <MarkdownLink
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              m: (props) => {
-                return (
-                  <MermaidDiagram
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              img: (props) => {
-                return (
-                  <MarkdownImage
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              pre: (props) => {
-                return (
-                  <MarkdownCodeBlock
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              table: (props) => {
-                return (
-                  <MarkdownTable
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-            },
+            components: vm.components,
           });
 
       case "regular-stream":
@@ -473,53 +440,7 @@ class MarkdownRenderStore {
             jsxs: customJsxs,
             Fragment: React.Fragment,
             createElement: React.createElement,
-            components: {
-              a: (props) => {
-                return (
-                  <MarkdownLink
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              m: (props) => {
-                return (
-                  <MermaidDiagram
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              img: (props) => {
-                return (
-                  <MarkdownImage
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              pre: (props) => {
-                return (
-                  <MarkdownCodeBlock
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              table: (props) => {
-                return (
-                  <MarkdownTable
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-            },
+            components: vm.components,
           });
 
       case "regular-animation":
@@ -543,53 +464,7 @@ class MarkdownRenderStore {
             jsxs: customJsxs,
             Fragment: React.Fragment,
             createElement: React.createElement,
-            components: {
-              a: (props) => {
-                return (
-                  <MarkdownLink
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              m: (props) => {
-                return (
-                  <MermaidDiagram
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              img: (props) => {
-                return (
-                  <MarkdownImage
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              pre: (props) => {
-                return (
-                  <MarkdownCodeBlock
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              table: (props) => {
-                return (
-                  <MarkdownTable
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-            },
+            components: vm.components,
           });
 
       case "footnote":
@@ -609,53 +484,7 @@ class MarkdownRenderStore {
             jsxs: customJsxs,
             Fragment: React.Fragment,
             createElement: React.createElement,
-            components: {
-              a: (props) => {
-                return (
-                  <MarkdownLink
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              m: (props) => {
-                return (
-                  <MermaidDiagram
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              img: (props) => {
-                return (
-                  <MarkdownImage
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              pre: (props) => {
-                return (
-                  <MarkdownCodeBlock
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              table: (props) => {
-                return (
-                  <MarkdownTable
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-            },
+            components: vm.components,
           });
 
       case "footnote-animation":
@@ -676,53 +505,7 @@ class MarkdownRenderStore {
             jsxs: customJsxs,
             Fragment: React.Fragment,
             createElement: React.createElement,
-            components: {
-              a: (props) => {
-                return (
-                  <MarkdownLink
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              m: (props) => {
-                return (
-                  <MermaidDiagram
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              img: (props) => {
-                return (
-                  <MarkdownImage
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              pre: (props) => {
-                return (
-                  <MarkdownCodeBlock
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-              table: (props) => {
-                return (
-                  <MarkdownTable
-                    {...props}
-                    renderer={vm}
-                    scrollDown={vm.options.scrollDown}
-                  />
-                );
-              },
-            },
+            components: vm.components,
           });
     }
 
@@ -1131,6 +914,46 @@ class MarkdownRenderStore {
     }
   }
 
+  /**
+   * Find a block of the given component type inside a processMd() result.
+   *
+   * processMd() hands back the whole document root, which is a Fragment even
+   * when it holds a single block. Callers closing a block need to know whether
+   * it parsed back into the same kind of block, and comparing the Fragment's
+   * type never matches. Getting that wrong swaps the element type at a
+   * position, which remounts the block: fullscreen turns itself off and every
+   * animation inside starts over.
+   */
+  blockOfType(node, type) {
+    if (!React.isValidElement(node)) {
+      return null;
+    }
+
+    if (node.type === type) {
+      return node;
+    }
+
+    if (node.type !== Fragment) {
+      return null;
+    }
+
+    const children = React.Children.toArray(
+      (node.props as { children?: React.ReactNode }).children
+    );
+
+    if (children.length !== 1) {
+      return null;
+    }
+
+    const only = children[0];
+
+    if (React.isValidElement(only) && only.type === type) {
+      return only;
+    }
+
+    return null;
+  }
+
   streamCode(mdBuffer, mdState, blockId, closeObject, streaming, animation) {
     let key;
     let block;
@@ -1141,6 +964,7 @@ class MarkdownRenderStore {
 
     let processedData;
     let processedDataCode;
+    let closedCodeBlock;
 
     const vm = this;
     const timeNow = runtime.timeNow();
@@ -1256,11 +1080,11 @@ class MarkdownRenderStore {
         vm.mdBuffer = closeObject.mdNext;
 
         processedDataCode = vm.processMd(mdBuffer, false, false);
+        closedCodeBlock = vm.blockOfType(processedDataCode, vm.components.pre);
 
-        if (
-          React.isValidElement(processedDataCode) &&
-          processedDataCode.type !== MarkdownCodeBlock
-        ) {
+        if (processedDataCode && !closedCodeBlock) {
+          // The fence turned out to be something else once it closed, so there
+          // is no code block to keep: render whatever it actually became.
           processedData = processedDataCode;
         } else {
           vm.processCacheMd(mdBuffer, "code", streaming, animation);
@@ -1271,8 +1095,8 @@ class MarkdownRenderStore {
             </code>
           );
 
-          if (processedDataCode) {
-            preChildren = processedDataCode?.props?.children?.props?.children;
+          if (closedCodeBlock) {
+            preChildren = closedCodeBlock.props.children;
           }
 
           processedData = (
