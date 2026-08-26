@@ -21,6 +21,7 @@ export class CodeCache {
   private consumed = 0;
   private nextKey = 0;
   private fenceRead = false;
+  private fenceMarker: string | null = null;
 
   reset(): void {
     this.data = [];
@@ -29,6 +30,7 @@ export class CodeCache {
     this.consumed = 0;
     this.nextKey = 0;
     this.fenceRead = false;
+    this.fenceMarker = null;
   }
 
   /**
@@ -57,7 +59,8 @@ export class CodeCache {
       }
 
       this.fenceRead = true;
-      this.language = opening[1] || null;
+      this.fenceMarker = opening[1] || null;
+      this.language = opening[2] || null;
       this.buffer = this.buffer.substring(opening[0].length);
     }
 
@@ -77,13 +80,12 @@ export class CodeCache {
       this.buffer = this.buffer.substring(lineIndex + separatorLength);
     }
 
-    // One or two backticks alone on the last line are most likely the closing
-    // fence arriving; showing them would put the fence marker into the code. A
-    // line that really is just a backtick still appears once its newline lands
-    // and the line is committed above.
+    // A shorter run of the opening marker on the last line is most likely the
+    // closing fence arriving; showing it would expose a partial fence. A line
+    // that really contains that marker appears once its newline is committed.
     if (
       this.buffer.length > 0 &&
-      patterns.partialFenceRegex.test(this.buffer) !== true
+      this.pendingFence(this.buffer) !== true
     ) {
       this.render(this.nextKey, this.buffer, animation);
     }
@@ -92,7 +94,7 @@ export class CodeCache {
   private render(key: number, line: string, animation: boolean): void {
     // A line holding nothing but a fence closes the block; it is not part of
     // the code. Parsing used to drop it as a side effect.
-    if (patterns.fenceOnlyRegex.test(line)) {
+    if (this.closingFence(line) === true) {
       return;
     }
 
@@ -119,5 +121,36 @@ export class CodeCache {
     }
 
     this.data[key] = <Fragment key={key}>{content}</Fragment>;
+  }
+
+  private closingFence(line: string): boolean {
+    let trimmed;
+
+    if (!this.fenceMarker) {
+      return false;
+    }
+
+    trimmed = line.trim();
+
+    return (
+      trimmed.length >= this.fenceMarker.length &&
+      trimmed.split("").every((char) => char === this.fenceMarker?.charAt(0))
+    );
+  }
+
+  private pendingFence(line: string): boolean {
+    let trimmed;
+
+    if (!this.fenceMarker) {
+      return false;
+    }
+
+    trimmed = line.trim();
+
+    return (
+      trimmed.length > 0 &&
+      trimmed.length < this.fenceMarker.length &&
+      trimmed.split("").every((char) => char === this.fenceMarker?.charAt(0))
+    );
   }
 }

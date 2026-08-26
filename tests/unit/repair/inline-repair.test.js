@@ -100,6 +100,9 @@ describe("small repair primitives", () => {
 
   it("drops only an incomplete list marker", () => {
     expect(fixPartialMarker("- item\n1.", true)).toBe("- item\n");
+    expect(fixPartialMarker("12.", true)).toBe("");
+    expect(fixPartialMarker("1234567", true)).toBe("1234567");
+    expect(fixPartialMarker("1. item\n12", true)).toBe("1. item\n");
     expect(fixPartialMarker("- item\n1. next", true)).toBe("- item\n1. next");
     expect(fixPartialMarker("- item\n1.", false)).toBe("- item\n1.");
   });

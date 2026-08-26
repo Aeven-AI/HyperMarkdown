@@ -4,6 +4,8 @@ export function fixPartialMarker(text: string, pending: boolean): string {
   let lastLine;
   let lineStart;
 
+  const bareNumber = /^[ \t>]*\d{2,9}[ \t]*$/;
+
   if (!text || text === "" || pending !== true) {
     return text;
   }
@@ -12,6 +14,12 @@ export function fixPartialMarker(text: string, pending: boolean): string {
   lastLine = text.substring(lineStart + 1);
 
   if (patterns.markerOnlyRegex.test(lastLine) === true) {
+    // A multi-digit document is prose, but the same digits after an earlier
+    // list item may still be an ordered marker whose delimiter is arriving.
+    if (lineStart === -1 && bareNumber.test(lastLine)) {
+      return text;
+    }
+
     return text.substring(0, lineStart + 1);
   }
 

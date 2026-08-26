@@ -15,7 +15,8 @@ export const patterns = {
   blankRegex: /^\s*$/,
 
   hrCloseRegex: /(?:^|\n)([ \t]*(?:([-_*])\2{2,}|[*_]{3,})[ \t]*\n)/,
-  fencedCloseRegex: /(```|~~~)[\s\S]*?\1/,
+  fencedCloseRegex:
+    /^(?:[ \t]{0,3}(`{3,})(?!`)[^\r\n]*(?=\r?\n)[\s\S]*?\r?\n[ \t]{0,3}\1`*[ \t]*|[ \t]{0,3}(~{3,})(?!~)[^\r\n]*(?=\r?\n)[\s\S]*?\r?\n[ \t]{0,3}\2~*[ \t]*)/,
 
   indentedRegex: /^\t|^ {4,}/,
   interuptRegex: /\n[ \t]*(?:```|~~~)/,
@@ -33,7 +34,7 @@ export const patterns = {
 
   fencedCodeRegex: /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*[\r\n]/,
   indentedCodeRegex: /^([ \t]*\n)*([ \t]{4,}|[ \t]*\t)/,
-  codeCachedInitRegex: /^(?:```(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/,
+  codeCachedInitRegex: /^(?:((?:`{3,}|~{3,}))(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/,
   incompleteFenceRegex: /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*$/,
   tableRendererInitRegex:
     /^((?:[^\n]*\|[^\n]*\n)+(?:[ \t]*\|[ \t]*-+[ \t]*(?::[ \t]*-+[ \t]*)*[ \t]*\|[^\n]*\n(?:[^\n]*\|[^\n]*\n)+|(?:[^\n]*\|[^\n]*\n)+))/gm,

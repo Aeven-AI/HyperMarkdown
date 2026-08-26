@@ -118,18 +118,25 @@ export function convertTable(mdBuffer: string, pending: boolean): string {
 }
 
 export function checkHeaded(delimiterLine: string): boolean {
-  if (
-    delimiterLine.includes("---") ||
-    delimiterLine.indexOf("|-") !== -1 ||
-    delimiterLine.indexOf("|:-") !== -1 ||
-    delimiterLine.indexOf("|-:") !== -1 ||
-    delimiterLine.indexOf("| :-") !== -1 ||
-    delimiterLine.indexOf("| -:") !== -1
-  ) {
-    return true;
-  } else {
+  let cells;
+  let normalized;
+
+  normalized = delimiterLine.trim().replace(/^>\s?/, "").trim();
+
+  if (normalized.includes("|") !== true) {
     return false;
   }
+
+  cells = normalized
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split(patterns.closeRegex)
+    .map((cell) => cell.trim());
+
+  return (
+    cells.length > 0 &&
+    cells.every((cell) => /^:?-+:?$/.test(cell) === true)
+  );
 }
 
 export function convertTableHeadless(

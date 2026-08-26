@@ -36,6 +36,7 @@
     "build": "tsc -b && vite build && npm run build:css",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "test:correctness": "vitest run tests/correctness",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:unit:watch": "vitest --config vitest.unit.config.ts",
     "test:coverage": "vitest run --coverage",
