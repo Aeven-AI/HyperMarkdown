@@ -10,7 +10,7 @@ export function definitionsOnly(md: string): boolean {
   sawDefinition = false;
 
   for (i = 0; i < lines.length; i++) {
-    line = lines[i] ?? "";
+    line = lines[i]!;
 
     if (line.trim() === "") {
       continue;

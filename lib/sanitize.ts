@@ -26,14 +26,14 @@ export const defaultSanitizeSchema: SanitizeSchema = {
   // <script>, which leaves a stripped <style> spilling its CSS into the page as
   // visible text — and CSS from untrusted markdown is not harmless either: a
   // fixed-position rule can cover the page with whatever it likes.
-  strip: [...(defaultSchema.strip ?? []), "style"],
+  strip: [...defaultSchema.strip!, "style"],
 
   attributes: {
     ...defaultSchema.attributes,
     // A fence's language is what tells the diagram and highlight stages what
     // they are looking at.
-    code: [...(defaultSchema.attributes?.["code"] ?? []), "className"],
-    span: [...(defaultSchema.attributes?.["span"] ?? []), "className"],
+    code: [...defaultSchema.attributes!["code"]!, "className"],
+    span: ["className"],
   },
 };
 
@@ -99,7 +99,7 @@ export function buildSchema(
   allowedTags: AllowedTags | undefined,
   linkSafety: ResolvedLinkSafety,
 ): SanitizeSchema {
-  const tagNames = [...(defaultSanitizeSchema.tagNames ?? [])];
+  const tagNames = [...defaultSanitizeSchema.tagNames!];
   const attributes = { ...defaultSanitizeSchema.attributes };
 
   for (const tag of Object.keys(allowedTags ?? {})) {
@@ -107,7 +107,7 @@ export function buildSchema(
       tagNames.push(tag);
     }
 
-    const extra = (allowedTags?.[tag] ?? []).flatMap(propertyNames);
+    const extra = allowedTags![tag]!.flatMap(propertyNames);
     attributes[tag] = [...(attributes[tag] ?? []), ...extra];
   }
 

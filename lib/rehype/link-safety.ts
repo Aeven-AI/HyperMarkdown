@@ -44,7 +44,7 @@ export function rehypeLinkSafety(config: ResolvedLinkSafety) {
     const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(trimmed);
 
     if (scheme) {
-      const protocol = (scheme[1] ?? "").toLowerCase();
+      const protocol = scheme[1]!.toLowerCase();
 
       if (!config.allowedProtocols.includes(protocol)) {
         return false;

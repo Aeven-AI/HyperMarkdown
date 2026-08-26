@@ -53,11 +53,7 @@ export function fixEmphasis(text: string): EmphasisResult {
   // one can expose another, as in "**_", so keep going until the text no
   // longer ends in a delimiter.
   while (runs.length > 0) {
-    last = runs[runs.length - 1];
-
-    if (!last) {
-      break;
-    }
+    last = runs[runs.length - 1]!;
 
     if (last.index + last.length !== text.length) {
       break;
@@ -71,11 +67,7 @@ export function fixEmphasis(text: string): EmphasisResult {
   pending = [];
 
   for (i = 0; i < runs.length; i++) {
-    run = runs[i];
-
-    if (!run) {
-      continue;
-    }
+    run = runs[i]!;
 
     remaining = run.length;
 
@@ -83,12 +75,7 @@ export function fixEmphasis(text: string): EmphasisResult {
       j = stack.length - 1;
 
       while (j >= 0 && remaining > 0) {
-        opener = stack[j];
-
-        if (!opener) {
-          j--;
-          continue;
-        }
+        opener = stack[j]!;
 
         if (opener.char !== run.char || emphasisPairs(opener, run) !== true) {
           j--;
@@ -122,9 +109,9 @@ export function fixEmphasis(text: string): EmphasisResult {
   }
 
   for (i = 0; i < stack.length; i++) {
-    opener = stack[i];
+    opener = stack[i]!;
 
-    if (opener && opener.remaining > 0) {
+    if (opener.remaining > 0) {
       pending.push({
         close: true,
         index: opener.index,

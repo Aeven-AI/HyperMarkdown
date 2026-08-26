@@ -43,11 +43,7 @@ export function fixCodeSpan(text: string): InlineTokenResult {
     return { text: text, token: "`", close: false, index: -1 };
   }
 
-  opener = runs[result.unmatched];
-
-  if (!opener) {
-    return { text: text, token: "`", close: false, index: -1 };
-  }
+  opener = runs[result.unmatched]!;
 
   return {
     text: text,
@@ -80,11 +76,7 @@ function codeSpans(text: string): TextRange[] {
   let i = 0;
 
   while (i < runs.length) {
-    const opener = runs[i];
-
-    if (!opener) {
-      break;
-    }
+    const opener = runs[i]!;
 
     let closer = -1;
 
@@ -103,11 +95,9 @@ function codeSpans(text: string): TextRange[] {
       break;
     }
 
-    const closerRun = runs[closer];
+    const closerRun = runs[closer]!;
 
-    if (closerRun) {
-      ranges.push({ start: opener.index, end: closerRun.index });
-    }
+    ranges.push({ start: opener.index, end: closerRun.index });
 
     i = closer + 1;
   }
@@ -127,11 +117,7 @@ export function insideCodeSpan(text: string, index: number): boolean {
 
   while (low <= high) {
     const mid = (low + high) >> 1;
-    const range = ranges[mid];
-
-    if (!range) {
-      break;
-    }
+    const range = ranges[mid]!;
 
     if (index <= range.start) {
       high = mid - 1;
@@ -187,18 +173,14 @@ export function pairBacktickRuns(runs: BacktickRun[]): BacktickPairs {
   i = 0;
 
   while (i < runs.length) {
-    opener = runs[i];
-
-    if (!opener) {
-      break;
-    }
+    opener = runs[i]!;
 
     closerIndex = -1;
 
     for (j = i + 1; j < runs.length; j++) {
-      candidate = runs[j];
+      candidate = runs[j]!;
 
-      if (candidate && candidate.length === opener.length) {
+      if (candidate.length === opener.length) {
         closerIndex = j;
         break;
       }

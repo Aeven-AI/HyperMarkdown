@@ -207,6 +207,21 @@ function progress(name, index, { frame, frames, elapsed }, pass) {
   }
 }
 
+/**
+ * Share of the document a renderer got on screen. Anything materially short
+ * of the best is doing less work, and gets marked so the time next to it is
+ * not read as a like-for-like win.
+ */
+function coverage(chars, expected) {
+  const share = expected > 0 ? chars / expected : 1;
+
+  if (share >= 0.95) {
+    return "full";
+  }
+
+  return `**${Math.round(share * 100)}%**`;
+}
+
 function print(renderer, measured) {
   if (measured.failed) {
     process.stderr.write(`  ${renderer.name.padEnd(18)} FAILED — ${measured.failed}\n`);
@@ -264,9 +279,15 @@ function report() {
         `${Math.ceil(text.length / Number(chunkFor(file)))} frames of ` +
         `${chunkFor(file)} characters.`,
       "",
-      "| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |",
-      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+      "| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars | rendered |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     );
+
+    // How much of the document each renderer actually put on screen, against
+    // what the others managed. A renderer that virtualises or defers scores
+    // well below 100% and its time is not comparable with the rest of the row.
+    const charCounts = ok.map((r) => r.chars).sort((a, b) => a - b);
+    const expected = charCounts[charCounts.length - 1] ?? 1;
 
     for (const row of [...rows].sort((a, b) => (a.total ?? 1e12) - (b.total ?? 1e12))) {
       let maxTotal;
@@ -288,7 +309,7 @@ function report() {
           `${minTotal.toFixed(0)}\u2013${maxTotal.toFixed(0)} ms | ` +
           `${(row.total / fastest).toFixed(1)}\u00d7 | ${row.p50.toFixed(2)} ms | ` +
           `${row.p95.toFixed(2)} ms | ${row.max.toFixed(0)} ms | ${row.nodes} | ` +
-          `${row.chars} |`
+          `${row.chars} | ${coverage(row.chars, expected)} |`
       );
     }
 

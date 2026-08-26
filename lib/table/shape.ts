@@ -43,11 +43,7 @@ export function readTableShape(
   const tableChildren = React.Children.toArray(children).filter(isTableElement);
 
   for (let i = 0, iCount = tableChildren.length; i < iCount; i++) {
-    const child = tableChildren[i];
-
-    if (!child) {
-      continue;
-    }
+    const child = tableChildren[i]!;
 
     if (child.type === "thead") {
       const headRow = React.Children.toArray(child.props.children).find(
@@ -59,9 +55,9 @@ export function readTableShape(
         : [];
 
       for (let j = 0, jCount = headCells.length; j < jCount; j++) {
-        const cell = headCells[j];
+        const cell = headCells[j]!;
 
-        if (cell?.type === "th") {
+        if (cell.type === "th") {
           headerColumns++;
 
           if (cell.props.children) {

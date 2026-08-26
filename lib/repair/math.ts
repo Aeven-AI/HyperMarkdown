@@ -23,7 +23,7 @@ export function fixMath(text: string, pending: boolean): string {
   openIndex = -1;
 
   for (i = 0; i < chunks.length; i++) {
-    chunk = chunks[i] || "";
+    chunk = chunks[i]!;
 
     if (i % 2 === 0) {
       mathIndex = findOpenMath(chunk);

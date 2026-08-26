@@ -23,13 +23,13 @@ export function listCacheable(md: string): boolean {
   itemCount = 0;
 
   for (i = 0; i < lines.length; i++) {
-    line = lines[i] ?? "";
+    line = lines[i]!;
 
     if (line.trim() === "") {
       continue;
     }
 
-    indent = (line.match(patterns.listIndentOnlyRegex)?.[0] ?? "").length;
+    indent = line.match(patterns.listIndentOnlyRegex)![0].length;
 
     if (baseIndent === null) {
       if (patterns.listItemRegex.test(line) !== true) {
@@ -65,11 +65,11 @@ export function listMarkerFamily(line: string): string | null {
     return null;
   }
 
-  if (/\d/.test(match[1] ?? "") === true) {
-    return "ordered" + (match[1] ?? "").slice(-1);
+  if (/\d/.test(match[1]!) === true) {
+    return "ordered" + match[1]!.slice(-1);
   }
 
-  return "bullet" + (match[1] ?? "");
+  return "bullet" + match[1]!;
 }
 
 // Split a list block into its top-level items. A deeper marker is a nested
@@ -91,8 +91,8 @@ export function listItems(md: string): string[] {
   baseIndent = null;
 
   for (i = 0; i < lines.length; i++) {
-    line = lines[i] ?? "";
-    indent = (line.match(patterns.listIndentOnlyRegex)?.[0] ?? "").length;
+    line = lines[i]!;
+    indent = line.match(patterns.listIndentOnlyRegex)![0].length;
 
     if (patterns.listItemRegex.test(line) === true && baseIndent === null) {
       baseIndent = indent;

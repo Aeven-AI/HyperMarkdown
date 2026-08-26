@@ -23,7 +23,7 @@ export function fixLinkRefs(text: string, pending: boolean): string {
   openIndex = -1;
 
   for (i = 0; i < chunks.length; i++) {
-    chunk = chunks[i] || "";
+    chunk = chunks[i]!;
 
     if (i % 2 === 0) {
       linkIndex = findOpenLink(chunk, i === chunks.length - 1, text);
@@ -161,7 +161,7 @@ export function hasDefinition(fullText: string, label: string): boolean {
   lines = fullText.split("\n");
 
   for (i = 0; i < lines.length; i++) {
-    line = (lines[i] ?? "").trim();
+    line = lines[i]!.trim();
 
     // The destination has to be there too, or the link still has nowhere
     // to point and remark leaves the whole thing as text.

@@ -39,7 +39,7 @@ export function fixInlineTokens(text: string, caches: InlineCaches): string {
     previous = text;
 
     for (i = 0; i < patterns.inlineTokens.length; i++) {
-      text = fixInlineToken(text, patterns.inlineTokens[i] ?? "", caches).text;
+      text = fixInlineToken(text, patterns.inlineTokens[i]!, caches).text;
     }
 
     // Emphasis strips belong in the same settling pass: dropping a
@@ -53,7 +53,7 @@ export function fixInlineTokens(text: string, caches: InlineCaches): string {
   pending = [];
 
   for (i = 0; i < patterns.inlineTokens.length; i++) {
-    result = fixInlineToken(text, patterns.inlineTokens[i] ?? "", caches);
+    result = fixInlineToken(text, patterns.inlineTokens[i]!, caches);
 
     if (result.close === true) {
       pending.push(result);
@@ -85,7 +85,7 @@ export function fixInlineTokens(text: string, caches: InlineCaches): string {
   });
 
   for (i = 0; i < pending.length; i++) {
-    token = pending[i]?.token ?? "";
+    token = pending[i]!.token;
 
     // Appending onto a run that was already there merges with it: "~" plus
     // "~~" is "~~~", which is a code fence, not strikethrough. That run is

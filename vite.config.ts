@@ -47,5 +47,18 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    coverage: {
+      provider: "v8",
+      all: true,
+      include: ["index.tsx", "lib/**/*.{ts,tsx}"],
+      exclude: [
+        "lib/**/*.d.ts",
+        "lib/plugin-types.ts",
+        "lib/repair/types.ts",
+        "lib/types.ts",
+      ],
+      reporter: ["text", "json-summary", "html"],
+      reportsDirectory: "coverage/all",
+    },
   },
 });
