@@ -1,7 +1,44 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
+import { resolve } from "node:path";
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react-swc";
+import dts from "vite-plugin-dts";
 
-// https://vite.dev/config/
+import pkg from "./package.json" with { type: "json" };
+
+// Everything declared as a dependency or peer dependency stays external: a
+// library should not ship its own copy of react, mermaid or the unified
+// pipeline. Consumers resolve them once.
+const external = [
+  ...Object.keys(pkg.dependencies ?? {}),
+  ...Object.keys(pkg.peerDependencies ?? {}),
+  "react/jsx-runtime",
+];
+
 export default defineConfig({
-  plugins: [react()],
-})
+  plugins: [
+    react(),
+    dts({
+      include: ["src"],
+      exclude: ["**/*.test.*"],
+      tsconfigPath: "./tsconfig.app.json",
+    }),
+  ],
+  build: {
+    lib: {
+      entry: resolve(__dirname, "src/index.ts"),
+      name: "HyperMarkdown",
+      fileName: "hypermarkdown",
+    },
+    rollupOptions: {
+      external: (id) =>
+        external.some((dep) => id === dep || id.startsWith(dep + "/")),
+      output: {
+        exports: "named",
+        globals: { react: "React", "react-dom": "ReactDOM" },
+      },
+    },
+  },
+  test: {
+    environment: "node",
+  },
+});

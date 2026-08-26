@@ -1,0 +1,55 @@
+[
+    {
+        "data": {
+            "id": "chatcmpl-RVZXpBZszrhskZO0ZphSO9BG",
+            "object": "chat.completion.chunk",
+            "created": 1757804266,
+            "model": "deepseek-ai/DeepSeek-V3.1",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": null,
+                        "tool_calls": null
+                    },
+                    "logprobs": null,
+                    "finish_reason": null
+                }
+            ],
+            "usage": null
+        }
+    },
+    {
+        "data": {
+            "id": "chatcmpl-RVZXpBZszrhskZO0ZphSO9BG",
+            "object": "chat.completion.chunk",
+            "created": 1757804266,
+            "model": "deepseek-ai/DeepSeek-V3.1",
+            "choices": [
+                {
+                    "index": 0,
+                    "delta": {
+                        "role": "assistant",
+                        "content": "\n\n---\n\n",
+                        "reasoning_content": null,
+                        "tool_calls": null
+                    },
+                    "logprobs": null,
+                    "finish_reason": null
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 312,
+                "total_tokens": 313,
+                "completion_tokens": 1,
+                "estimated_cost": null,
+                "prompt_tokens_details": {
+                    "cached_tokens": 0,
+                    "cache_write_tokens": null
+                }
+            }
+        }
+    }
+]
