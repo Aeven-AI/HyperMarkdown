@@ -894,11 +894,12 @@ class Renderer {
   // Both the streaming frames and the closed one are built here, so React
   // sees the same shape throughout and never remounts the table.
   private tableElement(stream: boolean): ReactElement {
-    let rows;
+    let hasRows;
 
     const vm = this;
 
-    rows = vm.tableCache.data.filter((row) => row);
+    // Only whether any row exists matters; filtering copies the whole array.
+    hasRows = vm.tableCache.data.some((row) => row);
 
     return (
       <MarkdownTable
@@ -907,7 +908,7 @@ class Renderer {
         scrollDown={vm.options.scrollDown}
       >
         <thead>{vm.tableCache.head}</thead>
-        {rows.length > 0 ? <tbody>{vm.tableCache.data}</tbody> : null}
+        {hasRows ? <tbody>{vm.tableCache.data}</tbody> : null}
       </MarkdownTable>
     );
   }
@@ -1248,27 +1249,19 @@ class Renderer {
     const streamData = vm.generateStreamData();
     const footnoteData = vm.generateFootnoteData();
 
-    const className = vm.options.className;
-
-    // Blocks are rendered into a fragment, so what the host laid out around
-    // them is what surrounds them. A className is the one reason to introduce
-    // a wrapper, so it only appears when one is asked for.
-    if (className) {
-      return (
-        <div className={className}>
-          {cachedData}
-          {streamData}
-          {footnoteData}
-        </div>
-      );
-    }
+    // The wrapper carries the class the shipped stylesheet is scoped under, so
+    // importing that stylesheet is all a consumer has to do. Hosts with their
+    // own styles can ignore it; the class costs them nothing.
+    const className = vm.options.className
+      ? "hypermarkdown " + vm.options.className
+      : "hypermarkdown";
 
     return (
-      <>
+      <div className={className}>
         {cachedData}
         {streamData}
         {footnoteData}
-      </>
+      </div>
     );
   }
 }

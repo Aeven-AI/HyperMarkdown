@@ -35,6 +35,7 @@ export function readTableShape(
 
   let headless = true;
   let headerColumns = 0;
+  let bodyRows = 0;
 
   // A header with no rows is a single child, and a one-column header row a
   // single cell. React hands those over unwrapped, so counting by .length
@@ -71,23 +72,36 @@ export function readTableShape(
     }
 
     if (child.type === "tbody") {
-      const bodyRows = React.Children.toArray(child.props.children);
-
-      // Past a couple of body rows the header can no longer turn up.
-      if (bodyRows.length > 2) {
-        headlessSettled.current = true;
-      }
+      // Only whether there are more than a couple matters; toArray() over
+      // every row of a long table on every chunk is what made this quadratic.
+      bodyRows = React.Children.count(child.props.children);
     }
   }
 
-  shape.headless = headless;
+  // Both answers are monotonic. A header cell that has gained content never
+  // loses it, so the moment one does, both answers are final and there is no
+  // reason to look again.
+  if (headless === false) {
+    shape.headless = false;
+    shape.headerColumns = headerColumns;
 
-  if (columnsSettled.current !== true) {
-    if (headerColumns >= shape.headerColumns) {
-      shape.headerColumns = headerColumns;
-    } else {
-      columnsSettled.current = true;
-    }
+    headlessSettled.current = true;
+    columnsSettled.current = true;
+    return;
+  }
+
+  shape.headless = true;
+
+  if (headerColumns >= shape.headerColumns) {
+    shape.headerColumns = headerColumns;
+  }
+
+  // Past a couple of body rows a header can no longer turn up, so a table
+  // still looking headless here is headless for good. Without this the
+  // latches never close and every chunk re-walks the whole table.
+  if (bodyRows > 2) {
+    headlessSettled.current = true;
+    columnsSettled.current = true;
   }
 
   function isTableElement(

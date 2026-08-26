@@ -1,0 +1,253 @@
+/**
+ * Head-to-head streaming benchmark.
+ *
+ * Every renderer gets the same document, the same chunk size and the same
+ * React root, and is measured doing the thing that matters while a model is
+ * talking: taking one more chunk and getting it on screen.
+ *
+ * Each frame is rendered inside act(), so the time includes React's
+ * reconciliation, not just the markdown parse — a renderer that parses fast
+ * but rebuilds the whole tree every chunk should not look good here, because
+ * it does not feel good in a browser either.
+ *
+ * Each measurement runs in its own process (see worker.js) under
+ * NODE_ENV=production, so the numbers reflect the React build you ship rather
+ * than the development one, which is several times slower.
+ *
+ *   node run.js                                  the default sweep
+ *   node run.js --chunk=24 --runs=3 --warmup=1   slower, steadier
+ *   node run.js --only=HyperMarkdown,Streamdown  a subset
+ *   node run.js --fixture=table                  fixtures matching a substring
+ */
+import { spawn } from "node:child_process";
+import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+const arg = (name, fallback) => {
+  const found = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return found === undefined ? fallback : found.split("=").slice(1).join("=");
+};
+
+const chunk = arg("chunk", "64");
+const runs = arg("runs", "1");
+const warmup = arg("warmup", "0");
+const only = arg("only", "");
+const fixtureFilter = arg("fixture", "");
+
+const { RENDERERS } = await import("./renderers/index.js");
+
+const renderers = only
+  ? RENDERERS.filter((r) =>
+      only.split(",").some((n) => r.name.toLowerCase().includes(n.toLowerCase()))
+    )
+  : RENDERERS;
+
+const fixtures = readdirSync(join(here, "fixtures"))
+  .filter((f) => f.endsWith(".md"))
+  .filter((f) => f.includes(fixtureFilter))
+  .sort();
+
+const tty = process.stderr.isTTY === true;
+let lastPrinted = 0;
+const results = [];
+
+const totalJobs = fixtures.length * renderers.length;
+let job = 0;
+
+for (const file of fixtures) {
+  const path = join(here, "fixtures", file);
+  const text = readFileSync(path, "utf8");
+
+  process.stderr.write(
+    `\n${file}  ${text.length} chars, ` +
+      `${Math.ceil(text.length / Number(chunk))} chunks of ${chunk}\n`
+  );
+
+  for (const renderer of renderers) {
+    job++;
+    const measured = await measure(renderer, path, job);
+    results.push({ fixture: file, renderer: renderer.name, ...measured });
+    print(renderer, measured);
+  }
+}
+
+mkdirSync(join(here, "results"), { recursive: true });
+
+writeFileSync(
+  join(here, "results", "latest.json"),
+  JSON.stringify(
+    { chunk: Number(chunk), runs: Number(runs), warmup: Number(warmup), results },
+    null,
+    2
+  ) + "\n"
+);
+writeFileSync(join(here, "results", "latest.md"), report());
+process.stderr.write("\nWrote results/latest.md\n");
+
+function measure(renderer, path, index) {
+  return new Promise((resolve) => {
+    const child = spawn(
+      process.execPath,
+      [
+        "--expose-gc",
+        "--max-old-space-size=6144",
+        join(here, "worker.js"),
+        `--fixture=${path}`,
+        `--renderer=${renderer.name}`,
+        `--chunk=${chunk}`,
+        `--runs=${runs}`,
+        `--warmup=${warmup}`,
+      ],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        // The React build being measured should be the one you ship.
+        env: { ...process.env, NODE_ENV: "production" },
+      }
+    );
+
+    let out = "";
+    let errLine = "";
+    let pass = "";
+
+    child.stdout.on("data", (buf) => {
+      out += buf;
+    });
+
+    child.stderr.on("data", (buf) => {
+      errLine += buf;
+      const lines = errLine.split("\n");
+      errLine = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (!line.startsWith("{")) {
+          continue;
+        }
+
+        let event;
+
+        try {
+          event = JSON.parse(line);
+        } catch {
+          continue;
+        }
+
+        if (event.kind === "pass" && event.of > 1) {
+          pass = ` pass ${event.run}/${event.of}`;
+        }
+
+        if (event.kind === "progress") {
+          progress(renderer.name, index, event, pass);
+        }
+      }
+    });
+
+    child.on("close", () => {
+      if (tty) {
+        process.stderr.write("\r" + " ".repeat(78) + "\r");
+      }
+
+      try {
+        resolve(JSON.parse(out));
+      } catch {
+        resolve({ failed: out.slice(0, 120) || "no output" });
+      }
+    });
+  });
+}
+
+function progress(name, index, { frame, frames, elapsed }, pass) {
+  const share = frame / frames;
+  const width = 24;
+  const filled = Math.round(share * width);
+  const eta = share > 0 ? (elapsed / share - elapsed) / 1000 : 0;
+
+  const bar = "\u2588".repeat(filled) + "\u00b7".repeat(width - filled);
+  const line =
+    `  [${index}/${totalJobs}] ${name.padEnd(17)} ` +
+    `${bar} ${String(Math.round(share * 100)).padStart(3)}%  ` +
+    `${frame}/${frames} frames  ${(elapsed / 1000).toFixed(1)}s` +
+    (share < 1 ? `  eta ${eta.toFixed(0)}s` : "") +
+    pass;
+
+  if (tty) {
+    process.stderr.write("\r" + line.padEnd(78).slice(0, 78));
+    return;
+  }
+
+  // Not a terminal: one line per decile instead of a redrawn bar.
+  const decile = Math.floor(share * 10);
+
+  if (decile > lastPrinted || frame === frames) {
+    lastPrinted = frame === frames ? 0 : decile;
+    process.stderr.write(line.trimEnd() + "\n");
+  }
+}
+
+function print(renderer, measured) {
+  if (measured.failed) {
+    process.stderr.write(`  ${renderer.name.padEnd(18)} FAILED — ${measured.failed}\n`);
+    return;
+  }
+
+  process.stderr.write(
+    `  ${renderer.name.padEnd(18)} ${measured.total.toFixed(0).padStart(7)}ms` +
+      `   p50 ${measured.p50.toFixed(2).padStart(6)}ms` +
+      `   p95 ${measured.p95.toFixed(2).padStart(7)}ms` +
+      `   max ${measured.max.toFixed(0).padStart(5)}ms` +
+      `   ${String(measured.nodes).padStart(6)} nodes\n`
+  );
+}
+
+function report() {
+  const out = [
+    "# Streaming benchmark",
+    "",
+    "Generated by `npm run bench`. These are numbers from one machine on one",
+    "day: regenerate them rather than trusting the absolutes. The ratios are",
+    "the part that travels.",
+    "",
+    `Chunk size ${chunk} characters, best of ${runs} run(s) after ${warmup} warm-up,`,
+    "each measurement in its own process under `NODE_ENV=production`. A frame is",
+    "one chunk arriving and being rendered through React inside `act()`, so the",
+    "time includes reconciliation, not just parsing.",
+    "",
+  ];
+
+  for (const file of fixtures) {
+    const rows = results.filter((r) => r.fixture === file);
+    const ok = rows.filter((r) => !r.failed);
+    const fastest = Math.min(...ok.map((r) => r.total));
+    const text = readFileSync(join(here, "fixtures", file), "utf8");
+
+    out.push(
+      `## ${file}`,
+      "",
+      `${text.length} characters, ${Math.ceil(text.length / Number(chunk))} frames.`,
+      "",
+      "| renderer | strategy | total | vs best | p50 frame | p95 frame | worst frame | DOM nodes |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |"
+    );
+
+    for (const row of [...rows].sort((a, b) => (a.total ?? 1e12) - (b.total ?? 1e12))) {
+      const strategy = renderers.find((r) => r.name === row.renderer)?.strategy ?? "";
+
+      if (row.failed) {
+        out.push(`| ${row.renderer} | ${strategy} | failed | | | | | ${row.failed} |`);
+        continue;
+      }
+
+      out.push(
+        `| ${row.renderer} | ${strategy} | ${row.total.toFixed(0)} ms | ` +
+          `${(row.total / fastest).toFixed(1)}\u00d7 | ${row.p50.toFixed(2)} ms | ` +
+          `${row.p95.toFixed(2)} ms | ${row.max.toFixed(0)} ms | ${row.nodes} |`
+      );
+    }
+
+    out.push("");
+  }
+
+  return out.join("\n");
+}

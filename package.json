@@ -5,7 +5,8 @@
   "type": "module",
   "license": "MIT",
   "files": [
-    "dist"
+    "dist",
+    "styles"
   ],
   "module": "./dist/hypermarkdown.js",
   "types": "./dist/index.d.ts",
@@ -32,10 +33,11 @@
     "*.css"
   ],
   "scripts": {
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:css",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "build:css": "sass --no-source-map --style=compressed styles/hypermarkdown.scss dist/hypermarkdown.css"
   },
   "peerDependencies": {
     "katex": "^0.16.25",
@@ -70,6 +72,7 @@
     "jsdom": "^27.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "sass": "^1.103.1",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.44.0",
     "vite": "^7.1.7",

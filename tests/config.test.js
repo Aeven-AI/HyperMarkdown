@@ -103,13 +103,13 @@ describe("max heights", () => {
 });
 
 describe("className", () => {
-  it("renders into a fragment when none is given", () => {
-    expect(html("hi\n\n")).toBe("<p>hi</p>");
+  it("always carries the class the stylesheet is scoped under", () => {
+    expect(html("hi\n\n")).toBe('<div class="hypermarkdown"><p>hi</p></div>');
   });
 
-  it("wraps only when one is given", () => {
+  it("appends a caller's class rather than replacing it", () => {
     expect(html("hi\n\n", { className: "prose" })).toBe(
-      '<div class="prose"><p>hi</p></div>',
+      '<div class="hypermarkdown prose"><p>hi</p></div>',
     );
   });
 });
