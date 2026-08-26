@@ -1,6 +1,7 @@
 import { patterns } from "../patterns";
 
 import type { InlineTokenResult } from "./types";
+import type { TextRange } from "./tables";
 
 export interface BacktickRun {
   index: number;
@@ -56,29 +57,39 @@ export function fixCodeSpan(text: string): InlineTokenResult {
   };
 }
 
-export function insideCodeSpan(text: string, index: number): boolean {
-  let i;
-  let j;
-  let runs;
-  let opener;
-  let closer;
-  let candidate;
-  let closerRun;
+/**
+ * The code spans in a text, as half-open [start, end) offsets.
+ *
+ * Memoised on the text itself. Every caller asking "is this offset inside a
+ * code span?" is asking about the same text — once per emphasis run, once per
+ * inline token — and recomputing the runs for each of them turned one pass
+ * over a document into a quadratic one. Within a pass the same string object
+ * is handed back, so the equality check is a pointer comparison.
+ */
+let spanText: string | null = null;
+let spanRanges: TextRange[] = [];
 
-  runs = backtickRuns(text);
-  i = 0;
+function codeSpans(text: string): TextRange[] {
+  if (text === spanText) {
+    return spanRanges;
+  }
+
+  const runs = backtickRuns(text);
+  const ranges: TextRange[] = [];
+
+  let i = 0;
 
   while (i < runs.length) {
-    opener = runs[i];
+    const opener = runs[i];
 
     if (!opener) {
       break;
     }
 
-    closer = -1;
+    let closer = -1;
 
-    for (j = i + 1; j < runs.length; j++) {
-      candidate = runs[j];
+    for (let j = i + 1; j < runs.length; j++) {
+      const candidate = runs[j];
 
       if (candidate && candidate.length === opener.length) {
         closer = j;
@@ -87,16 +98,48 @@ export function insideCodeSpan(text: string, index: number): boolean {
     }
 
     if (closer === -1) {
-      return index > opener.index;
+      // An unclosed run: everything after it reads as code so far.
+      ranges.push({ start: opener.index, end: Number.MAX_SAFE_INTEGER });
+      break;
     }
 
-    closerRun = runs[closer];
+    const closerRun = runs[closer];
 
-    if (closerRun && index > opener.index && index < closerRun.index) {
-      return true;
+    if (closerRun) {
+      ranges.push({ start: opener.index, end: closerRun.index });
     }
 
     i = closer + 1;
+  }
+
+  spanText = text;
+  spanRanges = ranges;
+
+  return ranges;
+}
+
+export function insideCodeSpan(text: string, index: number): boolean {
+  const ranges = codeSpans(text);
+
+  // Sorted and non-overlapping by construction, so a binary search settles it.
+  let low = 0;
+  let high = ranges.length - 1;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const range = ranges[mid];
+
+    if (!range) {
+      break;
+    }
+
+    if (index <= range.start) {
+      high = mid - 1;
+    } else if (index >= range.end) {
+      low = mid + 1;
+    } else {
+      return true;
+    }
   }
 
   return false;

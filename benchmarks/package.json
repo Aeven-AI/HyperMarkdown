@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "jsdom": "^28.0.0",
+    "markdown-it": "^14.3.0",
     "markstream-react": "^2.0.5",
     "mdast-util-from-markdown": "^2.0.2",
     "mdast-util-gfm": "^3.1.0",

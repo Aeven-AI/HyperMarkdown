@@ -21,17 +21,32 @@
  */
 import { spawn } from "node:child_process";
 import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { arch, cpus, platform, release, totalmem } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const processors = cpus();
+const environment = {
+  node: process.version,
+  platform: platform(),
+  release: release(),
+  arch: arch(),
+  cpu: processors[0]?.model ?? "unknown",
+  cores: processors.length,
+  memoryGiB: Math.round(totalmem() / 1024 / 1024 / 1024),
+};
 
 const arg = (name, fallback) => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
   return found === undefined ? fallback : found.split("=").slice(1).join("=");
 };
 
-const chunk = arg("chunk", "64");
+// Captured streams are replayed at the chunk size they actually arrived in;
+// the synthetic fixtures use a coarser one. Pass --chunk to override both.
+const chunkOverride = arg("chunk", "");
+const chunkFor = (file) =>
+  chunkOverride || (file.startsWith("real-") ? "8" : "64");
 const runs = arg("runs", "1");
 const warmup = arg("warmup", "0");
 const only = arg("only", "");
@@ -60,15 +75,14 @@ let job = 0;
 for (const file of fixtures) {
   const path = join(here, "fixtures", file);
   const text = readFileSync(path, "utf8");
+  const chunk = chunkFor(file);
+  const frames = Math.ceil(text.length / Number(chunk));
 
-  process.stderr.write(
-    `\n${file}  ${text.length} chars, ` +
-      `${Math.ceil(text.length / Number(chunk))} chunks of ${chunk}\n`
-  );
+  process.stderr.write(`\n${file}  ${text.length} chars, ${frames} chunks of ${chunk}\n`);
 
   for (const renderer of renderers) {
     job++;
-    const measured = await measure(renderer, path, job);
+    const measured = await measure(renderer, path, job, chunk);
     results.push({ fixture: file, renderer: renderer.name, ...measured });
     print(renderer, measured);
   }
@@ -79,7 +93,14 @@ mkdirSync(join(here, "results"), { recursive: true });
 writeFileSync(
   join(here, "results", "latest.json"),
   JSON.stringify(
-    { chunk: Number(chunk), runs: Number(runs), warmup: Number(warmup), results },
+    {
+      runs: Number(runs),
+      warmup: Number(warmup),
+      aggregation: "median-total run",
+      completedAt: new Date().toISOString(),
+      environment,
+      results,
+    },
     null,
     2
   ) + "\n"
@@ -87,7 +108,7 @@ writeFileSync(
 writeFileSync(join(here, "results", "latest.md"), report());
 process.stderr.write("\nWrote results/latest.md\n");
 
-function measure(renderer, path, index) {
+function measure(renderer, path, index, chunk) {
   return new Promise((resolve) => {
     const child = spawn(
       process.execPath,
@@ -209,10 +230,24 @@ function report() {
     "day: regenerate them rather than trusting the absolutes. The ratios are",
     "the part that travels.",
     "",
-    `Chunk size ${chunk} characters, best of ${runs} run(s) after ${warmup} warm-up,`,
+    `Environment: ${environment.cpu}, ${environment.cores} cores, ` +
+      `${environment.memoryGiB} GiB, Node ${environment.node}, ` +
+      `${environment.platform} ${environment.release} (${environment.arch}).`,
+    "",
+    `Median-total run of ${runs} measured run(s) after ${warmup} warm-up,`,
     "each measurement in its own process under `NODE_ENV=production`. A frame is",
-    "one chunk arriving and being rendered through React inside `act()`, so the",
-    "time includes reconciliation, not just parsing.",
+    "one chunk arriving and being rendered through React inside `flushSync()`,",
+    "so the time includes reconciliation, not just parsing. `write()` is inside",
+    "the timed region too: for renderers that parse on write it *is* the parse.",
+    "",
+    "The slowest renderers also vary most between runs — a renderer spending",
+    "80 ms a frame is at the mercy of GC in a way one spending 1 ms is not, so",
+    "read their figures as a band, not a point.",
+    "",
+    "**Read the DOM-nodes column before the times.** The renderers do not all",
+    "put the same thing on screen. A renderer that defers or skeletons a block",
+    "is doing less work, and its time should be read that way rather than as a",
+    "like-for-like win.",
     "",
   ];
 
@@ -225,22 +260,32 @@ function report() {
     out.push(
       `## ${file}`,
       "",
-      `${text.length} characters, ${Math.ceil(text.length / Number(chunk))} frames.`,
+      `${text.length} characters, ` +
+        `${Math.ceil(text.length / Number(chunkFor(file)))} frames of ` +
+        `${chunkFor(file)} characters.`,
       "",
-      "| renderer | strategy | total | vs best | p50 frame | p95 frame | worst frame | DOM nodes |",
-      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |"
+      "| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     );
 
     for (const row of [...rows].sort((a, b) => (a.total ?? 1e12) - (b.total ?? 1e12))) {
+      let maxTotal;
+      let minTotal;
+      let totals;
       const strategy = renderers.find((r) => r.name === row.renderer)?.strategy ?? "";
 
       if (row.failed) {
-        out.push(`| ${row.renderer} | ${strategy} | failed | | | | | ${row.failed} |`);
+        out.push(`| ${row.renderer} | ${strategy} | failed | | | | | | ${row.failed} |`);
         continue;
       }
 
+      totals = row.samples?.map((sample) => sample.total) ?? [row.total];
+      minTotal = Math.min(...totals);
+      maxTotal = Math.max(...totals);
+
       out.push(
         `| ${row.renderer} | ${strategy} | ${row.total.toFixed(0)} ms | ` +
+          `${minTotal.toFixed(0)}\u2013${maxTotal.toFixed(0)} ms | ` +
           `${(row.total / fastest).toFixed(1)}\u00d7 | ${row.p50.toFixed(2)} ms | ` +
           `${row.p95.toFixed(2)} ms | ${row.max.toFixed(0)} ms | ${row.nodes} |`
       );

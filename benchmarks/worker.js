@@ -160,22 +160,31 @@ async function once() {
 }
 
 try {
-  let best = null;
+  let measured;
+  let measuredRunsSorted;
+  const measuredRuns = [];
 
   for (let run = 0; run < warmup + runs; run++) {
     report("pass", { run: run + 1, of: warmup + runs });
 
-    const measured = await once();
+    measured = await once();
 
-    // Fastest run: the one least disturbed by GC and JIT warm-up.
-    if (run >= warmup && (best === null || measured.total < best.total)) {
-      best = measured;
+    if (run >= warmup) {
+      measuredRuns.push(measured);
     }
 
     globalThis.gc?.();
   }
 
-  process.stdout.write(JSON.stringify(best));
+  measuredRunsSorted = [...measuredRuns].sort((a, b) => a.total - b.total);
+  measured = measuredRunsSorted[Math.floor(measuredRunsSorted.length / 2)];
+
+  process.stdout.write(
+    JSON.stringify({
+      ...measured,
+      samples: measuredRuns,
+    })
+  );
   process.exit(0);
 } catch (error) {
   process.stdout.write(
