@@ -1,4 +1,10 @@
-import React, { Fragment } from "react";
+import React, {
+  Fragment,
+  type ComponentProps,
+  type ElementType,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import * as runtime from "./platform/runtime";
 
@@ -6,6 +12,15 @@ import { unified } from "unified";
 import { EXIT, SKIP, visit } from "unist-util-visit";
 import { jsx, jsxs } from "react/jsx-runtime";
 import { toJsxRuntime } from "hast-util-to-jsx-runtime";
+import type {
+  Element as HastElement,
+  Parent as HastParent,
+  Root as HastRoot,
+  RootContent as HastContent,
+} from "hast";
+import type { Root as MdastRoot } from "mdast";
+import type { Node as UnistNode } from "unist";
+import type { VFile } from "vfile";
 
 import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
@@ -28,23 +43,107 @@ import MarkdownSyntax from "./streaming/markdown-syntax";
 
 const markdownSyntax = new MarkdownSyntax();
 
+type BlockType = "text" | "code" | "table" | "pending";
+type CacheType = "code" | "table" | "list";
+type ProcessorType =
+  | "regular"
+  | "regular-stream"
+  | "regular-animation"
+  | "cached"
+  | "cached-stream"
+  | "cached-table"
+  | "cached-table-animation"
+  | "footnote"
+  | "footnote-animation";
+
+interface StoreState {
+  md: string | null;
+  streaming: boolean | null;
+  animation: boolean | null;
+}
+
+interface RenderBlock {
+  key: number;
+  time: number;
+  element: ReactNode;
+}
+
+interface CloseObject {
+  close: boolean;
+  md: string;
+  mdClose: string;
+  mdNext: string;
+}
+
+interface MarkdownData {
+  [key: string]: unknown;
+}
+
+interface TextRange {
+  start: number;
+  end: number;
+}
+
+interface PendingToken {
+  token: string;
+  close: boolean;
+  index: number;
+}
+
+interface InlineTokenResult extends PendingToken {
+  text: string;
+}
+
+interface EmphasisRun {
+  char: "*" | "_";
+  index: number;
+  length: number;
+  remaining: number;
+  canOpen: boolean;
+  canClose: boolean;
+  canBoth: boolean;
+}
+
+interface EmphasisOpener {
+  char: "*" | "_";
+  index: number;
+  length: number;
+  remaining: number;
+  canBoth: boolean;
+}
+
+interface EmphasisResult {
+  text: string;
+  pending: PendingToken[];
+}
+
+interface BacktickRun {
+  index: number;
+  length: number;
+}
+
+interface BacktickPairs {
+  paired: boolean[];
+  unmatched: number;
+}
+
+interface CodeRegexConfig {
+  fencedCodeRegex: RegExp;
+  indentedCodeRegex: RegExp;
+}
+
 export interface StoreOptions {
   /** Markdown to render in one go. Ignored while `streaming` is true. */
-  md?: string;
+  md?: string | undefined;
   /** Feed content through `streamMd()` instead of the `md` prop. */
-  streaming?: boolean;
+  streaming?: boolean | undefined;
   /** Fade words in as they arrive. */
-  animation?: boolean;
+  animation?: boolean | undefined;
   /** Called after each render so the host can keep the view pinned to the bottom. */
-  scrollDown?: () => void;
+  scrollDown?: (() => void) | undefined;
 }
 
 class Store {
-  // Ported from JavaScript: the streaming machinery keeps a lot of mutable
-  // bookkeeping on the instance. Declared loosely here and annotated field by
-  // field as the port is tightened.
-  [key: string]: any;
-
   private options: StoreOptions;
   private listeners = new Set<() => void>();
 
@@ -52,7 +151,47 @@ class Store {
   private pending: Array<() => void> = [];
 
   /** Bumped on every update, so a subscriber can tell something changed. */
-  version = 0;
+  private versionValue = 0;
+
+  private state: StoreState;
+  private mdState: string[] | null;
+  private blockType: BlockType | null;
+  private buffering: boolean | null;
+  private cachedType: string | null;
+  private lineBufferInit: boolean | null;
+  private tableHead: ReactNode;
+  private tableRowText: string[];
+  private tableCommittedText: string;
+  private listItemText: string[];
+  private listSignature: string | null;
+  private tableSignature: string | null;
+  private cachedFootnotes: ReactElement | null;
+  private mdBuffer: string;
+  private lineBuffer: string;
+  private footnoteBuffer: string;
+  private footnoteBufferProcessed: string;
+  private streamData: RenderBlock[];
+  private cachedData: RenderBlock[];
+  private lineCacheData: ReactNode[];
+  private blockId: number;
+  private lineCachedKey: number;
+  private lineCachedSize: number;
+  private mdExtra: Map<string, string>;
+  private footnotes: Map<string, string>;
+  private streamDataMap: Map<number, RenderBlock>;
+  private readonly syntax = markdownSyntax;
+  private inlineTokenRegexCache = new Map<string, RegExp>();
+  private inlineTokenEdgeRegexCache = new Map<string, RegExp>();
+  private components!: ReturnType<Store["createComponents"]>;
+  private processor!: ReturnType<Store["createProcessor"]>;
+  private processorStream!: ReturnType<Store["createProcessor"]>;
+  private processorAnimation!: ReturnType<Store["createProcessor"]>;
+  private processorCache!: ReturnType<Store["createProcessor"]>;
+  private processorStreamCache!: ReturnType<Store["createProcessor"]>;
+  private processorTableCache!: ReturnType<Store["createProcessor"]>;
+  private processorTableCacheAnimation!: ReturnType<Store["createProcessor"]>;
+  private processorFootnote!: ReturnType<Store["createProcessor"]>;
+  private processorFootnoteAnimation!: ReturnType<Store["createProcessor"]>;
 
 
   constructor(options: StoreOptions = {}) {
@@ -73,9 +212,6 @@ class Store {
 
     this.cachedType = null;
     this.lineBufferInit = null;
-
-    this.tokenTypes = null;
-    this.tokenRegexes = null;
 
     this.tableHead = null;
     this.tableRowText = [];
@@ -127,8 +263,6 @@ class Store {
     this.generateCachedData = this.generateCachedData.bind(this);
     this.generateStreamData = this.generateStreamData.bind(this);
 
-    this.preCompile();
-
     // rehype-react keys elements by the identity of the component it was given,
     // so a map rebuilt per processor makes the same block look like a different
     // component each time it moves between processors — which remounts it,
@@ -154,6 +288,10 @@ class Store {
     this.cachedData = this.initializeCache(this.state);
   }
 
+  get version(): number {
+    return this.versionValue;
+  }
+
   /**
    * Merge streaming bookkeeping into local state and tell listeners to render.
    * The class used to be a React component; this is what setState did for it.
@@ -165,7 +303,7 @@ class Store {
    */
   applyState(next: Record<string, unknown>, done?: () => void) {
     this.state = { ...this.state, ...next };
-    this.version += 1;
+    this.versionValue += 1;
 
     if (typeof done === "function") {
       this.pending.push(done);
@@ -182,7 +320,7 @@ class Store {
    * Run the callbacks queued since the last flush. The host calls this from a
    * layout effect, so they see the committed DOM.
    */
-  flush() {
+  flush(): void {
     if (this.pending.length === 0) {
       return;
     }
@@ -207,12 +345,12 @@ class Store {
    * Update the options the engine reads while rendering. Called on every host
    * render, so it must stay cheap and must not invalidate cached output.
    */
-  setOptions(next: Partial<StoreOptions>) {
+  setOptions(next: Partial<StoreOptions>): void {
     this.options = { ...this.options, ...next };
   }
 
   /** Render a complete document, replacing anything shown before. */
-  setMarkdown(md: string) {
+  setMarkdown(md: string): void {
     if (this.state.md === md && this.cachedData?.length) {
       return;
     }
@@ -224,7 +362,7 @@ class Store {
   }
 
   /** Drop everything and start again, keeping the configured options. */
-  reset() {
+  reset(): void {
     this.pending = [];
 
     this.mdBuffer = "";
@@ -249,24 +387,12 @@ class Store {
     this.applyState({});
   }
 
-  preCompile() {
-    const vm = this;
-
-    // The syntax patterns live in MarkdownSyntax so the renderer holds the
-    // streaming machinery and nothing else. They are copied onto the instance
-    // so every vm.<name>Regex reference keeps working.
-    Object.assign(vm, markdownSyntax);
-
-    vm.inlineTokenRegexCache = new Map();
-    vm.inlineTokenEdgeRegexCache = new Map();
-  }
-
   /** The tags this renderer replaces with components of its own. */
-  createComponents() {
+  private createComponents() {
     const vm = this;
 
     return {
-      a: function MarkdownLinkTag(props) {
+      a: function MarkdownLinkTag(props: ComponentProps<typeof MarkdownLink>) {
         return (
           <MarkdownLink
             {...props}
@@ -275,7 +401,9 @@ class Store {
           />
         );
       },
-      m: function MermaidDiagramTag(props) {
+      m: function MermaidDiagramTag(
+        props: ComponentProps<typeof MermaidDiagram>
+      ) {
         return (
           <MermaidDiagram
             {...props}
@@ -284,7 +412,7 @@ class Store {
           />
         );
       },
-      img: function MarkdownImageTag(props) {
+      img: function MarkdownImageTag(props: ComponentProps<typeof MarkdownImage>) {
         return (
           <MarkdownImage
             {...props}
@@ -293,7 +421,9 @@ class Store {
           />
         );
       },
-      pre: function MarkdownCodeBlockTag(props) {
+      pre: function MarkdownCodeBlockTag(
+        props: ComponentProps<typeof MarkdownCodeBlock>
+      ) {
         return (
           <MarkdownCodeBlock
             {...props}
@@ -302,7 +432,7 @@ class Store {
           />
         );
       },
-      table: function MarkdownTableTag(props) {
+      table: function MarkdownTableTag(props: ComponentProps<typeof MarkdownTable>) {
         return (
           <MarkdownTable
             {...props}
@@ -314,7 +444,7 @@ class Store {
     };
   }
 
-  createProcessor(type) {
+  private createProcessor(type: ProcessorType) {
     const vm = this;
 
     const remarkFootnotes = vm.remarkFootnotes;
@@ -509,7 +639,10 @@ class Store {
           });
     }
 
-    function customJsx(type, props) {
+    function customJsx(
+      type: ElementType,
+      props: Record<string, unknown> & { key?: React.Key }
+    ) {
       if (props && props.key) {
         const key = props.key;
         const newProps = { ...props };
@@ -519,7 +652,10 @@ class Store {
       return jsx(type, props);
     }
 
-    function customJsxs(type, props) {
+    function customJsxs(
+      type: ElementType,
+      props: Record<string, unknown> & { key?: React.Key }
+    ) {
       if (props && props.key) {
         const key = props.key;
         const newProps = { ...props };
@@ -530,7 +666,7 @@ class Store {
     }
   }
 
-  resetLineCache() {
+  private resetLineCache(): void {
     const vm = this;
 
     vm.lineBuffer = "";
@@ -554,11 +690,11 @@ class Store {
 
   // Components a table cell may contain. Kept narrow on purpose: a cell can
   // hold a link, an image or a mermaid ref, but never a nested table or fence.
-  cellComponents() {
+  private cellComponents() {
     const vm = this;
 
     return {
-      a: (props) => {
+      a: (props: ComponentProps<typeof MarkdownLink>) => {
         return (
           <MarkdownLink
             {...props}
@@ -567,7 +703,7 @@ class Store {
           />
         );
       },
-      m: (props) => {
+      m: (props: ComponentProps<typeof MermaidDiagram>) => {
         return (
           <MermaidDiagram
             {...props}
@@ -576,7 +712,7 @@ class Store {
           />
         );
       },
-      img: (props) => {
+      img: (props: ComponentProps<typeof MarkdownImage>) => {
         return (
           <MarkdownImage
             {...props}
@@ -588,7 +724,7 @@ class Store {
     };
   }
 
-  initializeCache(state) {
+  private initializeCache(state: StoreState): RenderBlock[] {
     let md;
     let blockId;
     let blockItem;
@@ -628,9 +764,14 @@ class Store {
     return vm.cachedData;
   }
 
-  streamMd(md, streaming, animation, finalize) {
+  streamMd(
+    md: string,
+    streaming: boolean,
+    animation: boolean,
+    finalize: boolean
+  ): void {
     let mdState;
-    let blockType;
+    let blockType: BlockType;
 
     const vm = this;
 
@@ -646,7 +787,7 @@ class Store {
 
         // A block typed from its first characters can still turn out to open a
         // fence — "`" alone reads as text until the other two backticks land.
-        if (blockType === "text" && vm.fencedCodeRegex.test(vm.mdBuffer)) {
+        if (blockType === "text" && vm.syntax.fencedCodeRegex.test(vm.mdBuffer)) {
           blockType = "code";
           vm.blockType = "code";
         }
@@ -675,9 +816,14 @@ class Store {
   // remainder in mdBuffer, relying on the next chunk to drive it. At finalize
   // there is no next chunk, so anything left has to be drained here or it is
   // silently dropped.
-  drainMd(mdState, streaming, animation, finalize) {
+  private drainMd(
+    mdState: string[],
+    streaming: boolean,
+    animation: boolean,
+    finalize: boolean
+  ): void {
     let guard;
-    let blockType;
+    let blockType: BlockType;
     let previousBuffer;
 
     const vm = this;
@@ -707,7 +853,13 @@ class Store {
     }
   }
 
-  streamProcess(blockType, mdState, streaming, animation, finalize) {
+  private streamProcess(
+    blockType: BlockType,
+    mdState: string[],
+    streaming: boolean,
+    animation: boolean,
+    finalize: boolean
+  ): void {
     let pending;
     let mdBuffer;
     let closeObject;
@@ -794,7 +946,14 @@ class Store {
     }
   }
 
-  streamText(mdBuffer, mdState, blockId, closeObject, streaming, animation) {
+  private streamText(
+    mdBuffer: string,
+    mdState: string[],
+    blockId: number,
+    closeObject: CloseObject,
+    streaming: boolean,
+    animation: boolean
+  ): void {
     let key;
 
     let block;
@@ -924,8 +1083,11 @@ class Store {
    * position, which remounts the block: fullscreen turns itself off and every
    * animation inside starts over.
    */
-  blockOfType(node, type) {
-    if (!React.isValidElement(node)) {
+  private blockOfType(
+    node: ReactNode,
+    type: ElementType
+  ): ReactElement<{ children?: ReactNode }> | null {
+    if (!React.isValidElement<{ children?: ReactNode }>(node)) {
       return null;
     }
 
@@ -947,14 +1109,24 @@ class Store {
 
     const only = children[0];
 
-    if (React.isValidElement(only) && only.type === type) {
+    if (
+      React.isValidElement<{ children?: ReactNode }>(only) &&
+      only.type === type
+    ) {
       return only;
     }
 
     return null;
   }
 
-  streamCode(mdBuffer, mdState, blockId, closeObject, streaming, animation) {
+  private streamCode(
+    mdBuffer: string,
+    mdState: string[],
+    blockId: number,
+    closeObject: CloseObject,
+    streaming: boolean,
+    animation: boolean
+  ): void {
     let key;
     let block;
     let blockItem;
@@ -1135,7 +1307,7 @@ class Store {
 
   // Both the streaming frames and the closed one are built here, so React
   // sees the same shape throughout and never remounts the table.
-  tableElement(stream) {
+  private tableElement(stream: boolean): ReactElement {
     let rows;
 
     const vm = this;
@@ -1157,7 +1329,7 @@ class Store {
   // The list wrapper. Its attributes follow from the items themselves: the
   // start number from the first marker, the task-list class from whether any
   // item rendered a checkbox.
-  listElement() {
+  private listElement(): ReactElement | null {
     let items;
     let start;
     let marker;
@@ -1172,16 +1344,23 @@ class Store {
       return null;
     }
 
-    marker = (vm.listItemText[0] || "").match(vm.listMarkerRegex);
-    ordered = marker ? /\d/.test(marker[1]) : false;
+    marker = (vm.listItemText[0] || "").match(vm.syntax.listMarkerRegex);
+    ordered = marker ? /\d/.test(marker[1] ?? "") : false;
 
     className = items.some((item) => {
-      const itemClass = item.props && item.props.className;
+      let itemClass;
+
+      if (!React.isValidElement<{ className?: string | string[] }>(item)) {
+        return false;
+      }
+
+      itemClass = item.props.className;
       return (
-        Array.isArray(itemClass) && itemClass.indexOf("task-list-item") !== -1
+        (Array.isArray(itemClass) && itemClass.indexOf("task-list-item") !== -1) ||
+        (typeof itemClass === "string" && itemClass.includes("task-list-item"))
       );
     })
-      ? ["contains-task-list"]
+      ? "contains-task-list"
       : undefined;
 
     if (ordered !== true) {
@@ -1190,7 +1369,7 @@ class Store {
       );
     }
 
-    start = parseInt(marker[1], 10);
+    start = parseInt(marker?.[1] ?? "1", 10);
 
     return (
       <ol className={className} start={start === 1 ? undefined : start}>
@@ -1199,7 +1378,14 @@ class Store {
     );
   }
 
-  streamTable(mdBuffer, mdState, blockId, closeObject, streaming, animation) {
+  private streamTable(
+    mdBuffer: string,
+    mdState: string[],
+    blockId: number,
+    closeObject: CloseObject,
+    streaming: boolean,
+    animation: boolean
+  ): void {
     let key;
 
     let block;
@@ -1301,7 +1487,7 @@ class Store {
   // marker family, and nothing sits at the base indent that is not an item.
   // Anything else — a marker change, which CommonMark reads as a second list,
   // or a lazy continuation — falls back to parsing the block whole.
-  listCacheable(md) {
+  private listCacheable(md: string): boolean {
     let i;
     let line;
     let lines;
@@ -1312,29 +1498,29 @@ class Store {
 
     const vm = this;
 
-    lines = md.split(vm.lineSplitRegex);
+    lines = md.split(vm.syntax.lineSplitRegex);
 
     marker = null;
     baseIndent = null;
     itemCount = 0;
 
     for (i = 0; i < lines.length; i++) {
-      line = lines[i];
+      line = lines[i] ?? "";
 
       if (line.trim() === "") {
         continue;
       }
 
-      indent = line.match(vm.listIndentOnlyRegex)[0].length;
+      indent = (line.match(vm.syntax.listIndentOnlyRegex)?.[0] ?? "").length;
 
       if (baseIndent === null) {
-        if (vm.listItemRegex.test(line) !== true) {
+        if (vm.syntax.listItemRegex.test(line) !== true) {
           return false;
         }
         baseIndent = indent;
       }
 
-      if (vm.listItemRegex.test(line) === true && indent <= baseIndent) {
+      if (vm.syntax.listItemRegex.test(line) === true && indent <= baseIndent) {
         if (marker === null) {
           marker = vm.listMarkerFamily(line);
         } else if (vm.listMarkerFamily(line) !== marker) {
@@ -1351,53 +1537,53 @@ class Store {
   }
 
   // "-" and "*" start different lists; "1." and "1)" likewise.
-  listMarkerFamily(line) {
+  private listMarkerFamily(line: string): string | null {
     let match;
 
     const vm = this;
 
-    match = line.match(vm.listMarkerRegex);
+    match = line.match(vm.syntax.listMarkerRegex);
 
     if (!match) {
       return null;
     }
 
-    if (/\d/.test(match[1]) === true) {
-      return "ordered" + match[1].slice(-1);
+    if (/\d/.test(match[1] ?? "") === true) {
+      return "ordered" + (match[1] ?? "").slice(-1);
     }
 
-    return "bullet" + match[1];
+    return "bullet" + (match[1] ?? "");
   }
 
   // Split a list block into its top-level items. A deeper marker is a nested
   // list and stays with the item above it.
-  listItems(md) {
+  private listItems(md: string): string[] {
     let i;
     let line;
     let lines;
-    let items;
+    let items: string[];
     let indent;
-    let current;
+    let current: string | null;
     let baseIndent;
 
     const vm = this;
 
-    lines = md.split(vm.lineSplitRegex);
+    lines = md.split(vm.syntax.lineSplitRegex);
 
     items = [];
     current = null;
     baseIndent = null;
 
     for (i = 0; i < lines.length; i++) {
-      line = lines[i];
-      indent = line.match(vm.listIndentOnlyRegex)[0].length;
+      line = lines[i] ?? "";
+      indent = (line.match(vm.syntax.listIndentOnlyRegex)?.[0] ?? "").length;
 
-      if (vm.listItemRegex.test(line) === true && baseIndent === null) {
+      if (vm.syntax.listItemRegex.test(line) === true && baseIndent === null) {
         baseIndent = indent;
       }
 
       if (
-        vm.listItemRegex.test(line) === true &&
+        vm.syntax.listItemRegex.test(line) === true &&
         baseIndent !== null &&
         indent <= baseIndent
       ) {
@@ -1421,7 +1607,7 @@ class Store {
   // gathered separately and emitted as one section at the end. A block holding
   // only definitions therefore parses to an empty result, and on a long note
   // list that same block is re-parsed on every chunk for no output at all.
-  definitionsOnly(md) {
+  private definitionsOnly(md: string): boolean {
     let i;
     let line;
     let lines;
@@ -1429,22 +1615,22 @@ class Store {
 
     const vm = this;
 
-    lines = md.split(vm.lineSplitRegex);
+    lines = md.split(vm.syntax.lineSplitRegex);
     sawDefinition = false;
 
     for (i = 0; i < lines.length; i++) {
-      line = lines[i];
+      line = lines[i] ?? "";
 
       if (line.trim() === "") {
         continue;
       }
 
-      if (vm.footnoteDefinitionRegex.test(line) === true) {
+      if (vm.syntax.footnoteDefinitionRegex.test(line) === true) {
         sawDefinition = true;
         continue;
       }
 
-      if (sawDefinition === true && vm.footnoteContinuationRegex.test(line)) {
+      if (sawDefinition === true && vm.syntax.footnoteContinuationRegex.test(line)) {
         continue;
       }
 
@@ -1454,11 +1640,16 @@ class Store {
     return sawDefinition;
   }
 
-  processMd(md, streaming, animation, data = {}) {
+  private processMd(
+    md: string,
+    streaming: boolean,
+    animation: boolean,
+    data: MarkdownData = {}
+  ): ReactNode {
     let file;
     let processor;
 
-    let mdExtraString;
+    let mdExtraString: string;
 
     const vm = this;
 
@@ -1507,10 +1698,15 @@ class Store {
     }
   }
 
-  processCacheMd(md, type, streaming, animation) {
+  private processCacheMd(
+    md: string,
+    type: CacheType,
+    streaming: boolean,
+    animation: boolean
+  ): void {
     let match;
 
-    let lineIndex;
+    let lineIndex: number;
     let lineBuffer;
     let lineInitMatch;
 
@@ -1529,7 +1725,7 @@ class Store {
 
     let separatorCount;
 
-    let processorCache;
+    let processorCache: ReturnType<Store["createProcessor"]>;
     let lineSeparatorRegex;
 
     const vm = this;
@@ -1551,7 +1747,7 @@ class Store {
       }
 
       if (vm.lineBufferInit !== true) {
-        lineInitMatch = vm.lineBuffer.match(vm.codeCachedInitRegex);
+        lineInitMatch = vm.lineBuffer.match(vm.syntax.codeCachedInitRegex);
 
         if (!lineInitMatch) {
           console.error("THIS SHOULD NEVER HAPPEN!", vm.lineBuffer);
@@ -1564,7 +1760,7 @@ class Store {
       }
 
       while ((match = vm.lineBuffer.match(lineSeparatorRegex))) {
-        lineIndex = match.index;
+        lineIndex = match.index ?? 0;
         separatorCount = match[0].length;
 
         lineBuffer = vm.lineBuffer.substring(0, lineIndex + separatorCount);
@@ -1581,7 +1777,7 @@ class Store {
       // newline lands and the line is committed above.
       if (
         vm.lineBuffer.length > 0 &&
-        vm.partialFenceRegex.test(vm.lineBuffer) !== true
+        vm.syntax.partialFenceRegex.test(vm.lineBuffer) !== true
       ) {
         generateCodeData(vm.lineCachedKey, vm.lineBuffer);
       }
@@ -1695,8 +1891,9 @@ class Store {
 
     if (type === "list") {
       items = vm.listItems(md);
-      loose = vm.listLooseRegex.test(md);
-      signature = vm.listMarkerFamily(items[0]) + (loose ? ":loose" : ":tight");
+      loose = vm.syntax.listLooseRegex.test(md);
+      signature =
+        vm.listMarkerFamily(items[0] ?? "") + (loose ? ":loose" : ":tight");
 
       if (animation !== true) {
         processorCache = vm.processorTableCache();
@@ -1714,7 +1911,7 @@ class Store {
 
       // The last item is still being written; everything before it is settled.
       for (lineIndex = 0; lineIndex < items.length; lineIndex++) {
-        lineBuffer = items[lineIndex];
+        lineBuffer = items[lineIndex] ?? "";
 
         if (vm.listItemText[lineIndex] !== lineBuffer) {
           vm.listItemText[lineIndex] = lineBuffer;
@@ -1733,7 +1930,12 @@ class Store {
       return;
     }
 
-    function generateItemData(key, itemBuffer, loose, processorCache) {
+    function generateItemData(
+      key: number,
+      itemBuffer: string,
+      loose: boolean,
+      processorCache: ReturnType<Store["createProcessor"]>
+    ) {
       let block;
       let marker;
       let itemNode;
@@ -1748,13 +1950,13 @@ class Store {
       // A lone item parses tight. Give a loose list a second item so the
       // parser marks it loose and the contents keep their paragraph.
       if (loose === true) {
-        marker = itemBuffer.match(vm.listMarkerRegex);
+        marker = itemBuffer.match(vm.syntax.listMarkerRegex);
         block = itemBuffer + "\n\n" + (marker ? marker[1] : "-") + " x";
       }
 
       hastData = processorCache.runSync(processorCache.parse(block));
 
-      itemNode = findListItem(hastData);
+      itemNode = findListItem(hastData as HastRoot);
 
       if (!itemNode) {
         return null;
@@ -1771,8 +1973,8 @@ class Store {
       );
     }
 
-    function findListItem(tree) {
-      let itemNode;
+    function findListItem(tree: HastRoot): HastElement | null {
+      let itemNode: HastElement | null;
 
       itemNode = null;
 
@@ -1785,17 +1987,21 @@ class Store {
           return;
         }
 
-        node.children.forEach((child) => {
+        node.children.forEach((child: HastContent) => {
           if (!itemNode && child.type === "element" && child.tagName === "li") {
             itemNode = child;
           }
         });
+
+        return undefined;
       });
 
       return itemNode;
     }
 
-    function generateHeadData(processorCache) {
+    function generateHeadData(
+      processorCache: ReturnType<Store["createProcessor"]>
+    ) {
       let rowNode;
       let hastData;
 
@@ -1803,7 +2009,7 @@ class Store {
         processorCache.parse(vm.tableSignature + "\n")
       );
 
-      rowNode = findSectionRow(hastData, "thead");
+      rowNode = findSectionRow(hastData as HastRoot, "thead");
 
       if (!rowNode) {
         return null;
@@ -1817,7 +2023,11 @@ class Store {
       });
     }
 
-    function generateRowData(key, rowBuffer, processorCache) {
+    function generateRowData(
+      key: number,
+      rowBuffer: string,
+      processorCache: ReturnType<Store["createProcessor"]>
+    ) {
       let rowNode;
       let hastData;
       let tableBlock;
@@ -1829,7 +2039,7 @@ class Store {
       tableBlock = vm.tableSignature + "\n" + rowBuffer + "\n";
       hastData = processorCache.runSync(processorCache.parse(tableBlock));
 
-      rowNode = findSectionRow(hastData, "tbody");
+      rowNode = findSectionRow(hastData as HastRoot, "tbody");
 
       if (!rowNode) {
         return null;
@@ -1847,8 +2057,11 @@ class Store {
       );
     }
 
-    function findSectionRow(tree, sectionTag) {
-      let rowNode;
+    function findSectionRow(
+      tree: HastRoot,
+      sectionTag: "thead" | "tbody"
+    ): HastElement | null {
+      let rowNode: HastElement | null;
 
       rowNode = null;
 
@@ -1861,17 +2074,19 @@ class Store {
           return;
         }
 
-        node.children.forEach((child) => {
+        node.children.forEach((child: HastContent) => {
           if (!rowNode && child.type === "element" && child.tagName === "tr") {
             rowNode = child;
           }
         });
+
+        return undefined;
       });
 
       return rowNode;
     }
 
-    function generateCodeData(key, lineBuffer) {
+    function generateCodeData(key: number, lineBuffer: string) {
       let tokens;
       let content;
       let keySpan;
@@ -1880,7 +2095,7 @@ class Store {
 
       // A line holding nothing but a fence closes the block; it is not part of
       // the code. Parsing used to drop it as a side effect.
-      if (vm.fenceOnlyRegex.test(lineBuffer)) {
+      if (vm.syntax.fenceOnlyRegex.test(lineBuffer)) {
         return;
       }
 
@@ -1893,7 +2108,7 @@ class Store {
         if (animation !== true) {
           content = lineData;
         } else {
-          tokens = lineData.split(vm.emptyRegex);
+          tokens = lineData.split(vm.syntax.emptyRegex);
 
           content = tokens.map((token, idx) => {
             if (token.trim() === "") {
@@ -1914,7 +2129,7 @@ class Store {
     }
   }
 
-  setMdState(mdToken) {
+  private setMdState(mdToken: string): string[] {
     const vm = this;
 
     if (!vm.mdState) {
@@ -1929,36 +2144,45 @@ class Store {
     }
   }
 
-  remarkFootnotes() {
-    return (tree, file) => {
-      file.data.footnoteDefinitions = file.data.footnoteDefinitions || [];
+  private remarkFootnotes() {
+    return (tree: MdastRoot, file: VFile) => {
+      const data = file.data as typeof file.data & {
+        footnoteDefinitions?: unknown[];
+      };
 
-      visit(tree, "footnoteDefinition", (node, index, parent) => {
-        parent.children.splice(index, 1);
+      data.footnoteDefinitions ||= [];
+
+      visit(tree, "footnoteDefinition", (_node, index, parent) => {
+        if (parent && index !== undefined) {
+          parent.children.splice(index, 1);
+        }
 
         return [SKIP, index];
       });
     };
   }
 
-  rehypeData() {
-    let tagName;
-
-    let propsToAdd;
-    let propsByTagName;
-
+  private rehypeData() {
     const dataKey = "rehypeData";
 
-    return (tree, file) => {
-      if (!file.data || !file.data[dataKey]) {
+    return (tree: HastRoot, file: VFile) => {
+      let tagName;
+      let propsToAdd: Record<string, unknown>;
+      let propsByTagName: Record<string, Record<string, unknown>>;
+
+      const data = file.data as typeof file.data & {
+        rehypeData?: Record<string, Record<string, unknown>>;
+      };
+
+      if (!data[dataKey]) {
         return;
       }
 
-      propsByTagName = file.data[dataKey];
+      propsByTagName = data[dataKey];
 
       for (tagName in propsByTagName) {
         if (Object.prototype.hasOwnProperty.call(propsByTagName, tagName)) {
-          propsToAdd = propsByTagName[tagName];
+          propsToAdd = propsByTagName[tagName] ?? {};
 
           visit(tree, { tagName }, (node) => {
             if (!node.properties) {
@@ -1972,21 +2196,21 @@ class Store {
     };
   }
 
-  rehypeMermaid() {
-    return (tree) => {
+  private rehypeMermaid() {
+    return (tree: HastRoot) => {
       visit(tree, "element", (node, index, parent) => {
         if (node.tagName === "pre") {
-          let rawCode;
+          let rawCode: string;
           const codeNode = node.children[0];
 
           if (
-            codeNode &&
+            codeNode?.type === "element" &&
             codeNode.tagName === "code" &&
-            codeNode.properties &&
             codeNode.properties.className &&
             codeNode.properties.className.includes("language-mermaid")
           ) {
-            rawCode = codeNode.children[0]?.value;
+            const codeText = codeNode.children[0];
+            rawCode = codeText?.type === "text" ? codeText.value : "";
 
             if (rawCode) {
               rawCode = rawCode.trimEnd();
@@ -1996,48 +2220,54 @@ class Store {
               }
             }
 
-            parent.children[index as number] = {
-              type: "element",
-              tagName: "m",
-              properties: {
-                chart: rawCode,
-              },
-              children: [],
-            };
+            if (parent && index !== undefined) {
+              parent.children[index] = {
+                type: "element",
+                tagName: "m",
+                properties: {
+                  chart: rawCode,
+                },
+                children: [],
+              };
+            }
           }
         }
       });
     };
   }
 
-  rehypeAnimation() {
+  private rehypeAnimation() {
     const vm = this;
 
-    return (tree) => {
+    return (tree: HastRoot) => {
       visit(tree, visitor);
     };
 
-    function visitor(node, index, parent) {
+    function visitor(
+      node: UnistNode,
+      index: number | undefined,
+      parent: HastParent | undefined
+    ) {
       let key;
       let texts;
-      let spanNodes;
+      let spanNodes: HastContent[];
 
       // KaTeX lays out its own spans — wrapping its text nodes breaks the math.
       // Raw-text elements hold text and nothing else; React drops a <script>
       // whose child is an element, taking its content with it.
-      if (node.type === "element") {
-        if (isKatex(node) || vm.rawTextTags.indexOf(node.tagName) !== -1) {
+      if (isHastElement(node)) {
+        if (isKatex(node) || vm.syntax.rawTextTags.indexOf(node.tagName) !== -1) {
           return SKIP;
         }
         return;
       }
 
-      if (node.type !== "text" || !parent) {
+      if (!isHastText(node) || !parent || index === undefined) {
         return;
       }
 
       // If the immediate parent is a link, annotate the <a> and skip wrapping
-      if (parent && parent.type === "element" && parent.tagName === "a") {
+      if (isHastElement(parent) && parent.tagName === "a") {
         parent.properties ||= {};
         if (!("data-animate-word" in parent.properties)) {
           parent.properties["data-animate-word"] = true;
@@ -2050,12 +2280,15 @@ class Store {
         return SKIP;
       }
 
-      if (parent.properties && parent.properties["data-animate-word"]) {
+      if (
+        isHastElement(parent) &&
+        parent.properties["data-animate-word"]
+      ) {
         return SKIP;
       }
 
       spanNodes = [];
-      texts = node.value.split(vm.emptyRegex);
+      texts = node.value.split(vm.syntax.emptyRegex);
 
       texts.forEach((text, textIndex) => {
         if (text.trim() === "") {
@@ -2065,8 +2298,11 @@ class Store {
           spanNodes.push({
             type: "element",
             tagName: "span",
-            properties: { "data-animate-word": true },
-            children: [{ type: "text", value: text, key }],
+            properties: {
+              "data-animate-word": true,
+              "data-animate-key": key,
+            },
+            children: [{ type: "text", value: text }],
           });
         }
       });
@@ -2075,7 +2311,7 @@ class Store {
       return index + spanNodes.length;
     }
 
-    function isKatex(node) {
+    function isKatex(node: HastElement): boolean {
       let i;
       let className;
 
@@ -2097,10 +2333,20 @@ class Store {
 
       return false;
     }
+
+    function isHastElement(node: UnistNode): node is HastElement {
+      return node.type === "element" && "tagName" in node;
+    }
+
+    function isHastText(
+      node: UnistNode
+    ): node is Extract<HastContent, { type: "text" }> {
+      return node.type === "text" && "value" in node;
+    }
   }
 
-  mdType(mdBuffer, finalize) {
-    let blockType;
+  private mdType(mdBuffer: string, finalize: boolean): BlockType {
+    let blockType: BlockType | undefined;
     let trimmed;
     let hrPending;
     let lineBreakStart;
@@ -2157,7 +2403,7 @@ class Store {
 
     trimmed = mdBuffer.trimEnd();
 
-    if (vm.inlineLinkCloseRegex && vm.inlineLinkCloseRegex.test(trimmed)) {
+    if (vm.syntax.inlineLinkCloseRegex && vm.syntax.inlineLinkCloseRegex.test(trimmed)) {
       return "text";
     }
 
@@ -2173,21 +2419,25 @@ class Store {
 
     return blockType;
 
-    function hrPendingCheck(mdBuffer) {
-      const hrRegex = vm.hrRegex;
+    function hrPendingCheck(mdBuffer: string): BlockType | undefined {
+      const hrRegex = vm.syntax.hrRegex;
 
       if (hrRegex.test(mdBuffer)) {
         return "pending";
       }
+
+      return undefined;
     }
 
-    function lineBreakStartCheck(mdBuffer) {
+    function lineBreakStartCheck(mdBuffer: string): BlockType | undefined {
       if (mdBuffer.startsWith("\n")) {
         return "text";
       }
+
+      return undefined;
     }
 
-    function lineBreakPendingCheck(mdBuffer) {
+    function lineBreakPendingCheck(mdBuffer: string): BlockType | undefined {
       if (mdBuffer.endsWith("\n")) {
         if (
           mdBuffer.trimStart().startsWith("```") ||
@@ -2203,27 +2453,31 @@ class Store {
           return "pending";
         }
       }
+
+      return undefined;
     }
 
-    function codeBlockPendingCheck(mdBuffer) {
-      const incompleteFenceRegex = vm.incompleteFenceRegex;
+    function codeBlockPendingCheck(mdBuffer: string): BlockType | undefined {
+      const incompleteFenceRegex = vm.syntax.incompleteFenceRegex;
       if (incompleteFenceRegex.test(mdBuffer)) {
         return "pending";
       }
 
-      const fencedCodeRegex = vm.fencedCodeRegex;
+      const fencedCodeRegex = vm.syntax.fencedCodeRegex;
       if (fencedCodeRegex.test(mdBuffer)) {
         return "code";
       }
 
-      const indentedCodeRegex = vm.indentedCodeRegex;
+      const indentedCodeRegex = vm.syntax.indentedCodeRegex;
       if (indentedCodeRegex.test(mdBuffer)) {
         return "code";
       }
+
+      return undefined;
     }
 
-    function tableBlockPendingCheck(mdBuffer) {
-      const pipeMatches = mdBuffer.match(vm.pipeRegex);
+    function tableBlockPendingCheck(mdBuffer: string): BlockType | undefined {
+      const pipeMatches = mdBuffer.match(vm.syntax.pipeRegex);
       const pipeCount = pipeMatches ? pipeMatches.length : 0;
 
       if (pipeCount >= 2) {
@@ -2231,14 +2485,20 @@ class Store {
       } else if (pipeCount === 1) {
         return "pending";
       }
+
+      return undefined;
     }
   }
 
-  mdMath(mdBuffer, blockType) {
-    return markdownSyntax.convertMath(mdBuffer, blockType);
+  private mdMath(mdBuffer: string, blockType: string): string {
+    return markdownSyntax.convertMath(mdBuffer, blockType) ?? "";
   }
 
-  mdTable(mdBuffer, blocktype, pending) {
+  private mdTable(
+    mdBuffer: string,
+    blocktype: BlockType | "renderer",
+    pending: boolean
+  ): string {
     const vm = this;
 
     if (blocktype === "table") {
@@ -2263,7 +2523,7 @@ class Store {
 
       let delimiterLine;
 
-      const tableRegex = vm.tableRendererInitRegex;
+      const tableRegex = vm.syntax.tableRendererInitRegex;
 
       result = "";
 
@@ -2313,7 +2573,9 @@ class Store {
       return mdBuffer;
     }
 
-    function convertTable(mdBuffer) {
+    return mdBuffer;
+
+    function convertTable(mdBuffer: string): string {
       let headed;
 
       let lines;
@@ -2322,7 +2584,7 @@ class Store {
 
       const trimmed = mdBuffer.trim();
 
-      if (!vm.closeRegex.test(trimmed)) {
+      if (!vm.syntax.closeRegex.test(trimmed)) {
         return mdBuffer;
       } else {
         lines = trimmed.split("\n");
@@ -2343,7 +2605,7 @@ class Store {
       }
     }
 
-    function checkHeaded(delimiterLine) {
+    function checkHeaded(delimiterLine: string): boolean {
       if (
         delimiterLine.includes("---") ||
         delimiterLine.indexOf("|-") !== -1 ||
@@ -2358,7 +2620,7 @@ class Store {
       }
     }
 
-    function convertTableHeadless(mdBuffer, lines) {
+    function convertTableHeadless(mdBuffer: string, lines: string[]): string {
       let white;
 
       let trimmed;
@@ -2388,7 +2650,7 @@ class Store {
         .filter((line) => line !== "");
 
       bodyRows.forEach((line) => {
-        columns = line.split(vm.closeRegex).length - 2;
+        columns = line.split(vm.syntax.closeRegex).length - 2;
         if (columns > columnsMax) {
           columnsMax = columns;
         }
@@ -2400,7 +2662,7 @@ class Store {
         dummyHeader = "|" + " |".repeat(columnsMax);
         dummyDelimiter = "|" + " :--- |".repeat(columnsMax);
 
-        white = mdBuffer.match(vm.whiteRegex)[0];
+        white = mdBuffer.match(vm.syntax.whiteRegex)?.[0] ?? "";
 
         tableContent = [dummyHeader, dummyDelimiter, ...bodyRows].join("\n");
 
@@ -2412,8 +2674,8 @@ class Store {
       }
     }
 
-    function collectFencedRanges(text) {
-      let ranges;
+    function collectFencedRanges(text: string): TextRange[] {
+      let ranges: TextRange[];
       let fenceMatch;
       let rangeStart;
       let rangeEnd;
@@ -2434,7 +2696,7 @@ class Store {
       return ranges;
     }
 
-    function isInsideFenced(index, ranges) {
+    function isInsideFenced(index: number, ranges: TextRange[]): boolean {
       let i;
       let range;
 
@@ -2444,6 +2706,9 @@ class Store {
 
       for (i = 0; i < ranges.length; i++) {
         range = ranges[i];
+        if (!range) {
+          continue;
+        }
         if (index >= range.start && index < range.end) {
           return true;
         }
@@ -2452,7 +2717,11 @@ class Store {
       return false;
     }
 
-    function convertTableWithHeader(mdBuffer, headerLine, lines) {
+    function convertTableWithHeader(
+      mdBuffer: string,
+      headerLine: string,
+      lines: string[]
+    ): string {
       let white;
 
       let delimiter;
@@ -2461,13 +2730,13 @@ class Store {
       const headerRow = headerLine;
       const bodyRows = lines.slice(2);
 
-      const headerColumnCount = headerRow.split(vm.closeRegex).length;
+      const headerColumnCount = headerRow.split(vm.syntax.closeRegex).length;
 
       // Stand-in delimiter and placeholder row so a table shows up while its
       // real delimiter is still arriving. Once closed the table is whatever it
       // is — a header with no rows stays that way, keeping its own alignment.
       if (pending === true && headerColumnCount > 0 && lines.length < 3) {
-        white = mdBuffer.match(vm.whiteRegex)[0];
+        white = mdBuffer.match(vm.syntax.whiteRegex)?.[0] ?? "";
         delimiter = "|" + " :--- |".repeat(headerColumnCount - 2);
         tableContent = [headerRow, delimiter, ...bodyRows].join("\n");
 
@@ -2478,7 +2747,11 @@ class Store {
     }
   }
 
-  mdString(mdBuffer, blockType, pending) {
+  private mdString(
+    mdBuffer: string,
+    blockType: BlockType,
+    pending: boolean
+  ): string {
     let baseBuffer;
     let processedBuffer;
 
@@ -2525,15 +2798,15 @@ class Store {
       return processedBuffer;
     }
 
-    function fixTasklist(text) {
-      const invalidTaskRegex = vm.invalidTaskRegex;
+    function fixTasklist(text: string): string {
+      const invalidTaskRegex = vm.syntax.invalidTaskRegex;
 
       return text.replace(invalidTaskRegex, "$1$2");
     }
 
     // A delimiter row is only a delimiter once its dashes arrive; until then
     // "| :" renders as a cell holding a colon.
-    function fixPartialRow(text) {
+    function fixPartialRow(text: string): string {
       let lastLine;
       let lineStart;
 
@@ -2544,7 +2817,7 @@ class Store {
       lineStart = text.lastIndexOf("\n");
       lastLine = text.substring(lineStart + 1);
 
-      if (vm.partialRowRegex.test(lastLine) !== true) {
+      if (vm.syntax.partialRowRegex.test(lastLine) !== true) {
         return text;
       }
 
@@ -2557,17 +2830,17 @@ class Store {
 
     // "&copy;" is a symbol only once its semicolon lands; until then it reads
     // as a literal ampersand followed by letters.
-    function fixPartialEntity(text) {
+    function fixPartialEntity(text: string): string {
       if (!text || text === "" || pending !== true) {
         return text;
       }
 
-      return text.replace(vm.partialEntityRegex, "");
+      return text.replace(vm.syntax.partialEntityRegex, "");
     }
 
     // A trailing backslash is either escaping the character that has not
     // arrived yet or is a hard line break. Either way it is markup, not text.
-    function fixTrailingEscape(text) {
+    function fixTrailingEscape(text: string): string {
       let i;
       let count;
 
@@ -2579,7 +2852,7 @@ class Store {
       // line is the hard-break form, and equally not text.
       i = text.length - 1;
 
-      while (i >= 0 && vm.blankCharRegex.test(text.charAt(i))) {
+      while (i >= 0 && vm.syntax.blankCharRegex.test(text.charAt(i))) {
         i--;
       }
 
@@ -2599,7 +2872,7 @@ class Store {
 
     // A list marker with nothing after it yet: "1." reads as the digit 1 until
     // its item text lands, and "- " as a stray dash.
-    function fixPartialMarker(text) {
+    function fixPartialMarker(text: string): string {
       let lastLine;
       let lineStart;
 
@@ -2610,20 +2883,20 @@ class Store {
       lineStart = text.lastIndexOf("\n");
       lastLine = text.substring(lineStart + 1);
 
-      if (vm.markerOnlyRegex.test(lastLine) === true) {
+      if (vm.syntax.markerOnlyRegex.test(lastLine) === true) {
         return text.substring(0, lineStart + 1);
       }
 
       // A nested marker opening inside an item — "-   -" — is equally a marker
       // with no item text behind it yet.
-      return text.replace(vm.nestedMarkerRegex, "$1");
+      return text.replace(vm.syntax.nestedMarkerRegex, "$1");
     }
 
     // A bare line of "-" or "=" under a line of text is a setext heading, so a
     // nested list marker turns its own parent into a heading for the instant
     // before the rest of the item arrives. Hold that line back until it says
     // what it is.
-    function fixSetext(text) {
+    function fixSetext(text: string): string {
       let lastLine;
       let lineStart;
       let previousLine;
@@ -2641,7 +2914,7 @@ class Store {
 
       lastLine = text.substring(lineStart + 1);
 
-      if (vm.setextRegex.test(lastLine) !== true) {
+      if (vm.syntax.setextRegex.test(lastLine) !== true) {
         return text;
       }
 
@@ -2660,7 +2933,7 @@ class Store {
     // A link only becomes a link when its closing ")" lands. Until then hold it
     // back: streaming "[text](htt" shows raw markup, and GFM autolinks the
     // half-typed URL inside it, producing a live link to a truncated address.
-    function fixLinkRefs(text) {
+    function fixLinkRefs(text: string): string {
       let i;
 
       let chunk;
@@ -2670,7 +2943,7 @@ class Store {
       let openIndex;
       let linkIndex;
 
-      const tokens = vm.mathProtectedRegex;
+      const tokens = vm.syntax.mathProtectedRegex;
 
       if (!text || text === "" || pending !== true) {
         return text;
@@ -2703,7 +2976,11 @@ class Store {
       return text.substring(0, openIndex);
     }
 
-    function findOpenLink(chunk, isTail, fullText) {
+    function findOpenLink(
+      chunk: string,
+      isTail: boolean,
+      fullText: string
+    ): number {
       let i;
       let char;
       let next;
@@ -2728,7 +3005,7 @@ class Store {
         if (char === "<") {
           next = chunk.charAt(i + 1);
 
-          if (next !== "" && vm.angleOpenRegex.test(next) !== true) {
+          if (next !== "" && vm.syntax.angleOpenRegex.test(next) !== true) {
             i++;
             continue;
           }
@@ -2809,7 +3086,7 @@ class Store {
 
     // Reference labels are case-insensitive, and an empty label ("[text][]")
     // refers back to the link text itself.
-    function hasDefinition(fullText, label) {
+    function hasDefinition(fullText: string, label: string): boolean {
       let i;
       let line;
       let lines;
@@ -2819,7 +3096,7 @@ class Store {
       lines = fullText.split("\n");
 
       for (i = 0; i < lines.length; i++) {
-        line = lines[i].trim();
+        line = (lines[i] ?? "").trim();
 
         // The destination has to be there too, or the link still has nowhere
         // to point and remark leaves the whole thing as text.
@@ -2839,7 +3116,11 @@ class Store {
       return false;
     }
 
-    function findUnescaped(chunk, target, from) {
+    function findUnescaped(
+      chunk: string,
+      target: string,
+      from: number
+    ): number {
       let i;
       let char;
 
@@ -2860,7 +3141,7 @@ class Store {
     }
 
     // Link destinations may contain balanced parens, as in "/path(inner)".
-    function findClosingParen(chunk, from) {
+    function findClosingParen(chunk: string, from: number): number {
       let i;
       let char;
       let depth;
@@ -2894,7 +3175,7 @@ class Store {
 
     // Withhold a formula that is still arriving: an unclosed delimiter would
     // otherwise stream through as raw TeX and only snap into KaTeX on close.
-    function fixMath(text) {
+    function fixMath(text: string): string {
       let i;
 
       let chunk;
@@ -2904,7 +3185,7 @@ class Store {
       let openIndex;
       let mathIndex;
 
-      const tokens = vm.mathProtectedRegex;
+      const tokens = vm.syntax.mathProtectedRegex;
 
       if (!text || text === "" || pending !== true) {
         return text;
@@ -2934,10 +3215,10 @@ class Store {
         return text;
       }
 
-      return text.substring(0, openIndex) + vm.mathPendingTag;
+      return text.substring(0, openIndex) + vm.syntax.mathPendingTag;
     }
 
-    function findOpenMath(chunk) {
+    function findOpenMath(chunk: string): number {
       let i;
 
       let char;
@@ -2985,7 +3266,7 @@ class Store {
           next = chunk.charAt(i + 1);
 
           // remark-math never opens on "$ " — leave prose dollars alone.
-          if (next !== "" && vm.mathSpaceRegex.test(next)) {
+          if (next !== "" && vm.syntax.mathSpaceRegex.test(next)) {
             i++;
             continue;
           }
@@ -3006,7 +3287,7 @@ class Store {
       return -1;
     }
 
-    function findInlineClose(chunk, from) {
+    function findInlineClose(chunk: string, from: number): number {
       let i;
       let char;
 
@@ -3026,11 +3307,11 @@ class Store {
       return -1;
     }
 
-    function fixTempTable(text) {
+    function fixTempTable(text: string): string {
       if (text.includes("\n\n")) {
         return text;
       }
-      const pipeIndex = text.search(vm.pipeRegex);
+      const pipeIndex = text.search(vm.syntax.pipeRegex);
       if (pipeIndex === -1) {
         return text;
       }
@@ -3040,12 +3321,12 @@ class Store {
     // Emphasis nests, so the marker that opened last must be closed first:
     // "**_bold" has to become "**_bold_**", never "**_bold**_". Collect every
     // unclosed marker with the offset it opened at, then close in reverse.
-    function fixInlineTokens(text) {
+    function fixInlineTokens(text: string): string {
       let i;
       let token;
       let passes;
-      let result;
-      let pending;
+      let result: InlineTokenResult | EmphasisResult;
+      let pending: PendingToken[];
       let previous;
 
       // Dropping one dangling marker can leave the next one dangling, so let
@@ -3057,8 +3338,8 @@ class Store {
       do {
         previous = text;
 
-        for (i = 0; i < vm.inlineTokens.length; i++) {
-          text = fixInlineToken(text, vm.inlineTokens[i]).text;
+        for (i = 0; i < vm.syntax.inlineTokens.length; i++) {
+          text = fixInlineToken(text, vm.syntax.inlineTokens[i] ?? "").text;
         }
 
         // Emphasis strips belong in the same settling pass: dropping a
@@ -3067,12 +3348,12 @@ class Store {
         text = fixEmphasis(text).text;
 
         passes++;
-      } while (text !== previous && passes < vm.inlineTokens.length + 2);
+      } while (text !== previous && passes < vm.syntax.inlineTokens.length + 2);
 
       pending = [];
 
-      for (i = 0; i < vm.inlineTokens.length; i++) {
-        result = fixInlineToken(text, vm.inlineTokens[i]);
+      for (i = 0; i < vm.syntax.inlineTokens.length; i++) {
+        result = fixInlineToken(text, vm.syntax.inlineTokens[i] ?? "");
 
         if (result.close === true) {
           pending.push(result);
@@ -3085,9 +3366,7 @@ class Store {
       result = fixEmphasis(text);
       text = result.text;
 
-      for (i = 0; i < result.pending.length; i++) {
-        pending.push(result.pending[i]);
-      }
+      pending.push(...result.pending);
 
       if (pending.length === 0) {
         return text;
@@ -3097,8 +3376,8 @@ class Store {
       // would close as "**mixed **" and render as literal asterisks. Dropping
       // the trailing blank costs nothing on screen and keeps it emphasis. Code
       // spans have no such rule, and their whitespace is content.
-      if (pending.some((item) => vm.emphasisTokenRegex.test(item.token))) {
-        text = text.replace(vm.trailingSpaceRegex, "");
+      if (pending.some((item) => vm.syntax.emphasisTokenRegex.test(item.token))) {
+        text = text.replace(vm.syntax.trailingSpaceRegex, "");
       }
 
       pending.sort((a, b) => {
@@ -3106,7 +3385,7 @@ class Store {
       });
 
       for (i = 0; i < pending.length; i++) {
-        token = pending[i].token;
+        token = pending[i]?.token ?? "";
 
         // Appending onto a run that was already there merges with it: "~" plus
         // "~~" is "~~~", which is a code fence, not strikethrough. That run is
@@ -3124,7 +3403,7 @@ class Store {
       return text;
     }
 
-    function trimTrailingRun(text, char) {
+    function trimTrailingRun(text: string, char: string): string {
       let end;
 
       end = text.length;
@@ -3139,32 +3418,37 @@ class Store {
     // Every "*" / "_" run in the text, with the flanking flags that decide
     // whether it may open or close emphasis. Runs inside a code span, and a
     // "*" acting as a list bullet, are not delimiters at all.
-    function emphasisRuns(text) {
+    function emphasisRuns(text: string): EmphasisRun[] {
       let i;
-      let run;
-      let runs;
-      let char;
+      let run: EmphasisRun;
+      let runs: EmphasisRun[];
+      let char: "*" | "_";
+      let current;
       let start;
       let after;
       let before;
       let leftFlanking;
       let rightFlanking;
+      let canOpen;
+      let canClose;
 
       runs = [];
       i = 0;
 
       while (i < text.length) {
-        char = text.charAt(i);
+        current = text.charAt(i);
 
-        if (char === "\\") {
+        if (current === "\\") {
           i += 2;
           continue;
         }
 
-        if (char !== "*" && char !== "_") {
+        if (current !== "*" && current !== "_") {
           i++;
           continue;
         }
+
+        char = current;
 
         start = i;
 
@@ -3185,37 +3469,38 @@ class Store {
         after = i >= text.length ? " " : text.charAt(i);
 
         leftFlanking =
-          vm.blankCharRegex.test(after) !== true &&
-          (vm.punctuationRegex.test(after) !== true ||
-            vm.blankCharRegex.test(before) === true ||
-            vm.punctuationRegex.test(before) === true);
+          vm.syntax.blankCharRegex.test(after) !== true &&
+          (vm.syntax.punctuationRegex.test(after) !== true ||
+            vm.syntax.blankCharRegex.test(before) === true ||
+            vm.syntax.punctuationRegex.test(before) === true);
 
         rightFlanking =
-          vm.blankCharRegex.test(before) !== true &&
-          (vm.punctuationRegex.test(before) !== true ||
-            vm.blankCharRegex.test(after) === true ||
-            vm.punctuationRegex.test(after) === true);
+          vm.syntax.blankCharRegex.test(before) !== true &&
+          (vm.syntax.punctuationRegex.test(before) !== true ||
+            vm.syntax.blankCharRegex.test(after) === true ||
+            vm.syntax.punctuationRegex.test(after) === true);
+
+        if (char === "*") {
+          canOpen = leftFlanking;
+          canClose = rightFlanking;
+        } else {
+          canOpen =
+            leftFlanking &&
+            (rightFlanking !== true || vm.syntax.punctuationRegex.test(before));
+          canClose =
+            rightFlanking &&
+            (leftFlanking !== true || vm.syntax.punctuationRegex.test(after));
+        }
 
         run = {
-          char: char,
+          char,
           index: start,
           length: i - start,
           remaining: i - start,
+          canOpen,
+          canClose,
+          canBoth: canOpen === true && canClose === true,
         };
-
-        if (char === "*") {
-          run.canOpen = leftFlanking;
-          run.canClose = rightFlanking;
-        } else {
-          run.canOpen =
-            leftFlanking &&
-            (rightFlanking !== true || vm.punctuationRegex.test(before));
-          run.canClose =
-            rightFlanking &&
-            (leftFlanking !== true || vm.punctuationRegex.test(after));
-        }
-
-        run.canBoth = run.canOpen === true && run.canClose === true;
 
         runs.push(run);
       }
@@ -3225,7 +3510,10 @@ class Store {
 
     // CommonMark's "rule of three": when either side can both open and close,
     // the lengths may only sum to a multiple of three if both are.
-    function emphasisPairs(opener, closer) {
+    function emphasisPairs(
+      opener: EmphasisRun | EmphasisOpener,
+      closer: EmphasisRun
+    ): boolean {
       if (opener.canBoth !== true && closer.canBoth !== true) {
         return true;
       }
@@ -3237,7 +3525,7 @@ class Store {
       return opener.length % 3 === 0 && closer.length % 3 === 0;
     }
 
-    function insideHtmlBlock(text) {
+    function insideHtmlBlock(text: string): boolean {
       let start;
       let lineEnd;
       let firstLine;
@@ -3250,22 +3538,22 @@ class Store {
         lineEnd === -1 ? text.substring(start) : text.substring(start, lineEnd);
 
       return (
-        vm.htmlBlockStartRegex.test(firstLine) ||
-        vm.htmlBlockTagRegex.test(firstLine)
+        vm.syntax.htmlBlockStartRegex.test(firstLine) ||
+        vm.syntax.htmlBlockTagRegex.test(firstLine)
       );
     }
 
-    function fixEmphasis(text) {
+    function fixEmphasis(text: string): EmphasisResult {
       let i;
       let j;
       let use;
       let run;
       let runs;
       let last;
-      let stack;
+      let stack: EmphasisOpener[];
       let opener;
-      let pending;
-      let remaining;
+      let pending: PendingToken[];
+      let remaining: number;
 
       // A line that is nothing but a tag opens an HTML block, and everything
       // up to the next blank line belongs to it as raw text — emphasis markers
@@ -3282,6 +3570,10 @@ class Store {
       while (runs.length > 0) {
         last = runs[runs.length - 1];
 
+        if (!last) {
+          break;
+        }
+
         if (last.index + last.length !== text.length) {
           break;
         }
@@ -3295,6 +3587,11 @@ class Store {
 
       for (i = 0; i < runs.length; i++) {
         run = runs[i];
+
+        if (!run) {
+          continue;
+        }
+
         remaining = run.length;
 
         if (run.canClose === true) {
@@ -3302,6 +3599,11 @@ class Store {
 
           while (j >= 0 && remaining > 0) {
             opener = stack[j];
+
+            if (!opener) {
+              j--;
+              continue;
+            }
 
             if (
               opener.char !== run.char ||
@@ -3338,11 +3640,13 @@ class Store {
       }
 
       for (i = 0; i < stack.length; i++) {
-        if (stack[i].remaining > 0) {
+        opener = stack[i];
+
+        if (opener && opener.remaining > 0) {
           pending.push({
             close: true,
-            index: stack[i].index,
-            token: stack[i].char.repeat(stack[i].remaining),
+            index: opener.index,
+            token: opener.char.repeat(opener.remaining),
           });
         }
       }
@@ -3353,21 +3657,31 @@ class Store {
     // Asterisks and underscores inside a code span are literal text, so the
     // emphasis balancing has to leave them alone. An opener with no closer yet
     // covers everything after it, since that is where the span will end up.
-    function insideCodeSpan(text, index) {
+    function insideCodeSpan(text: string, index: number): boolean {
       let i;
+      let j;
       let runs;
       let opener;
       let closer;
+      let candidate;
+      let closerRun;
 
       runs = backtickRuns(text);
       i = 0;
 
       while (i < runs.length) {
         opener = runs[i];
+
+        if (!opener) {
+          break;
+        }
+
         closer = -1;
 
-        for (let j = i + 1; j < runs.length; j++) {
-          if (runs[j].length === opener.length) {
+        for (j = i + 1; j < runs.length; j++) {
+          candidate = runs[j];
+
+          if (candidate && candidate.length === opener.length) {
             closer = j;
             break;
           }
@@ -3377,7 +3691,9 @@ class Store {
           return index > opener.index;
         }
 
-        if (index > opener.index && index < runs[closer].index) {
+        closerRun = runs[closer];
+
+        if (closerRun && index > opener.index && index < closerRun.index) {
           return true;
         }
 
@@ -3390,12 +3706,12 @@ class Store {
     // A run of three or more backticks at the start of a line opens a fenced
     // block, not a code span. Balancing it as a span would append a closer and
     // pull the fence marker into the code content.
-    function backtickRuns(text) {
+    function backtickRuns(text: string): BacktickRun[] {
       let i;
       let runs;
       let start;
 
-      if (vm.fenceLineRegex.test(text)) {
+      if (vm.syntax.fenceLineRegex.test(text)) {
         return [];
       }
 
@@ -3425,20 +3741,30 @@ class Store {
     // odd count for text like "\`this\`\`" and appends a stray backtick.
     // Pair backtick runs left to right: a run of n closes on the next run of
     // exactly n. Returns which runs got paired and the first that did not.
-    function pairBacktickRuns(runs) {
+    function pairBacktickRuns(runs: BacktickRun[]): BacktickPairs {
       let i;
       let j;
       let paired;
       let closerIndex;
+      let opener;
+      let candidate;
 
       paired = [];
       i = 0;
 
       while (i < runs.length) {
+        opener = runs[i];
+
+        if (!opener) {
+          break;
+        }
+
         closerIndex = -1;
 
         for (j = i + 1; j < runs.length; j++) {
-          if (runs[j].length === runs[i].length) {
+          candidate = runs[j];
+
+          if (candidate && candidate.length === opener.length) {
             closerIndex = j;
             break;
           }
@@ -3457,7 +3783,7 @@ class Store {
       return { paired: paired, unmatched: -1 };
     }
 
-    function fixCodeSpan(text) {
+    function fixCodeSpan(text: string): InlineTokenResult {
       let last;
       let runs;
       let result;
@@ -3473,6 +3799,7 @@ class Store {
         last = runs[runs.length - 1];
 
         if (
+          last &&
           last.index + last.length === text.length &&
           result.paired[runs.length - 1] !== true
         ) {
@@ -3488,6 +3815,10 @@ class Store {
 
       opener = runs[result.unmatched];
 
+      if (!opener) {
+        return { text: text, token: "`", close: false, index: -1 };
+      }
+
       return {
         text: text,
         token: "`".repeat(opener.length),
@@ -3496,7 +3827,7 @@ class Store {
       };
     }
 
-    function fixInlineToken(text, token) {
+    function fixInlineToken(text: string, token: string): InlineTokenResult {
       let regex;
       let edgeRegex;
       let matches;
@@ -3521,8 +3852,8 @@ class Store {
 
       if (!regex || !edgeRegex) {
         char = token.charAt(0);
-        escapedChar = char.replace(vm.escapedChar, "\\$&");
-        escapedToken = token.replace(vm.escapedChar, "\\$&");
+        escapedChar = char.replace(vm.syntax.escapedChar, "\\$&");
+        escapedToken = token.replace(vm.syntax.escapedChar, "\\$&");
 
         // Escaping is decided by escapedMarker below, which counts the
         // backslashes: in "\\\\~" the backslash is itself escaped, so the
@@ -3591,7 +3922,7 @@ class Store {
     }
 
     // A marker is escaped only when an odd number of backslashes precedes it.
-    function escapedMarker(text, index) {
+    function escapedMarker(text: string, index: number): boolean {
       let i;
       let count;
 
@@ -3609,7 +3940,7 @@ class Store {
     // A "*" that opens a list item: line start, optional indent, then a space.
     // While the character after it is still unknown, assume a bullet — that
     // way a nascent list is never rewritten into emphasis.
-    function bulletMarker(text, index) {
+    function bulletMarker(text: string, index: number): boolean {
       let i;
       let next;
 
@@ -3629,7 +3960,7 @@ class Store {
     }
   }
 
-  mdReference(mdBuffer, _blockType) {
+  private mdReference(mdBuffer: string, _blockType: BlockType): void {
     let refKeys;
     let refString;
 
@@ -3638,10 +3969,10 @@ class Store {
 
     const vm = this;
 
-    const footnotes = mdBuffer.match(vm.footnoteRegex);
+    const footnotes = mdBuffer.match(vm.syntax.footnoteRegex);
 
     if (footnotes) {
-      const footnoteDefinitions = mdBuffer.match(vm.footnoteDefRegex);
+      const footnoteDefinitions = mdBuffer.match(vm.syntax.footnoteDefRegex);
 
       if (footnoteDefinitions) {
         footnotes.forEach((footnote) => {
@@ -3665,7 +3996,7 @@ class Store {
     }
   }
 
-  mdCloseObject(mdBuffer, blockType) {
+  private mdCloseObject(mdBuffer: string, blockType: BlockType): CloseObject {
     let refClose;
     let lineClose;
     let hrRuleClose;
@@ -3675,9 +4006,9 @@ class Store {
     const vm = this;
     const doubleLine = "\n\n";
 
-    const hrRegex = vm.hrCloseRegex;
-    const fencedCodeRegex = vm.fencedCloseRegex;
-    const indentedCodeRegex = vm.indentedCodeRegex;
+    const hrRegex = vm.syntax.hrCloseRegex;
+    const fencedCodeRegex = vm.syntax.fencedCloseRegex;
+    const indentedCodeRegex = vm.syntax.indentedCodeRegex;
 
     if (blockType === "text") {
       mdBuffer = mapNotes(mdBuffer, blockType);
@@ -3751,9 +4082,16 @@ class Store {
       };
     }
 
-    function mapNotes(mdBuffer, blockType) {
+    return {
+      close: false,
+      md: mdBuffer,
+      mdClose: "",
+      mdNext: "",
+    };
+
+    function mapNotes(mdBuffer: string, blockType: BlockType): string {
       let id;
-      let seen;
+      let seen: Record<string, true>;
 
       let match;
       let matches;
@@ -3761,9 +4099,9 @@ class Store {
       let definition;
 
       if (blockType === "code") {
-        return null;
+        return mdBuffer;
       } else {
-        matches = mdBuffer.match(vm.footnoteRegex);
+        matches = mdBuffer.match(vm.syntax.footnoteRegex);
         if (!matches) {
           return mdBuffer;
         } else {
@@ -3784,12 +4122,15 @@ class Store {
       }
     }
 
-    function getRefClose(mdBuffer, blockType) {
+    function getRefClose(
+      mdBuffer: string,
+      blockType: BlockType
+    ): CloseObject | undefined | null {
       if (blockType === "code") {
         return null;
       } else {
-        const usageMatch = mdBuffer.match(vm.refRegex);
-        const definitionMatch = mdBuffer.match(vm.definitionRegex);
+        const usageMatch = mdBuffer.match(vm.syntax.refRegex);
+        const definitionMatch = mdBuffer.match(vm.syntax.definitionRegex);
 
         const hasUsage = Array.isArray(usageMatch) && usageMatch.length > 0;
         const hasDefinition =
@@ -3804,9 +4145,14 @@ class Store {
           };
         }
       }
+
+      return undefined;
     }
 
-    function getLineClose(mdBuffer, _blockType) {
+    function getLineClose(
+      mdBuffer: string,
+      _blockType: BlockType
+    ): CloseObject | undefined {
       let closeIndex;
 
       const singleLine = "\n";
@@ -3847,13 +4193,19 @@ class Store {
           // now; its settled items are cached so that costs nothing.
         }
       }
+
+      return undefined;
     }
 
-    function getHrRuleClose(mdBuffer, blockType, hrRegex) {
+    function getHrRuleClose(
+      mdBuffer: string,
+      _blockType: BlockType,
+      hrRegex: RegExp
+    ): CloseObject | null {
       const match = mdBuffer.match(hrRegex);
       if (match) {
         const hrString = match[0];
-        const startIndex = match.index;
+        const startIndex = match.index ?? 0;
         const endIndex = startIndex + hrString.length;
 
         return {
@@ -3866,7 +4218,11 @@ class Store {
       return null;
     }
 
-    function getDoubleLineClose(mdBuffer, blockType, doubleLine) {
+    function getDoubleLineClose(
+      mdBuffer: string,
+      _blockType: BlockType,
+      doubleLine: string
+    ): CloseObject | undefined {
       let closeTag;
       let closeIndex;
       let closeEndIndex;
@@ -3875,7 +4231,7 @@ class Store {
       // across it — for ordered markers as much as for bullets. It must still
       // end where the list does, though: holding it open unconditionally makes
       // one block swallow the rest of the document.
-      if (vm.listItemRegex.test(mdBuffer) === true) {
+      if (vm.syntax.listItemRegex.test(mdBuffer) === true) {
         closeIndex = mdBuffer.indexOf(doubleLine);
 
         while (closeIndex !== -1) {
@@ -3921,9 +4277,15 @@ class Store {
           mdClose: closeTag,
         };
       }
+
+      return undefined;
     }
 
-    function definitionContinues(mdBuffer, closeIndex, closeEndIndex) {
+    function definitionContinues(
+      mdBuffer: string,
+      closeIndex: number,
+      closeEndIndex: number
+    ): boolean {
       let rest;
       let lineStart;
       let lastLine;
@@ -3932,8 +4294,8 @@ class Store {
 
       // Whitespace alone is undecided: the indent may still be arriving.
       if (
-        vm.indentedRegex.test(rest) !== true &&
-        vm.blankOnlyRegex.test(rest) !== true
+        vm.syntax.indentedRegex.test(rest) !== true &&
+        vm.syntax.blankOnlyRegex.test(rest) !== true
       ) {
         return false;
       }
@@ -3941,32 +4303,36 @@ class Store {
       lineStart = mdBuffer.lastIndexOf("\n", closeIndex - 1);
       lastLine = mdBuffer.substring(lineStart + 1, closeIndex);
 
-      return vm.definitionLineRegex.test(lastLine);
+      return vm.syntax.definitionLineRegex.test(lastLine);
     }
 
     // After a blank line a list carries on only if what follows is another
     // item or an indented continuation. A marker that is still arriving counts
     // as carrying on, so the list is never cut in half mid-bullet.
-    function listContinues(rest) {
+    function listContinues(rest: string): boolean {
       if (rest === "") {
         return true;
       }
 
-      if (vm.listPartialRegex.test(rest)) {
+      if (vm.syntax.listPartialRegex.test(rest)) {
         return true;
       }
 
       // A fenced block indented under an item opens its own block, the way it
       // did before lists were held open across blank lines. Swallowing it here
       // leaves the fence sitting inside a paragraph.
-      if (vm.indentedFenceRegex.test(rest) === true) {
+      if (vm.syntax.indentedFenceRegex.test(rest) === true) {
         return false;
       }
 
-      return vm.listItemRegex.test(rest) || vm.listIndentRegex.test(rest);
+      return vm.syntax.listItemRegex.test(rest) || vm.syntax.listIndentRegex.test(rest);
     }
 
-    function getCodeBlockClose(mdBuffer, blockType, codeRegexConfig) {
+    function getCodeBlockClose(
+      mdBuffer: string,
+      blockType: BlockType,
+      codeRegexConfig: CodeRegexConfig
+    ): CloseObject | undefined {
       let match;
       let ended;
 
@@ -3979,10 +4345,10 @@ class Store {
       const indentedCodeRegex = codeRegexConfig.indentedCodeRegex;
 
       if (blockType === "text") {
-        const interruptionMatch = mdBuffer.match(vm.interuptRegex);
+        const interruptionMatch = mdBuffer.match(vm.syntax.interuptRegex);
 
         if (interruptionMatch) {
-          const mdCloseEndIndex = interruptionMatch.index + 1; // End at \n
+          const mdCloseEndIndex = (interruptionMatch.index ?? 0) + 1; // End at \n
           return {
             close: true,
             md: mdBuffer.substring(0, mdCloseEndIndex),
@@ -3993,7 +4359,7 @@ class Store {
 
         match = mdBuffer.match(indentedCodeRegex);
         if (match) {
-          matchStart = match.index;
+          matchStart = match.index ?? 0;
           matchFinal = matchStart + match[0].length;
           return {
             close: true,
@@ -4023,7 +4389,7 @@ class Store {
               mdNext: "",
             };
           } else {
-            matchStart = match.index;
+            matchStart = match.index ?? 0;
             matchFinal = matchStart + match[0].length;
 
             const remainder = mdBuffer.substring(matchFinal);
@@ -4081,15 +4447,17 @@ class Store {
           }
         }
       }
+
+      return undefined;
     }
 
-    function indentedCodeBlockEnd(mdBuffer) {
+    function indentedCodeBlockEnd(mdBuffer: string): CloseObject {
       const lines = mdBuffer.split("\n");
       let blockLineCount = 0;
 
       for (const line of lines) {
-        const isBlank = vm.blankRegex.test(line);
-        const isIndented = vm.indentedRegex.test(line);
+        const isBlank = vm.syntax.blankRegex.test(line);
+        const isIndented = vm.syntax.indentedRegex.test(line);
 
         if (isBlank || isIndented) {
           blockLineCount++;
@@ -4120,7 +4488,7 @@ class Store {
     }
   }
 
-  generateCachedData() {
+  private generateCachedData(): ReactNode {
     const vm = this;
     if (!vm.cachedData) {
       return null;
@@ -4131,7 +4499,7 @@ class Store {
     }
   }
 
-  generateStreamData() {
+  private generateStreamData(): ReactNode {
     const vm = this;
     if (!vm.streamData) {
       return null;
@@ -4142,7 +4510,7 @@ class Store {
     }
   }
 
-  generateFootnoteData() {
+  private generateFootnoteData(): ReactNode {
     let i;
     let iCount;
 
@@ -4185,7 +4553,7 @@ class Store {
     }
   }
 
-  render() {
+  render(): ReactElement {
     const vm = this;
     const cachedData = vm.generateCachedData();
     const streamData = vm.generateStreamData();

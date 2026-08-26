@@ -3,6 +3,8 @@
  * Reimplemented here so the component stands on its own.
  */
 
+import type { Mermaid } from "mermaid";
+
 let counter = 0;
 
 /** Stable-enough id for keying rendered blocks. */
@@ -36,36 +38,48 @@ export function currentPath(): string {
   return typeof window === "undefined" ? "" : window.location.pathname;
 }
 
-type Handler = (payload?: unknown) => void;
+export interface AlertEvent {
+  type: "alertModal";
+  header: string;
+  content: string;
+  buttonText?: string;
+}
+
+interface RuntimeEventMap {
+  "fullscreen:change": boolean;
+  "show:modal": AlertEvent;
+}
+
+type RuntimeEvent = keyof RuntimeEventMap;
+type Handler<K extends RuntimeEvent> = (payload: RuntimeEventMap[K]) => void;
 
 /**
  * Minimal replacement for the host's event bus. The renderer only ever needed
  * to broadcast scroll and fullscreen changes between its own components.
  */
 class Emitter {
-  private handlers = new Map<string, Map<string, Handler>>();
+  private handlers: {
+    [K in RuntimeEvent]: Map<string, Handler<K>>;
+  } = {
+    "fullscreen:change": new Map(),
+    "show:modal": new Map(),
+  };
 
-  on(event: string, id: string, handler: Handler): void {
-    let forEvent = this.handlers.get(event);
-
-    if (!forEvent) {
-      forEvent = new Map();
-      this.handlers.set(event, forEvent);
-    }
+  on<K extends RuntimeEvent>(event: K, id: string, handler: Handler<K>): void {
+    const forEvent = this.handlers[event] as Map<string, Handler<K>>;
 
     forEvent.set(id, handler);
   }
 
-  off(event: string, id: string): void {
-    this.handlers.get(event)?.delete(id);
+  off<K extends RuntimeEvent>(event: K, id: string): void {
+    this.handlers[event]?.delete(id);
   }
 
-  dispatchObjectEvent(event: string, payload?: unknown): void {
-    const forEvent = this.handlers.get(event);
-
-    if (!forEvent) {
-      return;
-    }
+  dispatchObjectEvent<K extends RuntimeEvent>(
+    event: K,
+    payload: RuntimeEventMap[K]
+  ): void {
+    const forEvent = this.handlers[event] as Map<string, Handler<K>>;
 
     forEvent.forEach((handler) => {
       handler(payload);
@@ -99,14 +113,14 @@ export function onViewportScroll(handler: () => void): () => void {
 }
 
 /** Mermaid is heavy and rarely needed; load it only when a diagram appears. */
-let mermaidModule: unknown = null;
-let mermaidPromise: Promise<unknown> | null = null;
+let mermaidModule: Mermaid | null = null;
+let mermaidPromise: Promise<Mermaid> | null = null;
 
-export function getMermaidModule(): unknown {
+export function getMermaidModule(): Mermaid | null {
   return mermaidModule;
 }
 
-export function loadMermaidModule(): Promise<unknown> {
+export function loadMermaidModule(): Promise<Mermaid> {
   if (mermaidModule) {
     return Promise.resolve(mermaidModule);
   }

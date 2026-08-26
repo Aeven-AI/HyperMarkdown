@@ -1,5 +1,3 @@
-let Instance;
-
 // Everything the renderer knows about markdown syntax, in one place: the
 // patterns it matches against, and the normalisation that maps the notations
 // models emit for maths onto the "$"/"$$" remark-math understands.
@@ -10,50 +8,100 @@ let Instance;
 // execs. Anything stateful per renderer (the inline-token caches) stays on the
 // renderer itself.
 class MarkdownSyntax {
-  [key: string]: any;
+  readonly hrRegex: RegExp;
+  readonly pipeRegex: RegExp;
+  readonly closeRegex: RegExp;
+  readonly whiteRegex: RegExp;
+  readonly emptyRegex: RegExp;
+  readonly blankRegex: RegExp;
+  readonly hrCloseRegex: RegExp;
+  readonly fencedCloseRegex: RegExp;
+  readonly indentedRegex: RegExp;
+  readonly interuptRegex: RegExp;
+  readonly refRegex: RegExp;
+  readonly definitionRegex: RegExp;
+  readonly invalidTaskRegex: RegExp;
+  readonly escapedChar: RegExp;
+  readonly footnoteRegex: RegExp;
+  readonly footnoteDefRegex: RegExp;
+  readonly fencedCodeRegex: RegExp;
+  readonly indentedCodeRegex: RegExp;
+  readonly codeCachedInitRegex: RegExp;
+  readonly incompleteFenceRegex: RegExp;
+  readonly tableRendererInitRegex: RegExp;
+  readonly inlineLinkCloseRegex: RegExp;
+  readonly mathProtectedRegex: RegExp;
+  readonly mathSplitterRegex: RegExp;
+  readonly mathLooksLeftRegex: RegExp;
+  readonly mathLooksRightRegex: RegExp;
+  readonly mathSpaceRegex: RegExp;
+  readonly mathPendingTag: string;
+  readonly inlineTokens: string[];
+  readonly angleOpenRegex: RegExp;
+  readonly setextRegex: RegExp;
+  readonly trailingSpaceRegex: RegExp;
+  readonly emphasisTokenRegex: RegExp;
+  readonly rawTextTags: string[];
+  readonly partialRowRegex: RegExp;
+  readonly blankCharRegex: RegExp;
+  readonly definitionLineRegex: RegExp;
+  readonly blankOnlyRegex: RegExp;
+  readonly lineSplitRegex: RegExp;
+  readonly listMarkerRegex: RegExp;
+  readonly listIndentOnlyRegex: RegExp;
+  readonly listLooseRegex: RegExp;
+  readonly footnoteDefinitionRegex: RegExp;
+  readonly footnoteContinuationRegex: RegExp;
+  readonly fenceLineRegex: RegExp;
+  readonly partialFenceRegex: RegExp;
+  readonly fenceOnlyRegex: RegExp;
+  readonly punctuationRegex: RegExp;
+  readonly partialEntityRegex: RegExp;
+  readonly htmlBlockStartRegex: RegExp;
+  readonly htmlBlockTagRegex: RegExp;
+  readonly listItemRegex: RegExp;
+  readonly indentedFenceRegex: RegExp;
+  readonly listIndentRegex: RegExp;
+  readonly listPartialRegex: RegExp;
+  readonly markerOnlyRegex: RegExp;
+  readonly nestedMarkerRegex: RegExp;
 
   constructor() {
-    if (Instance) {
-      return Instance;
-    }
+    this.hrRegex = /\n[ \t]*([-*_]{1,2})[ \t]*$/;
+    this.pipeRegex = /(?<!\\)\|/g;
+    this.closeRegex = /(?<!\\)\|/;
 
-    Instance = this;
+    this.whiteRegex = /^\s*/;
+    this.emptyRegex = /(\s+)/g;
+    this.blankRegex = /^\s*$/;
 
-    Instance.hrRegex = /\n[ \t]*([-*_]{1,2})[ \t]*$/;
-    Instance.pipeRegex = /(?<!\\)\|/g;
-    Instance.closeRegex = /(?<!\\)\|/;
+    this.hrCloseRegex = /(?:^|\n)([ \t]*(?:([-_*])\2{2,}|[*_]{3,})[ \t]*\n)/;
+    this.fencedCloseRegex = /(```|~~~)[\s\S]*?\1/;
 
-    Instance.whiteRegex = /^\s*/;
-    Instance.emptyRegex = /(\s+)/g;
-    Instance.blankRegex = /^\s*$/;
+    this.indentedRegex = /^\t|^ {4,}/;
+    this.interuptRegex = /\n[ \t]*(?:```|~~~)/;
 
-    Instance.hrCloseRegex = /(?:^|\n)([ \t]*(?:([-_*])\2{2,}|[*_]{3,})[ \t]*\n)/;
-    Instance.fencedCloseRegex = /(```|~~~)[\s\S]*?\1/;
-
-    Instance.indentedRegex = /^\t|^ {4,}/;
-    Instance.interuptRegex = /\n[ \t]*(?:```|~~~)/;
-
-    Instance.refRegex = /\[[^\]]+\]\s*\[[^\]]*\]/;
-    Instance.definitionRegex = /^\s*\[[^\]]+\]:\s*(\S.*)?\n\n/m;
+    this.refRegex = /\[[^\]]+\]\s*\[[^\]]*\]/;
+    this.definitionRegex = /^\s*\[[^\]]+\]:\s*(\S.*)?\n\n/m;
 
     // The bullet may sit behind blockquote markers: "> - [x] ".
-    Instance.invalidTaskRegex =
+    this.invalidTaskRegex =
       /(^|\n)([\s>]*(?:\*|-|\+)\s+.*?)(\[[xX ]?|\[[xX ]\]\s*)$/;
 
-    Instance.escapedChar = /[.*+?^${}()|[\]\\]/g;
+    this.escapedChar = /[.*+?^${}()|[\]\\]/g;
 
-    Instance.footnoteRegex = /\[\^[^\]]+\]/g;
-    Instance.footnoteDefRegex = /^\s*\[\^[^\]]+\]:.*(?:\n(?:\s*$|\s+.*))*/gm;
+    this.footnoteRegex = /\[\^[^\]]+\]/g;
+    this.footnoteDefRegex = /^\s*\[\^[^\]]+\]:.*(?:\n(?:\s*$|\s+.*))*/gm;
 
-    Instance.fencedCodeRegex = /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*[\r\n]/;
-    Instance.indentedCodeRegex = /^([ \t]*\n)*([ \t]{4,}|[ \t]*\t)/;
-    Instance.codeCachedInitRegex = /^(?:```(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/;
-    Instance.incompleteFenceRegex = /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*$/;
-    Instance.tableRendererInitRegex =
+    this.fencedCodeRegex = /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*[\r\n]/;
+    this.indentedCodeRegex = /^([ \t]*\n)*([ \t]{4,}|[ \t]*\t)/;
+    this.codeCachedInitRegex = /^(?:```(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/;
+    this.incompleteFenceRegex = /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*$/;
+    this.tableRendererInitRegex =
       /^((?:[^\n]*\|[^\n]*\n)+(?:[ \t]*\|[ \t]*-+[ \t]*(?::[ \t]*-+[ \t]*)*[ \t]*\|[^\n]*\n(?:[^\n]*\|[^\n]*\n)+|(?:[^\n]*\|[^\n]*\n)+))/gm;
-    Instance.inlineLinkCloseRegex = /(?:^|\s)(!?\[[^\]]+\]\([^)]+?\))$/;
+    this.inlineLinkCloseRegex = /(?:^|\s)(!?\[[^\]]+\]\([^)]+?\))$/;
 
-    Instance.mathProtectedRegex = new RegExp(
+    this.mathProtectedRegex = new RegExp(
       "(" +
         [
           "```[\\s\\S]*?```",
@@ -67,80 +115,80 @@ class MarkdownSyntax {
         ")",
       "g"
     );
-    Instance.mathSplitterRegex = /(\$\$[\s\S]*?\$\$|\$[^$]*\$)/g;
-    Instance.mathLooksLeftRegex = /[\\](?:left|bigl|Bigl|biggl|Biggl)\s*$/;
-    Instance.mathLooksRightRegex = /^\s*[\\](?:right|bigr|Bigr|biggr|Biggr)/;
-    Instance.mathSpaceRegex = /\s/;
-    Instance.mathPendingTag = '<span class="math-pending"></span>';
+    this.mathSplitterRegex = /(\$\$[\s\S]*?\$\$|\$[^$]*\$)/g;
+    this.mathLooksLeftRegex = /[\\](?:left|bigl|Bigl|biggl|Biggl)\s*$/;
+    this.mathLooksRightRegex = /^\s*[\\](?:right|bigr|Bigr|biggr|Biggr)/;
+    this.mathSpaceRegex = /\s/;
+    this.mathPendingTag = '<span class="math-pending"></span>';
 
     // "*" and "_" are handled by fixEmphasis, which matches them as runs.
-    Instance.inlineTokens = ["~~", "~", "`"];
+    this.inlineTokens = ["~~", "~", "`"];
 
     // Characters that can follow "<" in a tag, comment or angle autolink.
-    Instance.angleOpenRegex = /[A-Za-z!/?]/;
+    this.angleOpenRegex = /[A-Za-z!/?]/;
 
     // A line made only of "-" or "=" underlines the line above it.
-    Instance.setextRegex = /^[ \t]*(?:-+|=+)[ \t]*$/;
+    this.setextRegex = /^[ \t]*(?:-+|=+)[ \t]*$/;
 
-    Instance.trailingSpaceRegex = /\s+$/;
-    Instance.emphasisTokenRegex = /^[*_~]+$/;
+    this.trailingSpaceRegex = /\s+$/;
+    this.emphasisTokenRegex = /^[*_~]+$/;
 
     // Elements whose children must stay plain text.
-    Instance.rawTextTags = ["script", "style", "textarea", "title"];
+    this.rawTextTags = ["script", "style", "textarea", "title"];
 
     // A row made only of pipes, colons and dashes: a delimiter still arriving.
-    Instance.partialRowRegex = /^[ \t]{0,3}\|[ \t:|-]*$/;
-    Instance.blankCharRegex = /[ \t\r\n]/;
+    this.partialRowRegex = /^[ \t]{0,3}\|[ \t:|-]*$/;
+    this.blankCharRegex = /[ \t\r\n]/;
 
     // "[label]:" or "[^note]:" starting a line — a link or footnote definition.
-    Instance.definitionLineRegex = /^[ \t]{0,3}\[[^\]]+\]:/;
-    Instance.blankOnlyRegex = /^[ \t]*$/;
-    Instance.lineSplitRegex = /\r\n?|\n/;
+    this.definitionLineRegex = /^[ \t]{0,3}\[[^\]]+\]:/;
+    this.blankOnlyRegex = /^[ \t]*$/;
+    this.lineSplitRegex = /\r\n?|\n/;
 
     // A top-level list item, and the marker family it belongs to.
-    Instance.listMarkerRegex = /^[ \t]*([-*+]|\d{1,9}[.)])[ \t]/;
-    Instance.listIndentOnlyRegex = /^[ \t]*/;
+    this.listMarkerRegex = /^[ \t]*([-*+]|\d{1,9}[.)])[ \t]/;
+    this.listIndentOnlyRegex = /^[ \t]*/;
     // A blank line with content after it makes a list loose, so its items
     // wrap their contents in a paragraph.
-    Instance.listLooseRegex = /\n[ \t]*\n[\s\S]*\S/;
+    this.listLooseRegex = /\n[ \t]*\n[\s\S]*\S/;
 
     // A footnote definition line, and the indented lines that continue one.
-    Instance.footnoteDefinitionRegex = /^[ \t]{0,3}\[\^[^\]]+\]:/;
-    Instance.footnoteContinuationRegex = /^(?:\t|[ \t]{4,})/;
-    Instance.fenceLineRegex = /^[ \t]{0,3}(?:`{3,}|~{3,})/m;
-    Instance.partialFenceRegex = /^[ \t]{0,3}(?:`{1,2}|~{1,2})$/;
-    Instance.fenceOnlyRegex = /^[ \t]{0,3}(?:`{3,}|~{3,})[ \t]*\n?$/;
-    Instance.punctuationRegex = /[!-/:-@[-`{-~]/;
-    Instance.partialEntityRegex = /&[a-zA-Z0-9#]*$/;
+    this.footnoteDefinitionRegex = /^[ \t]{0,3}\[\^[^\]]+\]:/;
+    this.footnoteContinuationRegex = /^(?:\t|[ \t]{4,})/;
+    this.fenceLineRegex = /^[ \t]{0,3}(?:`{3,}|~{3,})/m;
+    this.partialFenceRegex = /^[ \t]{0,3}(?:`{1,2}|~{1,2})$/;
+    this.fenceOnlyRegex = /^[ \t]{0,3}(?:`{3,}|~{3,})[ \t]*\n?$/;
+    this.punctuationRegex = /[!-/:-@[-`{-~]/;
+    this.partialEntityRegex = /&[a-zA-Z0-9#]*$/;
 
     // A line holding only a tag or a comment opens a raw HTML block.
-    Instance.htmlBlockStartRegex =
+    this.htmlBlockStartRegex =
       /^[ \t]{0,3}(?:<!--|<\/?[A-Za-z][\w:-]*(?:\s[^<>]*?)?\/?>[ \t]*$)/;
 
     // CommonMark type 6: these tags open a raw block even when other
     // content follows them on the same line.
-    Instance.htmlBlockTagRegex = new RegExp(
+    this.htmlBlockTagRegex = new RegExp(
       "^[ \\t]{0,3}</?(?:" + "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|script|search|section|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|ul" + ")(?:[ \\t/>]|$)",
       "i"
     );
 
     // Does the text after a blank line still belong to the list above it?
-    Instance.listItemRegex = /^[ \t]{0,3}(?:[-*+]|\d{1,9}[.)])[ \t]/;
-    Instance.indentedFenceRegex = /^[ \t]*(?:`{3,}|~{3,})/;
-    Instance.listIndentRegex = /^(?:[ \t]{2,}|\t)/;
-    Instance.listPartialRegex = /^[ \t]{0,3}(?:[-*+]|\d{1,9}[.)]?)?[ \t]*$/;
+    this.listItemRegex = /^[ \t]{0,3}(?:[-*+]|\d{1,9}[.)])[ \t]/;
+    this.indentedFenceRegex = /^[ \t]*(?:`{3,}|~{3,})/;
+    this.listIndentRegex = /^(?:[ \t]{2,}|\t)/;
+    this.listPartialRegex = /^[ \t]{0,3}(?:[-*+]|\d{1,9}[.)]?)?[ \t]*$/;
 
     // A list marker on a line by itself, with its item text still to come.
     // The marker may sit behind blockquote markers: "> 1.".
-    Instance.markerOnlyRegex = /^[ \t>]*(?:[-*+]|\d{1,9}[.)]?)[ \t]*$/;
-    Instance.nestedMarkerRegex =
+    this.markerOnlyRegex = /^[ \t>]*(?:[-*+]|\d{1,9}[.)]?)[ \t]*$/;
+    this.nestedMarkerRegex =
       /((?:^|\n)[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)(?:[-*+]|\d{1,9}[.)]?)[ \t]*$/;
-
-
-    return Instance;
   }
 
-  convertMath(mdBuffer, blockType) {
+  convertMath(
+    mdBuffer: string | null | undefined,
+    blockType?: string
+  ): string | null | undefined {
     const vm = this;
 
     const tokens = vm.mathProtectedRegex;
@@ -172,7 +220,7 @@ class MarkdownSyntax {
       }
     }
 
-    function transformUnsafe(text) {
+    function transformUnsafe(text: string): string {
       // TeX display "\[ … \]", only when the delimiters sit on their own lines
       text = text.replace(
         /(?<!\\)\\\[\s*\r?\n([\s\S]*?)\r?\n\s*\\\](?!\])/g,
@@ -194,7 +242,7 @@ class MarkdownSyntax {
       return convertInlineOutsideMath(text);
     }
 
-    function convertInlineOutsideMath(text) {
+    function convertInlineOutsideMath(text: string): string {
       if (mathSplitter) {
         mathSplitter.lastIndex = 0;
       }

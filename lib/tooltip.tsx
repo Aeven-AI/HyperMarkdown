@@ -6,17 +6,18 @@ import {
   useImperativeHandle,
   useRef,
   type ReactElement,
+  type Ref,
 } from "react";
 
 import tippy, { type Instance, type Placement } from "tippy.js";
 
 export interface TooltipProps {
-  content?: string;
-  placement?: Placement;
-  trigger?: string;
-  touch?: boolean;
-  arrow?: boolean;
-  children?: ReactElement;
+  content?: string | undefined;
+  placement?: Placement | undefined;
+  trigger?: string | undefined;
+  touch?: boolean | undefined;
+  arrow?: boolean | undefined;
+  children?: ReactElement<{ ref?: Ref<Element> }> | undefined;
 }
 
 export interface TooltipHandle {
@@ -45,7 +46,7 @@ const Tooltip = forwardRef<TooltipHandle, TooltipProps>(function Tooltip(
   }, []);
 
   useEffect(() => {
-    let instance;
+    let instance: Instance;
 
     const reference = referenceRef.current;
 
@@ -55,9 +56,9 @@ const Tooltip = forwardRef<TooltipHandle, TooltipProps>(function Tooltip(
 
     instance = tippy(reference, {
       content: content ?? "",
-      placement,
-      touch,
-      arrow,
+      placement: placement ?? "top",
+      touch: touch ?? true,
+      arrow: arrow ?? true,
       trigger: manual ? "manual" : trigger ?? "mouseenter",
     });
     instanceRef.current = instance;
@@ -71,9 +72,9 @@ const Tooltip = forwardRef<TooltipHandle, TooltipProps>(function Tooltip(
   useEffect(() => {
     instanceRef.current?.setProps({
       content: content ?? "",
-      placement,
-      touch,
-      arrow,
+      placement: placement ?? "top",
+      touch: touch ?? true,
+      arrow: arrow ?? true,
       trigger: manual ? "manual" : trigger ?? "mouseenter",
     });
   }, [arrow, content, manual, placement, touch, trigger]);
@@ -95,10 +96,7 @@ const Tooltip = forwardRef<TooltipHandle, TooltipProps>(function Tooltip(
     return null;
   }
 
-  return cloneElement(
-    children as ReactElement<{ ref?: (element: Element | null) => void }>,
-    { ref: setReference }
-  );
+  return cloneElement(children, { ref: setReference });
 });
 
 Tooltip.displayName = "Tooltip";

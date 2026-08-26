@@ -29,9 +29,10 @@ const HEADER_MIN_VISIBLE = 106;
 
 interface TableHeaderProps {
   /** True while the table is still being streamed in. */
-  stream?: boolean;
+  stream?: boolean | undefined;
   tableRef: RefObject<HTMLTableElement | null>;
   wrapperRef: RefObject<HTMLDivElement | null>;
+  fullscreen: boolean;
   /** Tells the wrapper the header toggled fullscreen. */
   onToggleFullScreen?: (fullscreen: boolean) => void;
 }
@@ -41,18 +42,13 @@ interface TableHeaderProps {
  * class that flattens it once the table starts leaving the viewport.
  */
 function TableHeaderComponent(props: TableHeaderProps) {
-  const { stream, tableRef, wrapperRef, onToggleFullScreen } = props;
-
-  const [fullscreen, setFullscreen] = useState(false);
+  const { stream, tableRef, wrapperRef, fullscreen, onToggleFullScreen } = props;
 
   const headerRef = useRef<HTMLDivElement | null>(null);
   const tippyCopyRef = useRef<TooltipHandle | null>(null);
 
   // The scroll handler is registered once but reads the current fullscreen
   // value, so it goes through a ref rather than the closed-over state.
-  const fullscreenRef = useRef(fullscreen);
-  fullscreenRef.current = fullscreen;
-
   const tickingRef = useRef(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
@@ -75,7 +71,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
         return;
       }
 
-      if (fullscreenRef.current === true || !wrapper) {
+      if (fullscreen === true || !wrapper) {
         header.classList.remove("scroll");
         return;
       }
@@ -90,7 +86,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
         header.classList.remove("scroll");
       }
     });
-  }, [wrapperRef]);
+  }, [fullscreen, wrapperRef]);
 
   useEffect(() => {
     updateHeaderScrollClass();
@@ -132,21 +128,17 @@ function TableHeaderComponent(props: TableHeaderProps) {
 
   const toggleFullScreen = useCallback(
     (event: React.MouseEvent) => {
+      let next;
+
       event.preventDefault();
       event.stopPropagation();
 
-      setFullscreen((current) => {
-        const next = current !== true;
+      next = fullscreen !== true;
 
-        if (onToggleFullScreen) {
-          onToggleFullScreen(next);
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", next);
-        }
-
-        return next;
-      });
+      onToggleFullScreen?.(next);
+      runtime.emitter.dispatchObjectEvent("fullscreen:change", next);
     },
-    [onToggleFullScreen]
+    [fullscreen, onToggleFullScreen]
   );
 
   const copyLabel =
@@ -167,6 +159,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
             content={"Full screen"}
           >
             <button
+              type="button"
               className="table-icon-button first"
               onClick={toggleFullScreen}
             >
@@ -195,6 +188,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
                 trigger={"mouseenter"}
               >
                 <button
+                  type="button"
                   className="table-icon-button last"
                   onClick={copyContent}
                 >
@@ -220,7 +214,12 @@ function TableHeaderComponent(props: TableHeaderProps) {
 
 const TableHeader = memo(
   TableHeaderComponent,
-  (prev, next) => prev.stream === next.stream && prev.tableRef === next.tableRef
+  (prev, next) =>
+    prev.stream === next.stream &&
+    prev.fullscreen === next.fullscreen &&
+    prev.tableRef === next.tableRef &&
+    prev.wrapperRef === next.wrapperRef &&
+    prev.onToggleFullScreen === next.onToggleFullScreen
 );
 
 TableHeader.displayName = "TableHeader";
@@ -230,6 +229,10 @@ interface TableShape {
   headless: boolean;
   /** Widest header seen so far, used for the column-count style hooks. */
   headerColumns: number;
+}
+
+interface TableElementProps {
+  children?: ReactNode;
 }
 
 /**
@@ -256,25 +259,33 @@ function readTableShape(
   // A header with no rows is a single child, and a one-column header row a
   // single cell. React hands those over unwrapped, so counting by .length
   // silently skips the table and leaves it looking headless.
-  const tableChildren = React.Children.toArray(children) as ReactElement<any>[];
+  const tableChildren = React.Children.toArray(children).filter(
+    isTableElement
+  );
 
   for (let i = 0, iCount = tableChildren.length; i < iCount; i++) {
     const child = tableChildren[i];
 
+    if (!child) {
+      continue;
+    }
+
     if (child.type === "thead") {
-      const headRow = React.Children.toArray(
-        child.props.children
-      )[0] as ReactElement<any> | undefined;
+      const headRow = React.Children.toArray(child.props.children).find(
+        isTableElement
+      );
 
       const headCells = headRow
-        ? (React.Children.toArray(headRow.props.children) as ReactElement<any>[])
+        ? React.Children.toArray(headRow.props.children).filter(isTableElement)
         : [];
 
       for (let j = 0, jCount = headCells.length; j < jCount; j++) {
-        if (headCells[j].type === "th") {
+        const cell = headCells[j];
+
+        if (cell?.type === "th") {
           headerColumns++;
 
-          if (headCells[j]?.props?.children) {
+          if (cell.props.children) {
             headless = false;
           }
         }
@@ -300,12 +311,18 @@ function readTableShape(
       columnsSettled.current = true;
     }
   }
+
+  function isTableElement(
+    node: ReactNode
+  ): node is ReactElement<TableElementProps> {
+    return React.isValidElement<TableElementProps>(node);
+  }
 }
 
 export interface MarkdownTableProps
   extends React.TableHTMLAttributes<HTMLTableElement> {
   /** True while rows are still arriving. */
-  stream?: boolean;
+  stream?: boolean | undefined;
   /** Passed in by the renderer; not a DOM attribute. */
   renderer?: unknown;
   /** Passed in by the renderer; not a DOM attribute. */
@@ -395,6 +412,7 @@ function MarkdownTableComponent(props: MarkdownTableProps) {
           stream={stream}
           tableRef={tableRef}
           wrapperRef={wrapperRef}
+          fullscreen={fullscreen}
           onToggleFullScreen={onToggleFullScreen}
         />
         <div className="table-content">

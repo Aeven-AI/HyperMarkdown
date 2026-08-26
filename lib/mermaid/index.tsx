@@ -1,44 +1,49 @@
-import React, { Component } from "react";
+import React, {
+  Component,
+  type MouseEvent,
+  type RefObject,
+} from "react";
+
+import type { Mermaid, RenderResult } from "mermaid";
 
 import * as runtime from "../platform/runtime";
 
-import Tooltip from "../tooltip";
+import Tooltip, { type TooltipHandle } from "../tooltip";
 
+interface HeaderProps {
+  stream?: boolean | string | undefined;
+  chart: string;
+  fullscreen: boolean;
+  wrapperRef: RefObject<HTMLDivElement | null>;
+  toggleFullScreen(fullscreen: boolean): void;
+}
 
+class Header extends Component<HeaderProps> {
+  private ticking = false;
+  private tippyCopyTimeout: ReturnType<typeof setTimeout> | undefined;
+  private readonly headerRef = React.createRef<HTMLDivElement>();
+  private readonly tippyFullScreenRef = React.createRef<TooltipHandle>();
+  private readonly tippyCopyContentRef = React.createRef<TooltipHandle>();
+  private stopWatchingScroll: (() => void) | undefined;
 
-class Header extends Component<any, any> {
-  [key: string]: any;
-
-  constructor(props) {
+  constructor(props: HeaderProps) {
     super(props);
-
-    this.state = {
-      fullscreen: false,
-    };
-
-    this.ticking = false;
-    this.tippyCopyTimeout = null;
-
-    this.headerRef = React.createRef();
-
-    this.tippyFullScreenRef = React.createRef();
-    this.tippyCopyContentRef = React.createRef();
 
     this.copyContent = this.copyContent.bind(this);
     this.toggleFullScreen = this.toggleFullScreen.bind(this);
     this.updateHeaderScrollClass = this.updateHeaderScrollClass.bind(this);
   }
 
-  componentDidMount() {
+  override componentDidMount() {
     const vm = this;
     vm.updateHeaderScrollClass();
     vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
+  override shouldComponentUpdate(nextProps: HeaderProps) {
     const vm = this;
 
-    if (checkProps() === true || checkState() === true) {
+    if (checkProps() === true) {
       return true;
     } else {
       return false;
@@ -47,7 +52,8 @@ class Header extends Component<any, any> {
     function checkProps() {
       if (
         vm.props.stream !== nextProps.stream ||
-        vm.props.mermaidRef !== nextProps.mermaidRef
+        vm.props.chart !== nextProps.chart ||
+        vm.props.fullscreen !== nextProps.fullscreen
       ) {
         return true;
       } else {
@@ -55,16 +61,9 @@ class Header extends Component<any, any> {
       }
     }
 
-    function checkState() {
-      if (vm.state.fullscreen !== nextState.fullscreen) {
-        return true;
-      } else {
-        return false;
-      }
-    }
   }
 
-  copyContent(event) {
+  copyContent(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -92,31 +91,21 @@ class Header extends Component<any, any> {
     }
   }
 
-  toggleFullScreen(event) {
+  toggleFullScreen(event: MouseEvent<HTMLButtonElement>) {
+    let fullscreen;
+
     event.preventDefault();
     event.stopPropagation();
 
     const vm = this;
     const props = vm.props;
 
-    if (vm.state.fullscreen !== true) {
-      vm.setState({ fullscreen: true }, () => {
-        if (props?.toggleFullScreen) {
-          props.toggleFullScreen(true);
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", true);
-        }
-      });
-    } else {
-      vm.setState({ fullscreen: false }, () => {
-        if (props?.toggleFullScreen) {
-          props.toggleFullScreen(false);
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", false);
-        }
-      });
-    }
+    fullscreen = props.fullscreen !== true;
+    props.toggleFullScreen(fullscreen);
+    runtime.emitter.dispatchObjectEvent("fullscreen:change", fullscreen);
   }
 
-  updateHeaderScrollClass(_event?: any) {
+  updateHeaderScrollClass() {
     const vm = this;
 
     if (vm.ticking !== true) {
@@ -127,7 +116,7 @@ class Header extends Component<any, any> {
 
         const wrapper = vm.props?.wrapperRef?.current;
 
-        if (vm.state.fullscreen === true) {
+        if (vm.props.fullscreen === true) {
           vm.headerRef?.current?.classList?.remove("scroll");
         } else {
           if (wrapper) {
@@ -154,12 +143,12 @@ class Header extends Component<any, any> {
     }
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     const vm = this;
     vm.stopWatchingScroll?.();
   }
 
-  render() {
+  override render() {
     let title;
     let tippyCopyTxt;
     let iconFullScreen;
@@ -170,11 +159,11 @@ class Header extends Component<any, any> {
     title = "Diagram";
 
     tippyCopyTxt = "Code copied";
-    if (props.stream === "true") {
+    if (props.stream === true || props.stream === "true") {
       tippyCopyTxt = "Code partially copied";
     }
 
-    if (vm.state.fullscreen === true) {
+    if (props.fullscreen === true) {
       iconFullScreen =
         '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="minimize2-icon minimize-2"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>';
     } else {
@@ -198,6 +187,7 @@ class Header extends Component<any, any> {
               content={"Full screen"}
             >
               <button
+                type="button"
                 className="mermaid-icon-button first"
                 onClick={vm.toggleFullScreen}
               >
@@ -226,6 +216,7 @@ class Header extends Component<any, any> {
                   trigger={"mouseenter"}
                 >
                   <button
+                    type="button"
                     className="mermaid-icon-button last"
                     onClick={vm.copyContent}
                   >
@@ -253,41 +244,52 @@ class Header extends Component<any, any> {
   }
 }
 
-class MermaidDiagram extends Component<any, any> {
-  [key: string]: any;
+export interface MermaidDiagramProps {
+  chart: string;
+  stream?: boolean | string | undefined;
+  renderer?: unknown;
+  scrollDown?: (() => void) | undefined;
+}
 
-  constructor(props) {
+interface MermaidDiagramState {
+  data: RenderResult | null;
+  fullscreen: boolean;
+}
+
+class MermaidDiagram extends Component<
+  MermaidDiagramProps,
+  MermaidDiagramState
+> {
+  private readonly mermaidRef = React.createRef<HTMLDivElement>();
+  private readonly wrapperRef = React.createRef<HTMLDivElement>();
+  private readonly mermaidSandboxes = new Set<HTMLDivElement>();
+  private userScroll = false;
+  private readonly scrollMargin = 100;
+  private currentScrollHeight = 0;
+  private mounted = false;
+
+  constructor(props: MermaidDiagramProps) {
     super(props);
 
     this.state = {
       data: null,
-      loading: true,
       fullscreen: false,
     };
-
-    this.guid = runtime.guid();
-
-    this.mermaidRef = React.createRef();
-    this.wrapperRef = React.createRef();
-
-    this.mermaidSandboxes = new Set();
 
     this.toggleFullScreen = this.toggleFullScreen.bind(this);
 
     this.scrollDown = this.scrollDown.bind(this);
     this.scrollDownListener = this.scrollDownListener.bind(this);
 
-    this.updateHeaderScrollClass = this.updateHeaderScrollClass.bind(this);
   }
 
-  componentDidMount() {
+  override componentDidMount() {
     const vm = this;
+    vm.mounted = true;
     vm.renderMermaidDiagram();
-    vm.updateHeaderScrollClass();
-    vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
   }
 
-  componentDidUpdate(prevProps) {
+  override componentDidUpdate(prevProps: Readonly<MermaidDiagramProps>) {
     const vm = this;
 
     if (vm.state.fullscreen === true) {
@@ -299,21 +301,26 @@ class MermaidDiagram extends Component<any, any> {
     }
   }
 
-  toggleFullScreen(fullscreen) {
+  toggleFullScreen(fullscreen: boolean) {
+    let wrapper;
+
     const vm = this;
     vm.setState({ fullscreen: fullscreen }, () => {
+      wrapper = vm.wrapperRef.current;
+
+      if (!wrapper) {
+        return;
+      }
+
       if (vm.state.fullscreen === true) {
-        vm.wrapperRef.current.addEventListener("scroll", vm.scrollDownListener);
+        wrapper.addEventListener("scroll", vm.scrollDownListener);
       } else {
-        vm.wrapperRef.current.removeEventListener(
-          "scroll",
-          vm.scrollDownListener
-        );
+        wrapper.removeEventListener("scroll", vm.scrollDownListener);
       }
     });
   }
 
-  renderSandbox() {
+  renderSandbox(): HTMLDivElement | null {
     let sandbox;
 
     const vm = this;
@@ -332,10 +339,12 @@ class MermaidDiagram extends Component<any, any> {
     }
   }
 
-  removeSandbox(sandbox?: any) {
+  removeSandbox(sandbox?: HTMLDivElement | null) {
+    let targets: HTMLDivElement[];
+
     const vm = this;
 
-    let targets: any[] = [];
+    targets = [];
 
     if (sandbox && vm.mermaidSandboxes?.has(sandbox)) {
       targets = [sandbox];
@@ -358,6 +367,8 @@ class MermaidDiagram extends Component<any, any> {
   }
 
   renderMermaidDiagram() {
+    let sandbox: HTMLDivElement | null;
+
     const vm = this;
     const props = vm.props;
 
@@ -366,7 +377,11 @@ class MermaidDiagram extends Component<any, any> {
     const mermaidModule = runtime.getMermaidModule();
     const loadMermaidModule = runtime.loadMermaidModule;
 
-    const sandbox = vm.renderSandbox();
+    if (chart === "") {
+      return;
+    }
+
+    sandbox = vm.renderSandbox();
 
     if (!mermaidModule) {
       loadModule();
@@ -384,7 +399,10 @@ class MermaidDiagram extends Component<any, any> {
         });
     }
 
-    function renderMermaidDiagram(mermaid, renderSandboxRef) {
+    function renderMermaidDiagram(
+      mermaid: Mermaid,
+      renderSandboxRef: HTMLDivElement | null
+    ) {
       const hash = chart.split("").reduce((acc, char) => {
         return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
       }, 0);
@@ -395,32 +413,35 @@ class MermaidDiagram extends Component<any, any> {
 
       mermaid
         .render(uniqueId, chart, renderSandboxRef || undefined)
-        .then((data) => {
+        .then((data: RenderResult) => {
           vm.removeSandbox(renderSandboxRef);
 
-          vm.setState({ data: data, loading: false }, () => {
-            if (props.scrollDown) {
-              props.scrollDown();
-            }
-          });
+          if (vm.mounted === true) {
+            vm.setState({ data: data }, () => {
+              props.scrollDown?.();
+            });
+          }
         })
-        .catch((_dataError) => {
+        .catch(() => {
           vm.removeSandbox(renderSandboxRef);
         });
     }
   }
 
   scrollDown() {
-    const vm = this;
+    let wrapper;
 
-    if (vm.userScroll !== true) {
-      if (vm.currentScrollHeight !== vm.wrapperRef.current.scrollHeight) {
-        vm.wrapperRef.current.scrollTo({
-          top: vm.wrapperRef.current.scrollHeight,
+    const vm = this;
+    wrapper = vm.wrapperRef.current;
+
+    if (wrapper && vm.userScroll !== true) {
+      if (vm.currentScrollHeight !== wrapper.scrollHeight) {
+        wrapper.scrollTo({
+          top: wrapper.scrollHeight,
           behavior: "instant",
         });
 
-        vm.currentScrollHeight = vm.wrapperRef.current.scrollHeight;
+        vm.currentScrollHeight = wrapper.scrollHeight;
       }
     }
   }
@@ -431,10 +452,15 @@ class MermaidDiagram extends Component<any, any> {
     let clientHeight;
 
     const vm = this;
+    const wrapper = vm.wrapperRef.current;
 
-    scrollTop = vm.wrapperRef.current.scrollTop;
-    scrollHeight = vm.wrapperRef.current.scrollHeight;
-    clientHeight = vm.wrapperRef.current.clientHeight;
+    if (!wrapper) {
+      return;
+    }
+
+    scrollTop = wrapper.scrollTop;
+    scrollHeight = wrapper.scrollHeight;
+    clientHeight = wrapper.clientHeight;
 
     if (scrollTop + clientHeight <= scrollHeight - vm.scrollMargin) {
       vm.userScroll = true;
@@ -443,46 +469,9 @@ class MermaidDiagram extends Component<any, any> {
     }
   }
 
-  updateHeaderScrollClass(_event?: any) {
+  override componentWillUnmount() {
     const vm = this;
-
-    if (vm.ticking !== true) {
-      requestAnimationFrame(() => {
-        let rec;
-        let top;
-        let height;
-
-        const wrapper = vm.props?.wrapperRef?.current;
-
-        if (vm.state.fullscreen === true) {
-          vm.headerRef?.current?.classList?.remove("scroll");
-        } else {
-          if (wrapper) {
-            rec = wrapper.getBoundingClientRect();
-            top = rec?.top || 0;
-            height = rec?.height || 0;
-
-            if (top >= 56) {
-              vm.headerRef?.current?.classList?.remove("scroll");
-            } else {
-              if (height + top > 106) {
-                vm.headerRef?.current?.classList?.add("scroll");
-              } else {
-                vm.headerRef?.current?.classList?.remove("scroll");
-              }
-            }
-          }
-        }
-
-        vm.ticking = false;
-      });
-
-      vm.ticking = true;
-    }
-  }
-
-  componentWillUnmount() {
-    const vm = this;
+    vm.mounted = false;
     if (vm.wrapperRef?.current) {
       vm.wrapperRef.current.removeEventListener(
         "scroll",
@@ -493,7 +482,7 @@ class MermaidDiagram extends Component<any, any> {
     vm.removeSandbox();
   }
 
-  render() {
+  override render() {
     let svg;
 
     let stream;
@@ -504,9 +493,9 @@ class MermaidDiagram extends Component<any, any> {
     const props = vm.props;
     const state = vm.state;
 
-    svg = state.data?.svg;
+    svg = state.data?.svg ?? "";
 
-    if (props.stream !== "true") {
+    if (props.stream !== true && props.stream !== "true") {
       stream = "";
     } else {
       stream = " stream-active";
@@ -527,8 +516,8 @@ class MermaidDiagram extends Component<any, any> {
           <Header
             stream={props.stream}
             chart={props.chart}
-            mermaidRef={vm.mermaidRef}
             wrapperRef={vm.wrapperRef}
+            fullscreen={state.fullscreen}
             toggleFullScreen={vm.toggleFullScreen}
           />
           <div className="mermaid-content">

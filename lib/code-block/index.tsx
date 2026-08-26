@@ -1,29 +1,40 @@
-import React, { Component, PureComponent } from "react";
+import React, {
+  Component,
+  PureComponent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import * as runtime from "../platform/runtime";
-import Tooltip from "../tooltip";
+import Tooltip, { type TooltipHandle } from "../tooltip";
 
+interface CodeElementProps {
+  className?: string;
+  children?: ReactNode;
+}
 
+interface HeaderProps {
+  stream?: boolean | undefined;
+  language: string;
+  fullscreen: boolean;
+  codeRef: RefObject<HTMLDivElement | null>;
+  wrapperRef: RefObject<HTMLDivElement | null>;
+  toggleFullScreen(fullscreen: boolean): void;
+}
 
-class Header extends Component<any, any> {
-  [key: string]: any;
+class Header extends Component<HeaderProps> {
+  private ticking = false;
+  private tippyCopyTimeout: ReturnType<typeof setTimeout> | undefined;
+  private readonly guid = runtime.guid();
+  private readonly headerRef = React.createRef<HTMLDivElement>();
+  private readonly tippyFullScreenRef = React.createRef<TooltipHandle>();
+  private readonly tippyCopyContentRef = React.createRef<TooltipHandle>();
+  private stopWatchingScroll: (() => void) | undefined;
 
-  constructor(props) {
+  constructor(props: HeaderProps) {
     super(props);
-
-    this.state = {
-      fullscreen: false,
-    };
-
-    this.ticking = false;
-    this.tippyCopyTimeout = null;
-
-    this.guid = runtime.guid();
-
-    this.headerRef = React.createRef();
-
-    this.tippyFullScreenRef = React.createRef();
-    this.tippyCopyContentRef = React.createRef();
 
     this.copyContent = this.copyContent.bind(this);
     this.openPreviewCode = this.openPreviewCode.bind(this);
@@ -34,16 +45,16 @@ class Header extends Component<any, any> {
     this.previewButtonComponent = this.previewButtonComponent.bind(this);
   }
 
-  componentDidMount() {
+  override componentDidMount() {
     const vm = this;
     vm.updateHeaderScrollClass();
     vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
+  override shouldComponentUpdate(nextProps: HeaderProps) {
     const vm = this;
 
-    if (checkProps() === true || checkState() === true) {
+    if (checkProps() === true) {
       return true;
     } else {
       return false;
@@ -53,7 +64,8 @@ class Header extends Component<any, any> {
       if (
         vm.props.stream !== nextProps.stream ||
         vm.props.codeRef !== nextProps.codeRef ||
-        vm.props.language !== nextProps.language
+        vm.props.language !== nextProps.language ||
+        vm.props.fullscreen !== nextProps.fullscreen
       ) {
         return true;
       } else {
@@ -61,16 +73,9 @@ class Header extends Component<any, any> {
       }
     }
 
-    function checkState() {
-      if (vm.state.fullscreen !== nextState.fullscreen) {
-        return true;
-      } else {
-        return false;
-      }
-    }
   }
 
-  copyContent(event) {
+  copyContent(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -99,7 +104,7 @@ class Header extends Component<any, any> {
     }
   }
 
-  openPreviewCode(event) {
+  openPreviewCode(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -132,41 +137,25 @@ class Header extends Component<any, any> {
     }
   }
 
-  toggleFullScreen(event) {
+  toggleFullScreen(event: MouseEvent<HTMLButtonElement>) {
+    let fullscreen;
+
     event.preventDefault();
     event.stopPropagation();
 
     const vm = this;
     const props = vm.props;
 
-    if (vm.state.fullscreen !== true) {
-      vm.setState({ fullscreen: true }, () => {
-        if (props?.toggleFullScreen) {
-          props.toggleFullScreen(true);
+    fullscreen = props.fullscreen !== true;
+    props.toggleFullScreen(fullscreen);
+    runtime.emitter.dispatchObjectEvent("fullscreen:change", fullscreen);
 
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", true);
-
-          setTimeout(() => {
-            vm.updateHeaderScrollClass();
-          }, 0);
-        }
-      });
-    } else {
-      vm.setState({ fullscreen: false }, () => {
-        if (props?.toggleFullScreen) {
-          props.toggleFullScreen(false);
-
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", false);
-
-          setTimeout(() => {
-            vm.updateHeaderScrollClass();
-          }, 0);
-        }
-      });
-    }
+    setTimeout(() => {
+      vm.updateHeaderScrollClass();
+    }, 0);
   }
 
-  updateHeaderScrollClass(_event?: any) {
+  updateHeaderScrollClass() {
     const vm = this;
 
     if (vm.ticking !== true) {
@@ -177,7 +166,7 @@ class Header extends Component<any, any> {
 
         const wrapper = vm.props.wrapperRef?.current;
 
-        if (vm.state.fullscreen === true) {
+        if (vm.props.fullscreen === true) {
           vm.headerRef?.current?.classList?.remove("scroll");
         } else {
           if (wrapper) {
@@ -204,7 +193,7 @@ class Header extends Component<any, any> {
     }
   }
 
-  previewButtonComponent(props) {
+  previewButtonComponent(props: HeaderProps) {
     const vm = this;
     const language = props.language;
     if (language !== "html") {
@@ -219,6 +208,7 @@ class Header extends Component<any, any> {
           content={"Preview"}
         >
           <button
+            type="button"
             className="codeblock-icon-button first"
             onClick={(event) => {
               vm.openPreviewCode(event);
@@ -239,12 +229,12 @@ class Header extends Component<any, any> {
     }
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     const vm = this;
     vm.stopWatchingScroll?.();
   }
 
-  render() {
+  override render() {
     let tippyCopyTxt;
     let iconFullScreen;
 
@@ -259,7 +249,7 @@ class Header extends Component<any, any> {
       tippyCopyTxt = "Code partially copied";
     }
 
-    if (vm.state.fullscreen === true) {
+    if (props.fullscreen === true) {
       iconFullScreen =
         '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="minimize2-icon minimize-2"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>';
     } else {
@@ -284,6 +274,7 @@ class Header extends Component<any, any> {
               content={"Full screen"}
             >
               <button
+                type="button"
                 className="codeblock-icon-button first"
                 onClick={(event) => {
                   vm.toggleFullScreen(event);
@@ -314,6 +305,7 @@ class Header extends Component<any, any> {
                   trigger={"mouseenter"}
                 >
                   <button
+                    type="button"
                     className="codeblock-icon-button last"
                     onClick={vm.copyContent}
                   >
@@ -341,10 +333,19 @@ class Header extends Component<any, any> {
   }
 }
 
-class LineNumber extends Component<any, any> {
-  [key: string]: any;
+interface LineNumberProps {
+  codeRef: RefObject<HTMLDivElement | null>;
+  animation?: boolean | undefined;
+}
 
-  constructor(props) {
+interface LineNumberState {
+  lineNumberTotal: number;
+}
+
+class LineNumber extends Component<LineNumberProps, LineNumberState> {
+  private countTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(props: LineNumberProps) {
     super(props);
 
     this.state = {
@@ -354,17 +355,20 @@ class LineNumber extends Component<any, any> {
     this.lineNumberCount = this.lineNumberCount.bind(this);
   }
 
-  componentDidMount() {
+  override componentDidMount() {
     const vm = this;
     vm.lineNumberCount();
 
     // next tick hack
-    setTimeout(() => {
+    vm.countTimeout = setTimeout(() => {
       vm.lineNumberCount();
     }, 0);
   }
 
-  componentDidUpdate(_prevProps, _prevState) {
+  override componentDidUpdate(
+    _prevProps: Readonly<LineNumberProps>,
+    _prevState: Readonly<LineNumberState>
+  ) {
     const vm = this;
     vm.lineNumberCount();
   }
@@ -390,7 +394,11 @@ class LineNumber extends Component<any, any> {
     }
   }
 
-  render() {
+  override componentWillUnmount() {
+    clearTimeout(this.countTimeout);
+  }
+
+  override render() {
     const vm = this;
     const state = vm.state;
     const props = vm.props;
@@ -434,10 +442,34 @@ class LineNumber extends Component<any, any> {
   }
 }
 
-class MarkdownCodeBlock extends PureComponent<any, any> {
-  [key: string]: any;
+export interface MarkdownCodeBlockProps {
+  children?: ReactElement<CodeElementProps>;
+  preChildren?: ReactNode;
+  stream?: boolean | undefined;
+  streaming?: boolean | undefined;
+  animation?: boolean | undefined;
+  renderer?: unknown;
+  scrollDown?: unknown;
+}
 
-  constructor(props) {
+interface MarkdownCodeBlockState {
+  fullscreen: boolean;
+  finalStream: boolean;
+}
+
+class MarkdownCodeBlock extends PureComponent<
+  MarkdownCodeBlockProps,
+  MarkdownCodeBlockState
+> {
+  private userScroll = false;
+  private readonly scrollMargin = 100;
+  private currentScrollHeight = 0;
+  private readonly codeRef = React.createRef<HTMLDivElement>();
+  private readonly wrapperRef = React.createRef<HTMLDivElement>();
+  private settledChildren: ReactNode | undefined;
+  private settleTimeout: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(props: MarkdownCodeBlockProps) {
     super(props);
 
     this.state = {
@@ -445,30 +477,35 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
       finalStream: false,
     };
 
-    this.userScroll = false;
-    this.scrollMargin = 100;
-    this.currentScrollHeight = 0;
-
-    this.lineRegex = /\n/g;
-
-    this.guid = runtime.guid();
-
-    this.codeRef = React.createRef();
-    this.wrapperRef = React.createRef();
-
     this.toggleFullScreen = this.toggleFullScreen.bind(this);
 
     this.scrollDown = this.scrollDown.bind(this);
     this.scrollDownListener = this.scrollDownListener.bind(this);
   }
 
-  componentDidMount() {}
+  override componentDidMount() {
+    this.scheduleSettledChildren();
+  }
 
-  componentDidUpdate(_prevProps, _prevState) {
+  override componentDidUpdate(
+    prevProps: Readonly<MarkdownCodeBlockProps>,
+    _prevState: Readonly<MarkdownCodeBlockState>
+  ) {
     const vm = this;
 
     if (vm.state.fullscreen === true) {
       vm.scrollDown();
+    }
+
+    if (
+      prevProps.stream !== vm.props.stream ||
+      prevProps.animation !== vm.props.animation ||
+      prevProps.preChildren !== vm.props.preChildren
+    ) {
+      clearTimeout(vm.settleTimeout);
+      vm.settleTimeout = undefined;
+      vm.settledChildren = undefined;
+      vm.scheduleSettledChildren();
     }
   }
 
@@ -495,38 +532,46 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
         if (!match) {
           return language;
         } else {
-          language = match[1];
+          language = match[1] ?? language;
           return language;
         }
       }
     }
   }
 
-  toggleFullScreen(fullscreen) {
+  toggleFullScreen(fullscreen: boolean) {
+    let wrapper;
+
     const vm = this;
     vm.setState({ fullscreen: fullscreen }, () => {
+      wrapper = vm.wrapperRef.current;
+
+      if (!wrapper) {
+        return;
+      }
+
       if (vm.state.fullscreen === true) {
-        vm.wrapperRef.current.addEventListener("scroll", vm.scrollDownListener);
+        wrapper.addEventListener("scroll", vm.scrollDownListener);
       } else {
-        vm.wrapperRef.current.removeEventListener(
-          "scroll",
-          vm.scrollDownListener
-        );
+        wrapper.removeEventListener("scroll", vm.scrollDownListener);
       }
     });
   }
 
   scrollDown() {
-    const vm = this;
+    let wrapper;
 
-    if (vm.userScroll !== true) {
-      if (vm.currentScrollHeight !== vm.wrapperRef.current.scrollHeight) {
-        vm.wrapperRef.current.scrollTo({
-          top: vm.wrapperRef.current.scrollHeight,
+    const vm = this;
+    wrapper = vm.wrapperRef.current;
+
+    if (wrapper && vm.userScroll !== true) {
+      if (vm.currentScrollHeight !== wrapper.scrollHeight) {
+        wrapper.scrollTo({
+          top: wrapper.scrollHeight,
           behavior: "instant",
         });
 
-        vm.currentScrollHeight = vm.wrapperRef.current.scrollHeight;
+        vm.currentScrollHeight = wrapper.scrollHeight;
       }
     }
   }
@@ -537,10 +582,15 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
     let clientHeight;
 
     const vm = this;
+    const wrapper = vm.wrapperRef.current;
 
-    scrollTop = vm.wrapperRef.current.scrollTop;
-    scrollHeight = vm.wrapperRef.current.scrollHeight;
-    clientHeight = vm.wrapperRef.current.clientHeight;
+    if (!wrapper) {
+      return;
+    }
+
+    scrollTop = wrapper.scrollTop;
+    scrollHeight = wrapper.scrollHeight;
+    clientHeight = wrapper.clientHeight;
 
     if (scrollTop + clientHeight <= scrollHeight - vm.scrollMargin) {
       vm.userScroll = true;
@@ -549,13 +599,15 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
     }
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     const vm = this;
+    const wrapper = vm.wrapperRef.current;
 
-    vm.wrapperRef.current.removeEventListener("scroll", vm.scrollDownListener);
+    clearTimeout(vm.settleTimeout);
+    wrapper?.removeEventListener("scroll", vm.scrollDownListener);
   }
 
-  render() {
+  override render() {
     let children;
     let stream;
     let fullscreen;
@@ -580,22 +632,8 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
 
     children = props.children;
 
-    if (vm.children) {
-      children = vm.children;
-    } else {
-      if (props.stream !== true) {
-        if (props.animation !== true) {
-          setTimeout(() => {
-            vm.children = props.preChildren;
-            vm.setState({ finalStream: true });
-          }, 0);
-        } else {
-          setTimeout(() => {
-            vm.children = props.preChildren;
-            vm.setState({ finalStream: true });
-          }, 1000);
-        }
-      }
+    if (vm.settledChildren) {
+      children = vm.settledChildren;
     }
 
     return (
@@ -609,6 +647,7 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
             language={language}
             codeRef={vm.codeRef}
             wrapperRef={vm.wrapperRef}
+            fullscreen={state.fullscreen}
             toggleFullScreen={vm.toggleFullScreen}
           />
 
@@ -624,6 +663,31 @@ class MarkdownCodeBlock extends PureComponent<any, any> {
         </div>
       </div>
     );
+  }
+
+  private scheduleSettledChildren(): void {
+    let delay;
+
+    const vm = this;
+    const props = vm.props;
+
+    if (props.stream === true || vm.settleTimeout !== undefined) {
+      return;
+    }
+
+    delay = props.animation === true ? 1000 : 0;
+
+    if (delay === 0) {
+      vm.settledChildren = props.preChildren;
+      vm.setState({ finalStream: true });
+      return;
+    }
+
+    vm.settleTimeout = setTimeout(() => {
+      vm.settledChildren = vm.props.preChildren;
+      vm.settleTimeout = undefined;
+      vm.setState({ finalStream: true });
+    }, delay);
   }
 }
 

@@ -18,13 +18,13 @@ const useCommitEffect =
 
 export interface HyperMarkdownProps {
   /** Markdown to render in one go. Ignored while `streaming` is true. */
-  md?: string;
+  md?: string | undefined;
   /** Take content through the imperative handle instead of the `md` prop. */
-  streaming?: boolean;
+  streaming?: boolean | undefined;
   /** Fade words in as they arrive. */
-  animation?: boolean;
+  animation?: boolean | undefined;
   /** Called after each render, so a host can keep the view pinned to the bottom. */
-  scrollDown?: () => void;
+  scrollDown?: (() => void) | undefined;
   /**
    * A code block, table or diagram entered or left fullscreen.
    *
@@ -32,19 +32,33 @@ export interface HyperMarkdownProps {
    * the rest of its chrome. Wire this up to hide navigation, sidebars and
    * input bars, or the block ends up fullscreen underneath them.
    */
-  onFullscreenChange?: (fullscreen: boolean) => void;
+  onFullscreenChange?: ((fullscreen: boolean) => void) | undefined;
   /**
    * A block needs to tell the reader something — a code preview that is not
    * ready yet, or one that could not be opened. Without a handler the message
    * is dropped, since the component has no dialog of its own.
    */
-  onAlert?: (alert: HyperMarkdownAlert) => void;
+  onAlert?: ((alert: HyperMarkdownAlert) => void) | undefined;
 }
 
 export interface HyperMarkdownAlert {
   header: string;
   content: string;
-  buttonText?: string;
+  buttonText?: string | undefined;
+}
+
+/** Stable, supported operations exposed by HyperMarkdown's rendering store. */
+export interface HyperMarkdownStore {
+  readonly version: number;
+  setMarkdown(md: string): void;
+  streamMd(
+    md: string,
+    streaming: boolean,
+    animation: boolean,
+    finalize: boolean
+  ): void;
+  reset(): void;
+  subscribe(listener: () => void): () => void;
 }
 
 export interface HyperMarkdownHandle {
@@ -58,15 +72,17 @@ export interface HyperMarkdownHandle {
   write(md: string, finalize?: boolean): void;
   /** Discard everything rendered so far and start a new stream. */
   reset(): void;
-  /** Escape hatch for callers that need the engine itself. */
-  readonly stream: Store;
+  /** The rendering store owned by this component instance. */
+  readonly store: HyperMarkdownStore;
+  /** @deprecated Use `store`. */
+  readonly stream: HyperMarkdownStore;
 }
 
 /**
  * Renders markdown, including markdown that is still arriving.
  *
- * The work happens in {@link Store}. This component owns one
- * instance, subscribes to its updates, and renders its current snapshot.
+ * The component owns one internal rendering store, subscribes to its updates,
+ * and renders its current snapshot.
  */
 const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
   function HyperMarkdown(props, ref) {
@@ -75,10 +91,10 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     // One engine per mounted component, created lazily so a re-render never
     // builds a second one.
-    const streamRef = useRef<Store | null>(null);
+    const storeRef = useRef<Store | null>(null);
 
-    if (streamRef.current === null) {
-      streamRef.current = new Store({
+    if (storeRef.current === null) {
+      storeRef.current = new Store({
         md,
         streaming,
         animation,
@@ -86,23 +102,23 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
       });
     }
 
-    const stream = streamRef.current;
+    const store = storeRef.current;
 
     const subscribe = useCallback(
-      (onChange: () => void) => stream.subscribe(onChange),
-      [stream]
+      (onChange: () => void) => store.subscribe(onChange),
+      [store]
     );
 
     // The engine mutates in place, so the snapshot is a counter it bumps on
     // every update rather than the rendered output itself.
     const version = useSyncExternalStore(
       subscribe,
-      () => stream.version,
-      () => stream.version
+      () => store.version,
+      () => store.version
     );
 
     // Late-bound props the engine reads while rendering.
-    stream.setOptions({ scrollDown, animation, streaming });
+    store.setOptions({ scrollDown, animation, streaming });
 
     // write() is called from timers and network callbacks, so it reads the
     // props through a ref rather than closing over the ones it was built with.
@@ -111,15 +127,15 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     useEffect(() => {
       if (streaming !== true && typeof md === "string") {
-        stream.setMarkdown(md);
+        store.setMarkdown(md);
       }
-    }, [stream, streaming, md]);
+    }, [store, streaming, md]);
 
     useImperativeHandle(
       ref,
       () => ({
         write(chunk: string, finalize?: boolean) {
-          stream.streamMd(
+          store.streamMd(
             chunk,
             latest.current.streaming !== false,
             latest.current.animation === true,
@@ -127,11 +143,12 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
           );
         },
         reset() {
-          stream.reset();
+          store.reset();
         },
-        stream,
+        store,
+        stream: store,
       }),
-      [stream]
+      [store]
     );
 
     // Blocks announce these on an internal bus, because they sit deep inside
@@ -161,11 +178,10 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
       const id = guid();
 
       emitter.on("show:modal", id, (payload) => {
-        const alert = payload as HyperMarkdownAlert;
         onAlert({
-          header: alert?.header,
-          content: alert?.content,
-          buttonText: alert?.buttonText,
+          header: payload.header,
+          content: payload.content,
+          buttonText: payload.buttonText,
         });
       });
 
@@ -177,12 +193,12 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
     // Runs after every commit, so scrollDown() and friends measure the DOM
     // they were queued for rather than the one before it.
     useCommitEffect(() => {
-      stream.flush();
+      store.flush();
     });
 
     void version;
 
-    return stream.render();
+    return store.render();
   }
 );
 

@@ -2,13 +2,15 @@ import React, { memo } from "react";
 
 import * as runtime from "./platform/runtime";
 
-interface AnchorProps {
-  href?: string;
-  id?: string;
-  children?: React.ReactNode;
+interface AnchorProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
+  renderer?: unknown;
+  scrollDown?: unknown;
   "data-footnote-ref"?: string;
   "data-footnote-backref"?: string;
-  [key: string]: unknown;
+}
+
+interface FootnoteChildProps {
+  children?: React.ReactNode;
 }
 
 /**
@@ -17,7 +19,7 @@ interface AnchorProps {
  */
 function MarkdownLink(props: AnchorProps) {
   const { renderer: _renderer, scrollDown: _scrollDown, ...rest } = props;
-  const comProps: Record<string, any> = { ...rest };
+  const comProps: React.AnchorHTMLAttributes<HTMLAnchorElement> = { ...rest };
 
   const footnoteRef = props["data-footnote-ref"];
   const footnoteBackref = props["data-footnote-backref"];
@@ -56,37 +58,40 @@ function MarkdownLink(props: AnchorProps) {
  * A footnote reference shows its number. Streaming can leave the wrong text in
  * place, so it is replaced with the number carried by the element id.
  */
-function footnoteLabel(id: unknown, children: any) {
+function footnoteLabel(
+  id: string | undefined,
+  children: React.ReactNode
+): React.ReactNode {
+  let current;
+  let first;
+
   if (typeof id !== "string") {
     return children;
   }
 
   const value = id.replace("user-content-fnref-", "");
 
-  if (!children || !children.type) {
+  if (!React.isValidElement<FootnoteChildProps>(children)) {
+    if (Array.isArray(children)) {
+      first = children[0];
+
+      if (React.isValidElement<FootnoteChildProps>(first) && first.type === "span") {
+        current = first.props.children;
+
+        if (String(value) !== String(current)) {
+          return [React.cloneElement(first, undefined, value), ...children.slice(1)];
+        }
+      }
+    }
+
     return String(value) === String(children) ? children : value;
   }
 
   if (children.type === "span") {
-    const current = children.props && children.props.children;
+    current = children.props.children;
     return String(value) === String(current)
       ? children
-      : React.cloneElement(children, children.props, value);
-  }
-
-  if (Array.isArray(children)) {
-    const first = children[0];
-
-    if (first && first.type === "span") {
-      const current = first.props && first.props.children;
-
-      if (String(value) !== String(current)) {
-        return [
-          React.cloneElement(first, first.props, value),
-          ...children.slice(1),
-        ];
-      }
-    }
+      : React.cloneElement(children, undefined, value);
   }
 
   return children;

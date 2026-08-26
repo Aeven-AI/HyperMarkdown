@@ -1,10 +1,8 @@
-import { memo } from "react";
+import { memo, type ImgHTMLAttributes } from "react";
 
-interface ImageProps {
-  src?: string;
-  alt?: string;
-  title?: string;
-  [key: string]: unknown;
+interface ImageProps extends ImgHTMLAttributes<HTMLImageElement> {
+  renderer?: unknown;
+  scrollDown?: unknown;
 }
 
 /**
