@@ -17,8 +17,8 @@ The slowest renderers also vary most between runs — a renderer spending
 80 ms a frame is at the mercy of GC in a way one spending 1 ms is not, so
 read their figures as a band, not a point.
 
-**Read the DOM-nodes column before the times.** The renderers do not all
-put the same thing on screen. A renderer that defers or skeletons a block
+**Read the DOM-nodes and text-chars columns before the times.** The renderers
+do not all put the same thing on screen. A renderer that defers or skeletons a block
 is doing less work, and its time should be read that way rather than as a
 like-for-like win.
 
@@ -26,63 +26,63 @@ like-for-like win.
 
 57480 characters, 899 frames of 64 characters.
 
-| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 633 ms | 599–718 ms | 1.0× | 0.61 ms | 1.32 ms | 23 ms | 1354 |
-| markstream-react | streaming parser + per-node components | 766 ms | 737–866 ms | 1.2× | 0.79 ms | 1.34 ms | 4 ms | 54 |
-| react-markdown | none — full reparse per chunk | 2031 ms | 1998–2105 ms | 3.2× | 2.14 ms | 4.07 ms | 5 ms | 4 |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 2258 ms | 2225–2302 ms | 3.6× | 2.20 ms | 4.28 ms | 6 ms | 5 |
-| Streamdown | block-level memoization | 3396 ms | 3340–3424 ms | 5.4× | 2.83 ms | 5.82 ms | 10 ms | 2436 |
-| deepseek-harness | freeze all but the trailing 2 blocks | 4181 ms | 4129–4192 ms | 6.6× | 4.53 ms | 8.64 ms | 23 ms | 4 |
+| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 633 ms | 599–718 ms | 1.0× | 0.61 ms | 1.32 ms | 23 ms | 1354 | 60101 |
+| markstream-react | streaming parser + per-node components | 766 ms | 737–866 ms | 1.2× | 0.79 ms | 1.34 ms | 4 ms | 54 | 61428 |
+| react-markdown | none — full reparse per chunk | 2031 ms | 1998–2105 ms | 3.2× | 2.14 ms | 4.07 ms | 5 ms | 4 | 55927 |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 2258 ms | 2225–2302 ms | 3.6× | 2.20 ms | 4.28 ms | 6 ms | 5 | 55927 |
+| Streamdown | block-level memoization | 3396 ms | 3340–3424 ms | 5.4× | 2.83 ms | 5.82 ms | 10 ms | 2436 | 55707 |
+| deepseek-harness | freeze all but the trailing 2 blocks | 4181 ms | 4129–4192 ms | 6.6× | 4.53 ms | 8.64 ms | 23 ms | 4 | 55926 |
 
 ## prose-mixed.md
 
 18609 characters, 291 frames of 64 characters.
 
-| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 118 ms | 113–124 ms | 1.0× | 0.38 ms | 0.56 ms | 1 ms | 781 |
-| deepseek-harness | freeze all but the trailing 2 blocks | 264 ms | 244–282 ms | 2.2× | 0.84 ms | 1.25 ms | 2 ms | 780 |
-| markstream-react | streaming parser + per-node components | 284 ms | 260–302 ms | 2.4× | 0.81 ms | 1.19 ms | 1 ms | 1417 |
-| Streamdown | block-level memoization | 568 ms | 565–579 ms | 4.8× | 1.79 ms | 3.19 ms | 4 ms | 781 |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 1648 ms | 1634–1666 ms | 14.0× | 5.23 ms | 10.40 ms | 11 ms | 781 |
-| react-markdown | none — full reparse per chunk | 2700 ms | 2672–2756 ms | 22.9× | 8.92 ms | 17.23 ms | 36 ms | 780 |
+| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 118 ms | 113–124 ms | 1.0× | 0.38 ms | 0.56 ms | 1 ms | 781 | 15499 |
+| deepseek-harness | freeze all but the trailing 2 blocks | 264 ms | 244–282 ms | 2.2× | 0.84 ms | 1.25 ms | 2 ms | 780 | 15499 |
+| markstream-react | streaming parser + per-node components | 284 ms | 260–302 ms | 2.4× | 0.81 ms | 1.19 ms | 1 ms | 1417 | 3483 |
+| Streamdown | block-level memoization | 568 ms | 565–579 ms | 4.8× | 1.79 ms | 3.19 ms | 4 ms | 781 | 15499 |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 1648 ms | 1634–1666 ms | 14.0× | 5.23 ms | 10.40 ms | 11 ms | 781 | 15559 |
+| react-markdown | none — full reparse per chunk | 2700 ms | 2672–2756 ms | 22.9× | 8.92 ms | 17.23 ms | 36 ms | 780 | 15559 |
 
 ## real-code-os.md
 
 34191 characters, 4274 frames of 8 characters.
 
-| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 1413 ms | 1389–1492 ms | 1.0× | 0.29 ms | 0.64 ms | 15 ms | 929 |
-| markstream-react | streaming parser + per-node components | 4203 ms | 3877–4209 ms | 3.0× | 1.00 ms | 1.59 ms | 5 ms | 384 |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 4625 ms | 4585–4810 ms | 3.3× | 0.99 ms | 1.84 ms | 6 ms | 24 |
-| react-markdown | none — full reparse per chunk | 7569 ms | 7555–7719 ms | 5.4× | 1.72 ms | 3.06 ms | 10 ms | 23 |
-| Streamdown | block-level memoization | 12161 ms | 12104–12310 ms | 8.6× | 2.15 ms | 4.36 ms | 7 ms | 1776 |
-| deepseek-harness | freeze all but the trailing 2 blocks | 14363 ms | 14284–14610 ms | 10.2× | 3.34 ms | 5.96 ms | 13 ms | 23 |
+| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 1413 ms | 1389–1492 ms | 1.0× | 0.29 ms | 0.64 ms | 15 ms | 929 | 25937 |
+| markstream-react | streaming parser + per-node components | 4203 ms | 3877–4209 ms | 3.0× | 1.00 ms | 1.59 ms | 5 ms | 384 | 26796 |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 4625 ms | 4585–4810 ms | 3.3× | 0.99 ms | 1.84 ms | 6 ms | 24 | 23433 |
+| react-markdown | none — full reparse per chunk | 7569 ms | 7555–7719 ms | 5.4× | 1.72 ms | 3.06 ms | 10 ms | 23 | 23433 |
+| Streamdown | block-level memoization | 12161 ms | 12104–12310 ms | 8.6× | 2.15 ms | 4.36 ms | 7 ms | 1776 | 23428 |
+| deepseek-harness | freeze all but the trailing 2 blocks | 14363 ms | 14284–14610 ms | 10.2× | 3.34 ms | 5.96 ms | 13 ms | 23 | 23431 |
 
 ## real-table-head.md
 
 10333 characters, 1292 frames of 8 characters.
 
-| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 652 ms | 639–662 ms | 1.0× | 0.47 ms | 0.71 ms | 3 ms | 1054 |
-| markstream-react | streaming parser + per-node components | 5460 ms | 5263–5556 ms | 8.4× | 3.36 ms | 7.97 ms | 13 ms | 4605 |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 7308 ms | 7285–7386 ms | 11.2× | 5.19 ms | 10.75 ms | 17 ms | 1026 |
-| react-markdown | none — full reparse per chunk | 10436 ms | 10415–10480 ms | 16.0× | 6.95 ms | 17.95 ms | 29 ms | 1025 |
-| Streamdown | block-level memoization | 12427 ms | 12227–12575 ms | 19.1× | 8.08 ms | 20.60 ms | 34 ms | 1040 |
-| deepseek-harness | freeze all but the trailing 2 blocks | 20151 ms | 20038–20704 ms | 30.9× | 13.29 ms | 35.44 ms | 60 ms | 1025 |
+| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 652 ms | 639–662 ms | 1.0× | 0.47 ms | 0.71 ms | 3 ms | 1054 | 7606 |
+| markstream-react | streaming parser + per-node components | 5460 ms | 5263–5556 ms | 8.4× | 3.36 ms | 7.97 ms | 13 ms | 4605 | 7585 |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 7308 ms | 7285–7386 ms | 11.2× | 5.19 ms | 10.75 ms | 17 ms | 1026 | 8419 |
+| react-markdown | none — full reparse per chunk | 10436 ms | 10415–10480 ms | 16.0× | 6.95 ms | 17.95 ms | 29 ms | 1025 | 7604 |
+| Streamdown | block-level memoization | 12427 ms | 12227–12575 ms | 19.1× | 8.08 ms | 20.60 ms | 34 ms | 1040 | 7602 |
+| deepseek-harness | freeze all but the trailing 2 blocks | 20151 ms | 20038–20704 ms | 30.9× | 13.29 ms | 35.44 ms | 60 ms | 1025 | 7601 |
 
 ## table-large.md
 
 39173 characters, 613 frames of 64 characters.
 
-| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 894 ms | 872–914 ms | 1.0× | 1.36 ms | 2.30 ms | 4 ms | 4041 |
-| markstream-react | streaming parser + per-node components | 9998 ms | 9985–10149 ms | 11.2× | 13.28 ms | 31.07 ms | 41 ms | 11927 |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 14382 ms | 14367–14818 ms | 16.1× | 21.69 ms | 44.57 ms | 64 ms | 4013 |
-| react-markdown | none — full reparse per chunk | 30176 ms | 30124–30202 ms | 33.8× | 42.87 ms | 113.64 ms | 140 ms | 4012 |
-| Streamdown | block-level memoization | 35492 ms | 35415–35842 ms | 39.7× | 51.62 ms | 127.92 ms | 148 ms | 4027 |
-| deepseek-harness | freeze all but the trailing 2 blocks | 59737 ms | 59578–59981 ms | 66.8× | 85.80 ms | 222.54 ms | 245 ms | 4012 |
+| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 894 ms | 872–914 ms | 1.0× | 1.36 ms | 2.30 ms | 4 ms | 4041 | 18012 |
+| markstream-react | streaming parser + per-node components | 9998 ms | 9985–10149 ms | 11.2× | 13.28 ms | 31.07 ms | 41 ms | 11927 | 18007 |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 14382 ms | 14367–14818 ms | 16.1× | 21.69 ms | 44.57 ms | 64 ms | 4013 | 20414 |
+| react-markdown | none — full reparse per chunk | 30176 ms | 30124–30202 ms | 33.8× | 42.87 ms | 113.64 ms | 140 ms | 4012 | 18009 |
+| Streamdown | block-level memoization | 35492 ms | 35415–35842 ms | 39.7× | 51.62 ms | 127.92 ms | 148 ms | 4027 | 18008 |
+| deepseek-harness | freeze all but the trailing 2 blocks | 59737 ms | 59578–59981 ms | 66.8× | 85.80 ms | 222.54 ms | 245 ms | 4012 | 18007 |

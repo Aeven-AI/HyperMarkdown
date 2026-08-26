@@ -49,9 +49,9 @@ aggregations can be checked without rerunning the benchmark.
 
 ## Reading the results
 
-**Check the DOM-nodes column before the times.** The renderers do not all put
-the same thing on screen for the same input, and the column is there to make
-that visible. On `code-large`, markstream-react finishes with 54 nodes where
+**Check the DOM-nodes and text-chars columns before the times.** The renderers
+do not all put the same thing on screen for the same input, and the columns
+make that visible. On `code-large`, markstream-react finishes with 54 nodes where
 HyperMarkdown has 1,354 — it is deferring the block, not rendering it faster.
 react-markdown's 4 nodes are legitimate: a code block really is one `<pre>`,
 one `<code>` and one text node, however long the code is.

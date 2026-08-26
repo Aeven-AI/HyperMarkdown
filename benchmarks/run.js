@@ -264,8 +264,8 @@ function report() {
         `${Math.ceil(text.length / Number(chunkFor(file)))} frames of ` +
         `${chunkFor(file)} characters.`,
       "",
-      "| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes |",
-      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+      "| renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars |",
+      "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
     );
 
     for (const row of [...rows].sort((a, b) => (a.total ?? 1e12) - (b.total ?? 1e12))) {
@@ -275,7 +275,7 @@ function report() {
       const strategy = renderers.find((r) => r.name === row.renderer)?.strategy ?? "";
 
       if (row.failed) {
-        out.push(`| ${row.renderer} | ${strategy} | failed | | | | | | ${row.failed} |`);
+        out.push(`| ${row.renderer} | ${strategy} | failed | | | | | | | ${row.failed} |`);
         continue;
       }
 
@@ -287,7 +287,8 @@ function report() {
         `| ${row.renderer} | ${strategy} | ${row.total.toFixed(0)} ms | ` +
           `${minTotal.toFixed(0)}\u2013${maxTotal.toFixed(0)} ms | ` +
           `${(row.total / fastest).toFixed(1)}\u00d7 | ${row.p50.toFixed(2)} ms | ` +
-          `${row.p95.toFixed(2)} ms | ${row.max.toFixed(0)} ms | ${row.nodes} |`
+          `${row.p95.toFixed(2)} ms | ${row.max.toFixed(0)} ms | ${row.nodes} | ` +
+          `${row.chars} |`
       );
     }
 
