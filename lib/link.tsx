@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 
-import * as runtime from "./platform/runtime";
+import * as runtime from "./runtime";
 
 interface AnchorProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   renderer?: unknown;
@@ -60,7 +60,7 @@ function MarkdownLink(props: AnchorProps) {
  */
 function footnoteLabel(
   id: string | undefined,
-  children: React.ReactNode
+  children: React.ReactNode,
 ): React.ReactNode {
   let current;
   let first;
@@ -75,11 +75,17 @@ function footnoteLabel(
     if (Array.isArray(children)) {
       first = children[0];
 
-      if (React.isValidElement<FootnoteChildProps>(first) && first.type === "span") {
+      if (
+        React.isValidElement<FootnoteChildProps>(first) &&
+        first.type === "span"
+      ) {
         current = first.props.children;
 
         if (String(value) !== String(current)) {
-          return [React.cloneElement(first, undefined, value), ...children.slice(1)];
+          return [
+            React.cloneElement(first, undefined, value),
+            ...children.slice(1),
+          ];
         }
       }
     }
@@ -100,7 +106,7 @@ function footnoteLabel(
 // Re-renders only when the destination changes, as the class did.
 const MemoMarkdownLink = memo(
   MarkdownLink,
-  (prev, next) => prev.href === next.href
+  (prev, next) => prev.href === next.href,
 );
 
 MemoMarkdownLink.displayName = "MarkdownLink";

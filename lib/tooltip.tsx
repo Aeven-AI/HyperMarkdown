@@ -31,73 +31,72 @@ export interface TooltipHandle {
  * reference through props, as required by React 19, instead of reading the
  * removed ReactElement.ref getter.
  */
-const Tooltip = forwardRef<TooltipHandle, TooltipProps>(function Tooltip(
-  props,
-  ref
-) {
-  const { content, placement, trigger, touch, arrow, children } = props;
+const Tooltip = forwardRef<TooltipHandle, TooltipProps>(
+  function Tooltip(props, ref) {
+    const { content, placement, trigger, touch, arrow, children } = props;
 
-  const manual = trigger === "manual";
-  const instanceRef = useRef<Instance | null>(null);
-  const referenceRef = useRef<Element | null>(null);
+    const manual = trigger === "manual";
+    const instanceRef = useRef<Instance | null>(null);
+    const referenceRef = useRef<Element | null>(null);
 
-  const setReference = useCallback((element: Element | null) => {
-    referenceRef.current = element;
-  }, []);
+    const setReference = useCallback((element: Element | null) => {
+      referenceRef.current = element;
+    }, []);
 
-  useEffect(() => {
-    let instance: Instance;
+    useEffect(() => {
+      let instance: Instance;
 
-    const reference = referenceRef.current;
+      const reference = referenceRef.current;
 
-    if (!reference) {
-      return;
+      if (!reference) {
+        return;
+      }
+
+      instance = tippy(reference, {
+        content: content ?? "",
+        placement: placement ?? "top",
+        touch: touch ?? true,
+        arrow: arrow ?? true,
+        trigger: manual ? "manual" : (trigger ?? "mouseenter"),
+      });
+      instanceRef.current = instance;
+
+      return () => {
+        instance.destroy();
+        instanceRef.current = null;
+      };
+    }, []);
+
+    useEffect(() => {
+      instanceRef.current?.setProps({
+        content: content ?? "",
+        placement: placement ?? "top",
+        touch: touch ?? true,
+        arrow: arrow ?? true,
+        trigger: manual ? "manual" : (trigger ?? "mouseenter"),
+      });
+    }, [arrow, content, manual, placement, touch, trigger]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        show() {
+          instanceRef.current?.show();
+        },
+        hide() {
+          instanceRef.current?.hide();
+        },
+      }),
+      [],
+    );
+
+    if (!children) {
+      return null;
     }
 
-    instance = tippy(reference, {
-      content: content ?? "",
-      placement: placement ?? "top",
-      touch: touch ?? true,
-      arrow: arrow ?? true,
-      trigger: manual ? "manual" : trigger ?? "mouseenter",
-    });
-    instanceRef.current = instance;
-
-    return () => {
-      instance.destroy();
-      instanceRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    instanceRef.current?.setProps({
-      content: content ?? "",
-      placement: placement ?? "top",
-      touch: touch ?? true,
-      arrow: arrow ?? true,
-      trigger: manual ? "manual" : trigger ?? "mouseenter",
-    });
-  }, [arrow, content, manual, placement, touch, trigger]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      show() {
-        instanceRef.current?.show();
-      },
-      hide() {
-        instanceRef.current?.hide();
-      },
-    }),
-    []
-  );
-
-  if (!children) {
-    return null;
-  }
-
-  return cloneElement(children, { ref: setReference });
-});
+    return cloneElement(children, { ref: setReference });
+  },
+);
 
 Tooltip.displayName = "Tooltip";
 

@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import type { Data } from "vfile";
 
+import type { PluginConfig } from "./plugin-types";
+import type { AllowedTags, LinkSafetyConfig } from "./sanitize";
+import type { UiOptions } from "./config";
+
 /** How a block of streamed markdown is classified while it is still arriving. */
 export type BlockType = "text" | "code" | "table" | "pending";
 
@@ -12,8 +16,6 @@ export type ProcessorType =
   | "regular"
   | "regular-stream"
   | "regular-animation"
-  | "cached"
-  | "cached-stream"
   | "cached-table"
   | "cached-table-animation"
   | "footnote"
@@ -58,7 +60,27 @@ export interface RendererFileData extends Data {
   rehypeData?: RehypeTagProps;
 }
 
-export interface RendererOptions {
+export interface RendererOptions extends UiOptions {
+  /**
+   * The optional stages: maths, syntax highlighting, diagrams. Anything not
+   * supplied is simply not part of the pipeline — see PluginConfig.
+   */
+  plugins?: PluginConfig | undefined;
+  /**
+   * Turn sanitization off. Raw HTML in the markdown then reaches the DOM as
+   * written — only ever do this for content you produced yourself.
+   */
+  sanitize?: boolean | undefined;
+  /** Extra tags and attributes to let through sanitization. */
+  allowedTags?: AllowedTags | undefined;
+  /** Where links and images are allowed to point. */
+  linkSafety?: LinkSafetyConfig | undefined;
+  /**
+   * Class for a wrapping element. Supplying one introduces a `<div>` around
+   * the rendered blocks; without it they are rendered into a fragment and sit
+   * directly inside whatever the host laid out.
+   */
+  className?: string | undefined;
   /** Markdown to render in one go. Ignored while `streaming` is true. */
   md?: string | undefined;
   /** Feed content through `streamMd()` instead of the `md` prop. */

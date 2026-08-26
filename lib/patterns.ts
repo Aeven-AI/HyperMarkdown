@@ -6,7 +6,6 @@
 // lastIndex before it execs. Anything stateful per renderer (the inline-token
 // caches) stays on the renderer itself.
 export const patterns = {
-
   hrRegex: /\n[ \t]*([-*_]{1,2})[ \t]*$/,
   pipeRegex: /(?<!\\)\|/g,
   closeRegex: /(?<!\\)\|/,
@@ -25,8 +24,7 @@ export const patterns = {
   definitionRegex: /^\s*\[[^\]]+\]:\s*(\S.*)?\n\n/m,
 
   // The bullet may sit behind blockquote markers: "> - [x] ".
-  invalidTaskRegex:
-    /(^|\n)([\s>]*(?:\*|-|\+)\s+.*?)(\[[xX ]?|\[[xX ]\]\s*)$/,
+  invalidTaskRegex: /(^|\n)([\s>]*(?:\*|-|\+)\s+.*?)(\[[xX ]?|\[[xX ]\]\s*)$/,
 
   escapedChar: /[.*+?^${}()|[\]\\]/g,
 
@@ -53,7 +51,7 @@ export const patterns = {
         "<>[\\s\\S]*?<\\/>",
       ].join("|") +
       ")",
-    "g"
+    "g",
   ),
   mathSplitterRegex: /(\$\$[\s\S]*?\$\$|\$[^$]*\$)/g,
   mathLooksLeftRegex: /[\\](?:left|bigl|Bigl|biggl|Biggl)\s*$/,
@@ -108,8 +106,10 @@ export const patterns = {
   // CommonMark type 6: these tags open a raw block even when other
   // content follows them on the same line.
   htmlBlockTagRegex: new RegExp(
-    "^[ \\t]{0,3}</?(?:" + "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|script|search|section|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|ul" + ")(?:[ \\t/>]|$)",
-    "i"
+    "^[ \\t]{0,3}</?(?:" +
+      "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|script|search|section|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|ul" +
+      ")(?:[ \\t/>]|$)",
+    "i",
   ),
 
   // Does the text after a blank line still belong to the list above it?

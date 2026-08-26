@@ -25,9 +25,16 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, "index.tsx"),
+      // The plugins are separate entries so importing the component never
+      // pulls katex, highlight.js or mermaid into the consumer's bundle.
+      entry: {
+        hypermarkdown: resolve(__dirname, "index.tsx"),
+        "plugins/math": resolve(__dirname, "lib/plugins/math.ts"),
+        "plugins/code": resolve(__dirname, "lib/plugins/code.ts"),
+        "plugins/mermaid": resolve(__dirname, "lib/plugins/mermaid.ts"),
+      },
       name: "HyperMarkdown",
-      fileName: "hypermarkdown",
+      formats: ["es"],
     },
     rollupOptions: {
       external: (id) =>

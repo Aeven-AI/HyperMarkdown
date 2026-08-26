@@ -8,8 +8,12 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import Renderer from "./lib/renderer/renderer";
-import { emitter, guid } from "./lib/platform/runtime";
+import Renderer from "./lib/renderer";
+
+import type { PluginConfig } from "./lib/plugin-types";
+import type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
+import type { ControlsConfig, IconMap, Translations } from "./lib/config";
+import { guid } from "./lib/runtime";
 
 // Layout effects warn during server rendering, where there is no DOM to
 // measure and nothing to scroll.
@@ -23,6 +27,36 @@ export interface HyperMarkdownProps {
   streaming?: boolean | undefined;
   /** Fade words in as they arrive. */
   animation?: boolean | undefined;
+  /**
+   * Maths, syntax highlighting and diagrams. None is bundled: import the ones
+   * you want from `hypermarkdown/plugins/*` and pass them here. A slot left
+   * empty degrades — `$x$` stays literal, code renders unhighlighted, a
+   * mermaid fence renders as a code block.
+   */
+  plugins?: PluginConfig | undefined;
+  /** Class for a wrapping div. Without one, blocks render into a fragment. */
+  className?: string | undefined;
+  /**
+   * Turn sanitization off. Raw HTML then reaches the DOM as written — only for
+   * content you produced yourself.
+   */
+  sanitize?: boolean | undefined;
+  /** Extra tags and attributes to let through sanitization. */
+  allowedTags?: AllowedTags | undefined;
+  /** Where links and images may point. */
+  linkSafety?: LinkSafetyConfig | undefined;
+  /** Override any of the strings the toolbars show. */
+  translations?: Partial<Translations> | undefined;
+  /** Override any of the toolbar icons, as inline `<svg>` markup. */
+  icons?: Partial<IconMap> | undefined;
+  /** Which toolbar buttons each kind of block offers. */
+  controls?: ControlsConfig | undefined;
+  /** Show the line-number gutter on code blocks. @default true */
+  lineNumbers?: boolean | undefined;
+  /** Max height of a code block before it scrolls. Numbers are px. */
+  codeBlockMaxHeight?: number | string | undefined;
+  /** Max height of a table before it scrolls. Numbers are px. */
+  tableMaxHeight?: number | string | undefined;
   /** Called after each render, so a host can keep the view pinned to the bottom. */
   scrollDown?: (() => void) | undefined;
   /**
@@ -55,7 +89,7 @@ export interface HyperMarkdownStore {
     md: string,
     streaming: boolean,
     animation: boolean,
-    finalize: boolean
+    finalize: boolean,
   ): void;
   reset(): void;
   subscribe(listener: () => void): () => void;
@@ -86,8 +120,14 @@ export interface HyperMarkdownHandle {
  */
 const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
   function HyperMarkdown(props, ref) {
-    const { md, streaming, animation, scrollDown, onFullscreenChange, onAlert } =
-      props;
+    const {
+      md,
+      streaming,
+      animation,
+      scrollDown,
+      onFullscreenChange,
+      onAlert,
+    } = props;
 
     // One engine per mounted component, created lazily so a re-render never
     // builds a second one.
@@ -95,6 +135,7 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     if (storeRef.current === null) {
       storeRef.current = new Renderer({
+        ...props,
         md,
         streaming,
         animation,
@@ -106,7 +147,7 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     const subscribe = useCallback(
       (onChange: () => void) => store.subscribe(onChange),
-      [store]
+      [store],
     );
 
     // The engine mutates in place, so the snapshot is a counter it bumps on
@@ -114,7 +155,7 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
     const version = useSyncExternalStore(
       subscribe,
       () => store.version,
-      () => store.version
+      () => store.version,
     );
 
     // Late-bound props the engine reads while rendering.
@@ -139,7 +180,7 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
             chunk,
             latest.current.streaming !== false,
             latest.current.animation === true,
-            finalize === true
+            finalize === true,
           );
         },
         reset() {
@@ -148,12 +189,13 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
         store,
         stream: store,
       }),
-      [store]
+      [store],
     );
 
-    // Blocks announce these on an internal bus, because they sit deep inside
-    // rendered markdown where threading callbacks down is impractical. The bus
-    // stops here: what leaves the component is a plain prop.
+    // Blocks announce these on this renderer's own bus, because they sit deep
+    // inside rendered markdown where threading callbacks down is impractical.
+    // The bus is per renderer and stops here: what leaves the component is a
+    // plain prop, and a page of many messages does not cross-talk.
     useEffect(() => {
       if (!onFullscreenChange) {
         return;
@@ -161,14 +203,14 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
       const id = guid();
 
-      emitter.on("fullscreen:change", id, (payload) => {
+      store.events.on("fullscreen:change", id, (payload) => {
         onFullscreenChange(payload === true);
       });
 
       return () => {
-        emitter.off("fullscreen:change", id);
+        store.events.off("fullscreen:change", id);
       };
-    }, [onFullscreenChange]);
+    }, [store, onFullscreenChange]);
 
     useEffect(() => {
       if (!onAlert) {
@@ -177,18 +219,20 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
       const id = guid();
 
-      emitter.on("show:modal", id, (payload) => {
+      store.events.on("show:modal", id, (payload: unknown) => {
+        const alert = payload as HyperMarkdownAlert;
+
         onAlert({
-          header: payload.header,
-          content: payload.content,
-          buttonText: payload.buttonText,
+          header: alert.header,
+          content: alert.content,
+          buttonText: alert.buttonText,
         });
       });
 
       return () => {
-        emitter.off("show:modal", id);
+        store.events.off("show:modal", id);
       };
-    }, [onAlert]);
+    }, [store, onAlert]);
 
     // Runs after every commit, so scrollDown() and friends measure the DOM
     // they were queued for rather than the one before it.
@@ -199,14 +243,30 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
     void version;
 
     return store.render();
-  }
+  },
 );
 
 HyperMarkdown.displayName = "HyperMarkdown";
 
 /** @deprecated Prefer the HyperMarkdown component and its imperative handle. */
-export { default as MarkdownStream } from "./lib/renderer/renderer";
+export { default as MarkdownStream } from "./lib/renderer";
 /** @deprecated Internal engine options retained for API compatibility. */
-export type { RendererOptions as MarkdownStreamOptions } from "./lib/renderer/types";
+export type { RendererOptions as MarkdownStreamOptions } from "./lib/types";
+export type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
+export type {
+  ControlsConfig,
+  BlockControls,
+  IconMap,
+  Translations,
+} from "./lib/config";
+export type {
+  PluginConfig,
+  MathPlugin,
+  CodeHighlighterPlugin,
+  DiagramPlugin,
+  DiagramEngine,
+  DiagramResult,
+} from "./lib/plugin-types";
+
 export { HyperMarkdown };
 export default HyperMarkdown;

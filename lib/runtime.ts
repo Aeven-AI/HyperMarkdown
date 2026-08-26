@@ -3,8 +3,6 @@
  * Reimplemented here so the component stands on its own.
  */
 
-import type { Mermaid } from "mermaid";
-
 let counter = 0;
 
 /** Stable-enough id for keying rendered blocks. */
@@ -54,10 +52,13 @@ type RuntimeEvent = keyof RuntimeEventMap;
 type Handler<K extends RuntimeEvent> = (payload: RuntimeEventMap[K]) => void;
 
 /**
- * Minimal replacement for the host's event bus. The renderer only ever needed
- * to broadcast scroll and fullscreen changes between its own components.
+ * The bus a renderer's own blocks talk to it on.
+ *
+ * One per renderer, never a module singleton: a page showing many messages
+ * mounts many renderers, and a global bus would make every one of them hear
+ * every other one's blocks going fullscreen.
  */
-class Emitter {
+export class Emitter {
   private handlers: {
     [K in RuntimeEvent]: Map<string, Handler<K>>;
   } = {
@@ -77,7 +78,7 @@ class Emitter {
 
   dispatchObjectEvent<K extends RuntimeEvent>(
     event: K,
-    payload: RuntimeEventMap[K]
+    payload: RuntimeEventMap[K],
   ): void {
     const forEvent = this.handlers[event] as Map<string, Handler<K>>;
 
@@ -86,8 +87,6 @@ class Emitter {
     });
   }
 }
-
-export const emitter = new Emitter();
 
 /**
  * Watch anything that could move a block through the viewport, so a block's
@@ -110,27 +109,4 @@ export function onViewportScroll(handler: () => void): () => void {
     window.removeEventListener("scroll", handler, true);
     window.removeEventListener("resize", handler);
   };
-}
-
-/** Mermaid is heavy and rarely needed; load it only when a diagram appears. */
-let mermaidModule: Mermaid | null = null;
-let mermaidPromise: Promise<Mermaid> | null = null;
-
-export function getMermaidModule(): Mermaid | null {
-  return mermaidModule;
-}
-
-export function loadMermaidModule(): Promise<Mermaid> {
-  if (mermaidModule) {
-    return Promise.resolve(mermaidModule);
-  }
-
-  if (!mermaidPromise) {
-    mermaidPromise = import("mermaid").then((module) => {
-      mermaidModule = module.default ?? module;
-      return mermaidModule;
-    });
-  }
-
-  return mermaidPromise;
 }

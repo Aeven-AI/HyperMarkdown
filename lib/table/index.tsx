@@ -1,330 +1,19 @@
-import React, {
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactElement,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 
-import * as runtime from "../platform/runtime";
-import Tooltip, { type TooltipHandle } from "../tooltip";
+import type { Emitter } from "../runtime";
+import { cssLength, defaultUi } from "../config";
+import type { UiConfig } from "../config";
 
-const ICON_MAXIMIZE =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="maximize2-icon maximize-2"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>';
+import TableHeader from "./header";
+import { readTableShape, type TableShape } from "./shape";
 
-const ICON_MINIMIZE =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="minimize2-icon minimize-2"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>';
-
-const ICON_COPY =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="copy-icon copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
-
-/** Distance from the sticky chat header at which the toolbar goes flat. */
-const HEADER_OFFSET = 56;
-
-/** Below this the table is nearly scrolled past, so the toolbar drops away. */
-const HEADER_MIN_VISIBLE = 106;
-
-interface TableHeaderProps {
-  /** True while the table is still being streamed in. */
-  stream?: boolean | undefined;
-  tableRef: RefObject<HTMLTableElement | null>;
-  wrapperRef: RefObject<HTMLDivElement | null>;
-  fullscreen: boolean;
-  /** Tells the wrapper the header toggled fullscreen. */
-  onToggleFullScreen?: (fullscreen: boolean) => void;
-}
-
-/**
- * The toolbar pinned above a table: fullscreen and copy, plus the "scroll"
- * class that flattens it once the table starts leaving the viewport.
- */
-function TableHeaderComponent(props: TableHeaderProps) {
-  const { stream, tableRef, wrapperRef, fullscreen, onToggleFullScreen } = props;
-
-  const headerRef = useRef<HTMLDivElement | null>(null);
-  const tippyCopyRef = useRef<TooltipHandle | null>(null);
-
-  // The scroll handler is registered once but reads the current fullscreen
-  // value, so it goes through a ref rather than the closed-over state.
-  const tickingRef = useRef(false);
-  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
-
-  const updateHeaderScrollClass = useCallback(() => {
-    if (tickingRef.current === true) {
-      return;
-    }
-
-    tickingRef.current = true;
-
-    requestAnimationFrame(() => {
-      const header = headerRef.current;
-      const wrapper = wrapperRef.current;
-
-      tickingRef.current = false;
-
-      if (!header) {
-        return;
-      }
-
-      if (fullscreen === true || !wrapper) {
-        header.classList.remove("scroll");
-        return;
-      }
-
-      const rect = wrapper.getBoundingClientRect();
-      const top = rect?.top || 0;
-      const height = rect?.height || 0;
-
-      if (top < HEADER_OFFSET && height + top > HEADER_MIN_VISIBLE) {
-        header.classList.add("scroll");
-      } else {
-        header.classList.remove("scroll");
-      }
-    });
-  }, [fullscreen, wrapperRef]);
-
-  useEffect(() => {
-    updateHeaderScrollClass();
-    return runtime.onViewportScroll(updateHeaderScrollClass);
-  }, [updateHeaderScrollClass]);
-
-  useEffect(() => {
-    return () => {
-      clearTimeout(copyTimeoutRef.current);
-    };
-  }, []);
-
-  const copyContent = useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const table = tableRef.current;
-
-    if (!table) {
-      return;
-    }
-
-    // innerText, not textContent: it keeps the row and cell breaks the browser
-    // lays out, which is what makes the copy paste back as a table.
-    navigator.clipboard
-      .writeText(table.innerText)
-      .then(() => {
-        tippyCopyRef.current?.show();
-
-        clearTimeout(copyTimeoutRef.current);
-        copyTimeoutRef.current = setTimeout(() => {
-          tippyCopyRef.current?.hide();
-        }, 600);
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  }, [tableRef]);
-
-  const toggleFullScreen = useCallback(
-    (event: React.MouseEvent) => {
-      let next;
-
-      event.preventDefault();
-      event.stopPropagation();
-
-      next = fullscreen !== true;
-
-      onToggleFullScreen?.(next);
-      runtime.emitter.dispatchObjectEvent("fullscreen:change", next);
-    },
-    [fullscreen, onToggleFullScreen]
-  );
-
-  const copyLabel =
-    stream === true ? "Table partially copied" : "Table copied";
-
-  return (
-    <div ref={headerRef} className="table-header">
-      <div className="table-header-content">
-        <span className="table-title-container">
-          <span className="table-title">Table</span>
-        </span>
-        <span className="table-spacer" />
-        <span className="table-button-container">
-          <Tooltip
-            placement={"top"}
-            touch={false}
-            trigger={"mouseenter"}
-            content={"Full screen"}
-          >
-            <button
-              type="button"
-              className="table-icon-button first"
-              onClick={toggleFullScreen}
-            >
-              <span className="button-content">
-                <span
-                  className="button-icon"
-                  dangerouslySetInnerHTML={{
-                    __html: fullscreen === true ? ICON_MINIMIZE : ICON_MAXIMIZE,
-                  }}
-                ></span>
-              </span>
-            </button>
-          </Tooltip>
-          <Tooltip
-            ref={tippyCopyRef}
-            arrow={false}
-            trigger={"manual"}
-            placement={"top-end"}
-            content={copyLabel}
-          >
-            <span className="tippy-button">
-              <Tooltip
-                placement={"top-end"}
-                content={"Copy"}
-                touch={false}
-                trigger={"mouseenter"}
-              >
-                <button
-                  type="button"
-                  className="table-icon-button last"
-                  onClick={copyContent}
-                >
-                  <span className="button-content">
-                    <span
-                      className="button-icon"
-                      dangerouslySetInnerHTML={{ __html: ICON_COPY }}
-                    ></span>
-                  </span>
-                </button>
-              </Tooltip>
-            </span>
-          </Tooltip>
-        </span>
-      </div>
-      <div className="table-header-background">
-        <div className="table-header-fade" />
-        <div className="table-header-blur" />
-      </div>
-    </div>
-  );
-}
-
-const TableHeader = memo(
-  TableHeaderComponent,
-  (prev, next) =>
-    prev.stream === next.stream &&
-    prev.fullscreen === next.fullscreen &&
-    prev.tableRef === next.tableRef &&
-    prev.wrapperRef === next.wrapperRef &&
-    prev.onToggleFullScreen === next.onToggleFullScreen
-);
-
-TableHeader.displayName = "TableHeader";
-
-interface TableShape {
-  /** No header cell has content, so the header row is hidden by CSS. */
-  headless: boolean;
-  /** Widest header seen so far, used for the column-count style hooks. */
-  headerColumns: number;
-}
-
-interface TableElementProps {
-  children?: ReactNode;
-}
-
-/**
- * Reads the shape of the rendered table out of its children.
- *
- * A streaming table arrives one row at a time, so both answers wobble before
- * they settle: the header looks empty until its first cell lands, and the
- * column count grows as cells appear. Each is latched once it can no longer
- * change, so the table never re-styles itself mid-stream.
- */
-function readTableShape(
-  children: ReactNode,
-  shape: TableShape,
-  headlessSettled: RefObject<boolean>,
-  columnsSettled: RefObject<boolean>
-): void {
-  if (headlessSettled.current === true && columnsSettled.current === true) {
-    return;
-  }
-
-  let headless = true;
-  let headerColumns = 0;
-
-  // A header with no rows is a single child, and a one-column header row a
-  // single cell. React hands those over unwrapped, so counting by .length
-  // silently skips the table and leaves it looking headless.
-  const tableChildren = React.Children.toArray(children).filter(
-    isTableElement
-  );
-
-  for (let i = 0, iCount = tableChildren.length; i < iCount; i++) {
-    const child = tableChildren[i];
-
-    if (!child) {
-      continue;
-    }
-
-    if (child.type === "thead") {
-      const headRow = React.Children.toArray(child.props.children).find(
-        isTableElement
-      );
-
-      const headCells = headRow
-        ? React.Children.toArray(headRow.props.children).filter(isTableElement)
-        : [];
-
-      for (let j = 0, jCount = headCells.length; j < jCount; j++) {
-        const cell = headCells[j];
-
-        if (cell?.type === "th") {
-          headerColumns++;
-
-          if (cell.props.children) {
-            headless = false;
-          }
-        }
-      }
-    }
-
-    if (child.type === "tbody") {
-      const bodyRows = React.Children.toArray(child.props.children);
-
-      // Past a couple of body rows the header can no longer turn up.
-      if (bodyRows.length > 2) {
-        headlessSettled.current = true;
-      }
-    }
-  }
-
-  shape.headless = headless;
-
-  if (columnsSettled.current !== true) {
-    if (headerColumns >= shape.headerColumns) {
-      shape.headerColumns = headerColumns;
-    } else {
-      columnsSettled.current = true;
-    }
-  }
-
-  function isTableElement(
-    node: ReactNode
-  ): node is ReactElement<TableElementProps> {
-    return React.isValidElement<TableElementProps>(node);
-  }
-}
-
-export interface MarkdownTableProps
-  extends React.TableHTMLAttributes<HTMLTableElement> {
+export interface MarkdownTableProps extends React.TableHTMLAttributes<HTMLTableElement> {
   /** True while rows are still arriving. */
   stream?: boolean | undefined;
   /** Passed in by the renderer; not a DOM attribute. */
   renderer?: unknown;
+  events?: Emitter | undefined;
+  ui?: UiConfig | undefined;
   /** Passed in by the renderer; not a DOM attribute. */
   scrollDown?: unknown;
 }
@@ -338,8 +27,14 @@ const SCROLL_MARGIN = 100;
  * away, the same way the chat transcript does.
  */
 function MarkdownTableComponent(props: MarkdownTableProps) {
-  const { renderer: _renderer, scrollDown: _scrollDown, stream, ...tableProps } =
-    props;
+  const {
+    renderer: _renderer,
+    events,
+    ui,
+    scrollDown: _scrollDown,
+    stream,
+    ...tableProps
+  } = props;
 
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -357,7 +52,7 @@ function MarkdownTableComponent(props: MarkdownTableProps) {
     props.children,
     shapeRef.current,
     headlessSettled,
-    columnsSettled
+    columnsSettled,
   );
 
   // Fullscreen tables follow the stream, so the listener only exists while
@@ -371,7 +66,8 @@ function MarkdownTableComponent(props: MarkdownTableProps) {
 
     const onScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = wrapper;
-      userScroll.current = scrollTop + clientHeight <= scrollHeight - SCROLL_MARGIN;
+      userScroll.current =
+        scrollTop + clientHeight <= scrollHeight - SCROLL_MARGIN;
     };
 
     wrapper.addEventListener("scroll", onScroll);
@@ -400,15 +96,28 @@ function MarkdownTableComponent(props: MarkdownTableProps) {
     setFullscreen(next);
   }, []);
 
+  const config = ui ?? defaultUi;
+  const maxHeight = cssLength(config.tableMaxHeight);
+
   const wrapperClass =
     "table-wrapper" +
     (stream === true ? " stream-active" : "") +
     (fullscreen === true ? " fullscreen" : "");
 
   return (
-    <div ref={wrapperRef} className={wrapperClass}>
+    <div
+      ref={wrapperRef}
+      className={wrapperClass}
+      style={
+        maxHeight === undefined || fullscreen === true
+          ? undefined
+          : { maxHeight }
+      }
+    >
       <div className="table-container">
         <TableHeader
+          events={events}
+          ui={ui}
           stream={stream}
           tableRef={tableRef}
           wrapperRef={wrapperRef}

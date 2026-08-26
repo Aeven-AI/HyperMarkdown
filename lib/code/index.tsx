@@ -1,445 +1,15 @@
-import React, {
-  Component,
-  PureComponent,
-  type MouseEvent,
-  type ReactElement,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import React, { PureComponent, type ReactElement, type ReactNode } from "react";
 
-import * as runtime from "../platform/runtime";
-import Tooltip, { type TooltipHandle } from "../tooltip";
+import type { Emitter } from "../runtime";
+import { cssLength, defaultUi } from "../config";
+import type { UiConfig } from "../config";
+
+import Header from "./header";
+import LineNumber from "./line-numbers";
 
 interface CodeElementProps {
   className?: string;
   children?: ReactNode;
-}
-
-interface HeaderProps {
-  stream?: boolean | undefined;
-  language: string;
-  fullscreen: boolean;
-  codeRef: RefObject<HTMLDivElement | null>;
-  wrapperRef: RefObject<HTMLDivElement | null>;
-  toggleFullScreen(fullscreen: boolean): void;
-}
-
-class Header extends Component<HeaderProps> {
-  private ticking = false;
-  private tippyCopyTimeout: ReturnType<typeof setTimeout> | undefined;
-  private readonly guid = runtime.guid();
-  private readonly headerRef = React.createRef<HTMLDivElement>();
-  private readonly tippyFullScreenRef = React.createRef<TooltipHandle>();
-  private readonly tippyCopyContentRef = React.createRef<TooltipHandle>();
-  private stopWatchingScroll: (() => void) | undefined;
-
-  constructor(props: HeaderProps) {
-    super(props);
-
-    this.copyContent = this.copyContent.bind(this);
-    this.openPreviewCode = this.openPreviewCode.bind(this);
-    this.toggleFullScreen = this.toggleFullScreen.bind(this);
-
-    this.updateHeaderScrollClass = this.updateHeaderScrollClass.bind(this);
-
-    this.previewButtonComponent = this.previewButtonComponent.bind(this);
-  }
-
-  override componentDidMount() {
-    const vm = this;
-    vm.updateHeaderScrollClass();
-    vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
-  }
-
-  override shouldComponentUpdate(nextProps: HeaderProps) {
-    const vm = this;
-
-    if (checkProps() === true) {
-      return true;
-    } else {
-      return false;
-    }
-
-    function checkProps() {
-      if (
-        vm.props.stream !== nextProps.stream ||
-        vm.props.codeRef !== nextProps.codeRef ||
-        vm.props.language !== nextProps.language ||
-        vm.props.fullscreen !== nextProps.fullscreen
-      ) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-  }
-
-  copyContent(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const vm = this;
-    const props = vm.props;
-    const codeElement = props?.codeRef?.current;
-
-    if (codeElement && codeElement.textContent) {
-      navigator.clipboard
-        .writeText(codeElement.textContent)
-        .then(() => {
-          showTippyCopy();
-        })
-        .catch((err) => {
-          console.error("Failed to copy code: ", err);
-        });
-    }
-
-    function showTippyCopy() {
-      vm.tippyCopyContentRef?.current?.show();
-
-      clearTimeout(vm.tippyCopyTimeout);
-      vm.tippyCopyTimeout = setTimeout(() => {
-        vm.tippyCopyContentRef?.current?.hide();
-      }, 600);
-    }
-  }
-
-  openPreviewCode(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const vm = this;
-    const props = vm.props;
-
-    const guid = vm.guid;
-    const codeElement = props?.codeRef?.current;
-
-    if (props.stream === true) {
-      runtime.emitter.dispatchObjectEvent("show:modal", {
-        type: "alertModal",
-        header: "Rendering code",
-        content: "Please wait untill the code is fully rendered",
-        buttonText: "Ok",
-      });
-    } else {
-      if (codeElement && codeElement.textContent) {
-        runtime.setItem(`preview-${guid}`, codeElement.textContent);
-
-        window.open(`/preview-code/${guid}`, "_blank");
-      } else {
-        runtime.emitter.dispatchObjectEvent("show:modal", {
-          type: "alertModal",
-          header: "Code unavailable",
-          content: "The code preview is unavailable",
-          buttonText: "Ok",
-        });
-      }
-    }
-  }
-
-  toggleFullScreen(event: MouseEvent<HTMLButtonElement>) {
-    let fullscreen;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    const vm = this;
-    const props = vm.props;
-
-    fullscreen = props.fullscreen !== true;
-    props.toggleFullScreen(fullscreen);
-    runtime.emitter.dispatchObjectEvent("fullscreen:change", fullscreen);
-
-    setTimeout(() => {
-      vm.updateHeaderScrollClass();
-    }, 0);
-  }
-
-  updateHeaderScrollClass() {
-    const vm = this;
-
-    if (vm.ticking !== true) {
-      requestAnimationFrame(() => {
-        let rec;
-        let top;
-        let height;
-
-        const wrapper = vm.props.wrapperRef?.current;
-
-        if (vm.props.fullscreen === true) {
-          vm.headerRef?.current?.classList?.remove("scroll");
-        } else {
-          if (wrapper) {
-            rec = wrapper.getBoundingClientRect();
-            top = rec?.top || 0;
-            height = rec?.height || 0;
-
-            if (top >= 56) {
-              vm.headerRef?.current?.classList?.remove("scroll");
-            } else {
-              if (height + top > 106) {
-                vm.headerRef?.current?.classList?.add("scroll");
-              } else {
-                vm.headerRef?.current?.classList?.remove("scroll");
-              }
-            }
-          }
-        }
-
-        vm.ticking = false;
-      });
-
-      vm.ticking = true;
-    }
-  }
-
-  previewButtonComponent(props: HeaderProps) {
-    const vm = this;
-    const language = props.language;
-    if (language !== "html") {
-      return null;
-    } else {
-      return (
-        <Tooltip
-          ref={vm.tippyFullScreenRef}
-          placement={"top"}
-          touch={false}
-          trigger={"mouseenter"}
-          content={"Preview"}
-        >
-          <button
-            type="button"
-            className="codeblock-icon-button first"
-            onClick={(event) => {
-              vm.openPreviewCode(event);
-            }}
-          >
-            <span className="button-content">
-              <span
-                className="button-icon play"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" class="circle-play-icon circle-play"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z"/><circle cx="12" cy="12" r="10"/></svg>',
-                }}
-              />
-            </span>
-          </button>
-        </Tooltip>
-      );
-    }
-  }
-
-  override componentWillUnmount() {
-    const vm = this;
-    vm.stopWatchingScroll?.();
-  }
-
-  override render() {
-    let tippyCopyTxt;
-    let iconFullScreen;
-
-    const vm = this;
-    const props = vm.props;
-
-    const PreviewButtonComponent = vm.previewButtonComponent;
-
-    tippyCopyTxt = "Code copied";
-
-    if (props.stream === true) {
-      tippyCopyTxt = "Code partially copied";
-    }
-
-    if (props.fullscreen === true) {
-      iconFullScreen =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="minimize2-icon minimize-2"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>';
-    } else {
-      iconFullScreen =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="maximize2-icon maximize-2"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>';
-    }
-
-    return (
-      <div ref={vm.headerRef} className="codeblock-header">
-        <div className="codeblock-header-content">
-          <span className="codeblock-title-container">
-            <span className="codeblock-title">{props.language}</span>
-          </span>
-          <span className="codeblock-spacer" />
-          <span className="codeblock-button-container">
-            <PreviewButtonComponent {...props} />
-            <Tooltip
-              ref={vm.tippyFullScreenRef}
-              placement={"top"}
-              touch={false}
-              trigger={"mouseenter"}
-              content={"Full screen"}
-            >
-              <button
-                type="button"
-                className="codeblock-icon-button first"
-                onClick={(event) => {
-                  vm.toggleFullScreen(event);
-                }}
-              >
-                <span className="button-content">
-                  <span
-                    className="button-icon"
-                    dangerouslySetInnerHTML={{
-                      __html: iconFullScreen,
-                    }}
-                  />
-                </span>
-              </button>
-            </Tooltip>
-            <Tooltip
-              ref={vm.tippyCopyContentRef}
-              arrow={false}
-              trigger={"manual"}
-              placement={"top-end"}
-              content={tippyCopyTxt}
-            >
-              <span className="tippy-button">
-                <Tooltip
-                  placement={"top-end"}
-                  content={"Copy code"}
-                  touch={false}
-                  trigger={"mouseenter"}
-                >
-                  <button
-                    type="button"
-                    className="codeblock-icon-button last"
-                    onClick={vm.copyContent}
-                  >
-                    <span className="button-content">
-                      <span
-                        className="button-icon"
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="copy-icon copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
-                        }}
-                      />
-                    </span>
-                  </button>
-                </Tooltip>
-              </span>
-            </Tooltip>
-          </span>
-        </div>
-        <div className="codeblock-header-background">
-          <div className="codeblock-header-fade" />
-          <div className="codeblock-header-blur" />
-        </div>
-      </div>
-    );
-  }
-}
-
-interface LineNumberProps {
-  codeRef: RefObject<HTMLDivElement | null>;
-  animation?: boolean | undefined;
-}
-
-interface LineNumberState {
-  lineNumberTotal: number;
-}
-
-class LineNumber extends Component<LineNumberProps, LineNumberState> {
-  private countTimeout: ReturnType<typeof setTimeout> | undefined;
-
-  constructor(props: LineNumberProps) {
-    super(props);
-
-    this.state = {
-      lineNumberTotal: 0,
-    };
-
-    this.lineNumberCount = this.lineNumberCount.bind(this);
-  }
-
-  override componentDidMount() {
-    const vm = this;
-    vm.lineNumberCount();
-
-    // next tick hack
-    vm.countTimeout = setTimeout(() => {
-      vm.lineNumberCount();
-    }, 0);
-  }
-
-  override componentDidUpdate(
-    _prevProps: Readonly<LineNumberProps>,
-    _prevState: Readonly<LineNumberState>
-  ) {
-    const vm = this;
-    vm.lineNumberCount();
-  }
-
-  lineNumberCount() {
-    let lineCount;
-    let textContent;
-
-    const vm = this;
-    const props = vm.props;
-
-    if (props?.codeRef?.current) {
-      textContent = props.codeRef.current.textContent || "";
-      lineCount = textContent.split("\n").length;
-
-      if (lineCount > 0) {
-        lineCount = lineCount - 1;
-      }
-
-      if (vm.state.lineNumberTotal !== lineCount) {
-        vm.setState({ lineNumberTotal: lineCount });
-      }
-    }
-  }
-
-  override componentWillUnmount() {
-    clearTimeout(this.countTimeout);
-  }
-
-  override render() {
-    const vm = this;
-    const state = vm.state;
-    const props = vm.props;
-    const lineNumberTotal = state.lineNumberTotal;
-
-    if (lineNumberTotal === 0) {
-      return (
-        <span className="line-numbers">
-          <span className="line-number" key={`l-1`}>
-            1
-          </span>
-        </span>
-      );
-    } else {
-      if (props.animation === false) {
-        return (
-          <span className="line-numbers">
-            {Array.from({ length: lineNumberTotal }, (_, i) => (
-              <span className="line-number" key={`l-${i}`}>
-                {i + 1}
-              </span>
-            ))}
-          </span>
-        );
-      } else {
-        return (
-          <span className="line-numbers">
-            {Array.from({ length: lineNumberTotal }, (_, i) => (
-              <span
-                className="line-number"
-                data-animate-word={true}
-                key={`l-${i}`}
-              >
-                {i + 1}
-              </span>
-            ))}
-          </span>
-        );
-      }
-    }
-  }
 }
 
 export interface CodeBlockProps {
@@ -449,6 +19,8 @@ export interface CodeBlockProps {
   streaming?: boolean | undefined;
   animation?: boolean | undefined;
   renderer?: unknown;
+  events?: Emitter | undefined;
+  ui?: UiConfig | undefined;
   scrollDown?: unknown;
 }
 
@@ -457,10 +29,7 @@ interface CodeBlockState {
   finalStream: boolean;
 }
 
-class MarkdownCode extends PureComponent<
-  CodeBlockProps,
-  CodeBlockState
-> {
+class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
   private userScroll = false;
   private readonly scrollMargin = 100;
   private currentScrollHeight = 0;
@@ -489,7 +58,7 @@ class MarkdownCode extends PureComponent<
 
   override componentDidUpdate(
     prevProps: Readonly<CodeBlockProps>,
-    _prevState: Readonly<CodeBlockState>
+    _prevState: Readonly<CodeBlockState>,
   ) {
     const vm = this;
 
@@ -616,6 +185,9 @@ class MarkdownCode extends PureComponent<
     const props = vm.props;
     const state = vm.state;
 
+    const ui = props.ui ?? defaultUi;
+    const maxHeight = cssLength(ui.codeBlockMaxHeight);
+
     const language = vm.language();
 
     if (props.stream !== true) {
@@ -640,9 +212,16 @@ class MarkdownCode extends PureComponent<
       <div
         ref={vm.wrapperRef}
         className={"codeblock-wrapper" + stream + fullscreen}
+        style={
+          maxHeight === undefined || state.fullscreen === true
+            ? undefined
+            : { maxHeight }
+        }
       >
         <div className="code-container">
           <Header
+            events={props.events}
+            ui={props.ui}
             stream={props.stream}
             language={language}
             codeRef={vm.codeRef}
@@ -653,7 +232,9 @@ class MarkdownCode extends PureComponent<
 
           <div className="codeblock-pre-code-content">
             <pre>
-              <LineNumber codeRef={vm.codeRef} animation={props.animation} />
+              {ui.lineNumbers === false ? null : (
+                <LineNumber codeRef={vm.codeRef} animation={props.animation} />
+              )}
 
               <div ref={vm.codeRef} className="code-content no-scrollbar">
                 {children}

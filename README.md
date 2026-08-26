@@ -10,11 +10,11 @@ is not re-parsed on every chunk.
 pnpm add hypermarkdown
 ```
 
-React 18 or 19 is a peer dependency.
+React 18 or 19 is a peer dependency. Maths, syntax highlighting and diagrams
+are not installed — see [Plugins](#plugins).
 
 ```tsx
 import { HyperMarkdown, type HyperMarkdownHandle } from "hypermarkdown";
-import "katex/dist/katex.min.css";
 ```
 
 ## Rendering a finished document
@@ -47,6 +47,83 @@ renderer.current?.write("", true); // finalize
 | `scrollDown` | `() => void` | Called after each render, to keep the view pinned. |
 | `onFullscreenChange` | `(fullscreen: boolean) => void` | A code block, table or diagram entered or left fullscreen. Hide your own navigation and input chrome here, or the block ends up fullscreen underneath it. |
 | `onAlert` | `(alert: { header, content, buttonText }) => void` | A block wants to tell the reader something. Without a handler the message is dropped, since the component has no dialog of its own. |
+| `plugins` | `PluginConfig` | Maths, syntax highlighting and diagrams. See below — none is bundled. |
+| `sanitize` | `boolean` | Turn sanitization off. Only for content you produced yourself. Default `true`. |
+| `allowedTags` | `Record<string, string[]>` | Extra tags and attributes to let through sanitization. |
+| `linkSafety` | `LinkSafetyConfig` | Which URL schemes and prefixes links and images may use. |
+| `translations` | `Partial<Translations>` | Override any of the strings the toolbars show. |
+| `icons` | `Partial<IconMap>` | Override any toolbar icon, as inline `<svg>` markup. |
+| `controls` | `ControlsConfig` | Which buttons each kind of block offers; `false` hides a block's toolbar. |
+| `lineNumbers` | `boolean` | The line-number gutter on code blocks. Default `true`. |
+| `codeBlockMaxHeight` | `number \| string` | Height at which a code block starts scrolling. Numbers are px. |
+| `tableMaxHeight` | `number \| string` | Height at which a table starts scrolling. Numbers are px. |
+| `className` | `string` | Class for a wrapping `<div>`. Without one, blocks render into a fragment. |
+
+## Plugins
+
+Maths, syntax highlighting and diagrams are the three heavy dependencies —
+katex, highlight.js and mermaid between them dwarf everything else here. None
+of them is a dependency of this package. Install the ones you want and pass
+them in:
+
+```bash
+npm install katex remark-math rehype-katex   # maths
+npm install rehype-highlight                 # syntax highlighting
+npm install mermaid                          # diagrams
+```
+
+```tsx
+import { katexPlugin } from "hypermarkdown/plugins/math";
+import { highlightPlugin } from "hypermarkdown/plugins/code";
+import { mermaidPlugin } from "hypermarkdown/plugins/mermaid";
+
+// Build once: a new plugin object rebuilds every pipeline.
+const plugins = {
+  math: katexPlugin(),
+  code: highlightPlugin(),
+  diagram: mermaidPlugin(),
+};
+
+<HyperMarkdown md={md} plugins={plugins} />;
+```
+
+Each slot degrades rather than breaks when left empty:
+
+| missing | what happens |
+| --- | --- |
+| `math` | `$x$` stays literal text, and the `\(…\)` normalisation is skipped |
+| `code` | code blocks render with their toolbar and line numbers, unhighlighted |
+| `diagram` | a ```` ```mermaid ```` fence renders as an ordinary code block |
+
+Mermaid is imported dynamically on the first diagram, so nothing before that
+point pays for it. Write your own plugin against `MathPlugin`,
+`CodeHighlighterPlugin` or `DiagramPlugin` to swap in a different engine.
+
+## Untrusted input
+
+Markdown from a model is untrusted input. Raw HTML in it is parsed, then
+sanitized with `rehype-sanitize` before anything else runs — `<script>`,
+`<style>`, `<iframe>`, `<form>` and every event-handler attribute are removed.
+Link and image targets are then checked separately: by default only `http`,
+`https`, `mailto` and `tel` are allowed, plus `data:` images, and a disallowed
+link keeps its text and loses only its destination.
+
+Sanitization runs *before* maths, highlighting, diagram and animation stages,
+so everything those produce is generated from already-clean content and none of
+it has to be whitelisted.
+
+To widen it:
+
+```tsx
+<HyperMarkdown
+  md={md}
+  allowedTags={{ mention: ["data-user-id"] }}
+  linkSafety={{ allowedLinkPrefixes: ["https://ours.example"] }}
+/>
+```
+
+`sanitize={false}` turns it off entirely. Only do that for content you
+generated yourself.
 
 Call `write(delta)` for each chunk, then call `write("", true)` once when the
 stream ends so any buffered block is flushed.
@@ -70,10 +147,6 @@ stream ends so any buffered block is flushed.
 GitHub Flavored Markdown (tables, task lists, strikethrough, autolinks,
 footnotes), KaTeX maths, Mermaid diagrams, syntax highlighting, and raw HTML.
 
-## A note on untrusted input
-
-Raw HTML is rendered. If the markdown you pass can be influenced by someone
-untrusted, sanitize before rendering — this package does not do it for you.
 
 ## Development
 
@@ -83,3 +156,44 @@ pnpm test        # behavioural suite over the fixture corpus
 pnpm typecheck
 pnpm build
 ```
+
+## Layout
+
+```
+index.tsx                     the component — the only public entry
+
+lib/
+  renderer.tsx                owns the buffers and decides what to re-render
+  components.tsx              which tags become which components
+  processors.ts               the unified pipelines
+  patterns.ts                 every pattern the renderer matches against
+  math-notation.ts            the notations models emit for maths → $ … $
+  icons.ts   runtime.ts   types.ts
+
+  remark/footnotes.ts
+  rehype/{element-data,mermaid,animate-words,link-safety}.ts
+
+  stream/                     what to render, and when
+    detect-block-type.ts      what kind of block is this
+    find-block-boundary.ts    where does it end
+    list-structure.ts   definitions.ts   references.ts
+
+  repair/                     completing markup a chunk cut in half
+    process-inline-syntax.ts  the settle loop everything else feeds
+    emphasis.ts  inline-tokens.ts  code-spans.ts  links.ts
+    math.ts      tables.ts        setext.ts       escapes.ts
+    entities.ts  list-markers.ts  task-lists.ts   utils.ts   types.ts
+
+  cache/                      sub-block caches, so a long block is not requoted
+    code.tsx  list.tsx  table.tsx  utils.ts
+
+  config.ts   sanitize.ts   plugin-types.ts
+  plugins/{math,code,mermaid}.ts
+
+  code/{index,header,line-numbers}.tsx
+  table/{index,header,shape}.tsx
+  mermaid/{index,header}.tsx
+  link.tsx  image.tsx  tooltip.tsx
+```
+
+No barrel files: every import names the module it comes from.

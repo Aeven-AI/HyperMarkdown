@@ -6,7 +6,7 @@ import { patterns } from "./patterns";
  */
 export function convertMath(
   mdBuffer: string | null | undefined,
-  blockType?: string
+  blockType?: string,
 ): string | null | undefined {
   const tokens = patterns.mathProtectedRegex;
   const mathSplitter = patterns.mathSplitterRegex;
@@ -41,19 +41,19 @@ export function convertMath(
     // TeX display "\[ … \]", only when the delimiters sit on their own lines
     text = text.replace(
       /(?<!\\)\\\[\s*\r?\n([\s\S]*?)\r?\n\s*\\\](?!\])/g,
-      (_m, body) => `\n$$\n${(body || "").trim()}\n$$\n`
+      (_m, body) => `\n$$\n${(body || "").trim()}\n$$\n`,
     );
 
     // TeX inline "\( … \)" → "$ … $"
     text = text.replace(
       /(?<!\\)\\\(([\s\S]*?)\\\)/g,
-      (_m, body) => `$${(body || "").trim()}$`
+      (_m, body) => `$${(body || "").trim()}$`,
     );
 
     // Bracketed block "[\n … \n]" → "$$ … $$"
     text = text.replace(
       /^[ \t]*\[\s*\r?\n([\s\S]*?)\r?\n[ \t]*\][ \t]*$/gm,
-      (_m, body) => `\n$$\n${(body || "").trim()}\n$$\n`
+      (_m, body) => `\n$$\n${(body || "").trim()}\n$$\n`,
     );
 
     return convertInlineOutsideMath(text);
@@ -79,7 +79,7 @@ export function convertMath(
             if (looksLikeLeft.test(before) || looksLikeRight.test(after))
               return m;
             return `$${(body || "").trim()}$`;
-          }
+          },
         );
 
         // "( … )" with padding spaces → "$…$"
@@ -93,7 +93,7 @@ export function convertMath(
             if (looksLikeLeft.test(before) || looksLikeRight.test(after))
               return m;
             return `$${(body || "").trim()}$`;
-          }
+          },
         );
 
         return seg;

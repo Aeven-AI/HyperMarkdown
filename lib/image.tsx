@@ -26,7 +26,7 @@ function MarkdownImage(props: ImageProps) {
 // Re-renders only when the source changes, as the class did.
 const MemoMarkdownImage = memo(
   MarkdownImage,
-  (prev, next) => prev.src === next.src
+  (prev, next) => prev.src === next.src,
 );
 
 MemoMarkdownImage.displayName = "MarkdownImage";

@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const FIXTURES = path.resolve(
   path.dirname(new URL(import.meta.url).pathname),
-  "fixtures"
+  "fixtures",
 );
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -61,13 +61,32 @@ if (typeof global.$ !== "function") {
 
 let Renderer;
 let MarkdownLink;
+let blocks;
+let inline;
+let allPlugins;
 
 beforeAll(async () => {
-  const markdownModule = await import("../lib/renderer/renderer");
+  const markdownModule = await import("../lib/renderer");
   const markdownLinkModule = await import("../lib/link");
 
   Renderer = markdownModule.default;
+  blocks = {
+    ...(await import("../lib/stream/list-structure")),
+    ...(await import("../lib/stream/definitions")),
+  };
+  inline = {
+    ...(await import("../lib/repair/process-inline-syntax")),
+    ...(await import("../lib/repair/tables")),
+  };
   MarkdownLink = markdownLinkModule.default;
+
+  // The suite covers the fully-equipped renderer; the degradation cases below
+  // build their own without these.
+  allPlugins = {
+    math: (await import("../lib/plugins/math")).katexPlugin(),
+    code: (await import("../lib/plugins/code")).highlightPlugin(),
+    diagram: (await import("../lib/plugins/mermaid")).mermaidPlugin(),
+  };
 });
 
 function createRenderer(props = {}) {
@@ -79,6 +98,7 @@ function createRenderer(props = {}) {
     streaming: props.streaming === true,
     animation: props.animation === true,
     scrollDown: props.scrollDown || undefined,
+    plugins: props.plugins === undefined ? allPlugins : props.plugins,
   };
 
   // The engine is plain TypeScript: no React lifecycle to stand in for.
@@ -112,7 +132,9 @@ function isLinkNode(node) {
     return true;
   }
 
-  return typeof node.type === "function" && typeof node.props?.href === "string";
+  return (
+    typeof node.type === "function" && typeof node.props?.href === "string"
+  );
 }
 
 function findLink(node, predicate) {
@@ -252,7 +274,7 @@ describe("HyperMarkdown streaming dataset stress", () => {
           chunk,
           renderer.state.streaming,
           renderer.state.animation,
-          false
+          false,
         );
       }
     });
@@ -261,7 +283,7 @@ describe("HyperMarkdown streaming dataset stress", () => {
       "",
       renderer.state.streaming,
       renderer.state.animation,
-      true
+      true,
     );
 
     relativeLink = findMatchingLink(renderer.render(), (href) => {
@@ -271,26 +293,26 @@ describe("HyperMarkdown streaming dataset stress", () => {
     expect(relativeLink?.props?.href).toBe("../path/to/file.md");
     expect(
       renderToStaticMarkup(renderer.render()).includes(
-        'href="../path/to/file.md"'
-      )
+        'href="../path/to/file.md"',
+      ),
     ).toBe(true);
 
     const markup = renderToStaticMarkup(renderer.render());
     const referenceDom = new JSDOM(markup);
     const referenceAnchors = referenceDom.window.document.querySelectorAll(
-      'a[href="https://example.com"]'
+      'a[href="https://example.com"]',
     );
 
     expect(referenceAnchors.length).toBeGreaterThan(0);
     expect(
       Array.from(referenceAnchors).some(
-        (anchor) => anchor.textContent === "reference link"
-      )
+        (anchor) => anchor.textContent === "reference link",
+      ),
     ).toBe(true);
     expect(
       Array.from(referenceAnchors).some(
-        (anchor) => anchor.textContent === "implicit reference link"
-      )
+        (anchor) => anchor.textContent === "implicit reference link",
+      ),
     ).toBe(true);
   });
 });
@@ -330,11 +352,21 @@ function collectFrames(renderer, source, size) {
   chunks = splitChunks(source, size);
 
   for (i = 0; i < chunks.length; i++) {
-    renderer.streamMd(chunks[i], renderer.state.streaming, renderer.state.animation, false);
+    renderer.streamMd(
+      chunks[i],
+      renderer.state.streaming,
+      renderer.state.animation,
+      false,
+    );
     frames.push(renderToStaticMarkup(renderer.render()));
   }
 
-  renderer.streamMd("", renderer.state.streaming, renderer.state.animation, true);
+  renderer.streamMd(
+    "",
+    renderer.state.streaming,
+    renderer.state.animation,
+    true,
+  );
 
   return frames;
 }
@@ -346,7 +378,11 @@ describe("HyperMarkdown streaming math", () => {
     let rawFrames;
 
     renderer = createRenderer({ streaming: true, animation: false });
-    frames = collectFrames(renderer, "Energy is $E = mc^2$ and that is it.\n\n", 2);
+    frames = collectFrames(
+      renderer,
+      "Energy is $E = mc^2$ and that is it.\n\n",
+      2,
+    );
 
     rawFrames = frames.filter((frame) => /\$|\^/.test(visibleText(frame)));
 
@@ -363,7 +399,7 @@ describe("HyperMarkdown streaming math", () => {
     frames = collectFrames(
       renderer,
       "Look:\n\n$$\n\\frac{a}{b} = c\n$$\n\nDone.\n\n",
-      2
+      2,
     );
 
     rawFrames = frames.filter((frame) => /\$|frac/.test(visibleText(frame)));
@@ -441,16 +477,17 @@ function fullParsedTable(source, animation) {
   renderer = createRenderer({ streaming: true, animation: animation });
 
   buffer = renderer.mdMath(source, "table");
-  buffer = renderer.mdString(buffer, "table", true);
+  buffer = inline.processInlineSyntax(buffer, "table", true);
 
   return tableOnly(
-    renderToStaticMarkup(renderer.processMd(buffer, true, animation))
+    renderToStaticMarkup(renderer.processMd(buffer, true, animation)),
   );
 }
 
 describe("HyperMarkdown streaming table cache", () => {
   const sources = {
-    headed: "| A | B |\n|:--|--:|\n| 1 | **b** |\n| 2 | [l](x) |\n| 3 | `c` |\n",
+    headed:
+      "| A | B |\n|:--|--:|\n| 1 | **b** |\n| 2 | [l](x) |\n| 3 | `c` |\n",
     headless: "| a | b |\n| c | d |\n| e | f |\n",
     "headless without outer pipes": "a | b\nc | d\n",
     "headless widening": "| a | b |\n| c | d | e |\n| f | g |\n",
@@ -473,7 +510,7 @@ describe("HyperMarkdown streaming table cache", () => {
         for (end = 1; end <= source.length; end++) {
           renderer = streamedTable(source.substring(0, end), 3, animation);
 
-          if (!renderer.tableHead) {
+          if (!renderer.tableCache.head) {
             continue;
           }
 
@@ -507,9 +544,9 @@ describe("HyperMarkdown streaming table cache", () => {
     markup = renderToStaticMarkup(renderer.render());
 
     cellDom = new JSDOM("<body>" + markup + "</body>");
-    cells = Array.from(cellDom.window.document.querySelectorAll("tbody td")).map(
-      (cell) => cell.textContent
-    );
+    cells = Array.from(
+      cellDom.window.document.querySelectorAll("tbody td"),
+    ).map((cell) => cell.textContent);
 
     expect(markup).toContain("<table");
     expect(cells).toEqual(["a", "b", "c", "d"]);
@@ -521,16 +558,22 @@ describe("HyperMarkdown streaming table cache", () => {
     let headerDom;
 
     renderer = createRenderer({ streaming: true, animation: false });
-    renderStream(renderer, splitChunks("| a | b |\n| c | d | e |\n\n", 3), true);
+    renderStream(
+      renderer,
+      splitChunks("| a | b |\n| c | d | e |\n\n", 3),
+      true,
+    );
 
     markup = renderToStaticMarkup(renderer.render());
     headerDom = new JSDOM("<body>" + markup + "</body>");
 
-    expect(headerDom.window.document.querySelectorAll("thead th").length).toBe(3);
+    expect(headerDom.window.document.querySelectorAll("thead th").length).toBe(
+      3,
+    );
     expect(
       Array.from(headerDom.window.document.querySelectorAll("tbody td")).map(
-        (cell) => cell.textContent
-      )
+        (cell) => cell.textContent,
+      ),
     ).toEqual(["a", "b", "", "c", "d", "e"]);
   });
 
@@ -553,9 +596,9 @@ describe("HyperMarkdown streaming table cache", () => {
       splitChunks(
         "| A | B |\n|---|---|\n" +
           Array.from({ length: 40 }, (_, i) => `| ${i} | row |\n`).join(""),
-        4
+        4,
       ),
-      false
+      false,
     );
 
     // Without the cache this is one full-table parse per chunk (150+).
@@ -592,7 +635,9 @@ describe("HyperMarkdown streaming table close", () => {
 
   Object.keys(sources).forEach((name) => {
     it(`closes to the whole-document render: ${name}`, () => {
-      expect(closedStreamTable(sources[name])).toBe(documentTable(sources[name]));
+      expect(closedStreamTable(sources[name])).toBe(
+        documentTable(sources[name]),
+      );
     });
   });
 
@@ -621,7 +666,7 @@ describe("HyperMarkdown streaming table close", () => {
     renderStream(renderer, splitChunks("| Header Only |", 3), false);
 
     expect(tableOnly(renderToStaticMarkup(renderer.render()))).toContain(
-      "<table"
+      "<table",
     );
   });
 });
@@ -680,13 +725,13 @@ describe("HyperMarkdown table headless flag", () => {
       renderStream(renderer, splitChunks(source.md, 3), true);
 
       expect(tableTag(renderToStaticMarkup(renderer.render()))).toBe(
-        `<table data-headless="${source.headless}" data-header-columns="${source.columns}">`
+        `<table data-headless="${source.headless}" data-header-columns="${source.columns}">`,
       );
 
       renderer = createRenderer({ md: source.md, streaming: false });
 
       expect(tableTag(renderToStaticMarkup(renderer.render()))).toBe(
-        `<table data-headless="${source.headless}" data-header-columns="${source.columns}">`
+        `<table data-headless="${source.headless}" data-header-columns="${source.columns}">`,
       );
     });
   });
@@ -702,14 +747,11 @@ describe("HyperMarkdown table row keys", () => {
     renderer = createRenderer({ streaming: true, animation: false });
     renderStream(
       renderer,
-      splitChunks(
-        "| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n",
-        3
-      ),
-      false
+      splitChunks("| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n", 3),
+      false,
     );
 
-    rows = renderer.lineCacheData.filter((row) => row);
+    rows = renderer.tableCache.data.filter((row) => row);
 
     expect(rows.length).toBeGreaterThan(1);
 
@@ -728,10 +770,10 @@ describe("HyperMarkdown table row keys", () => {
     renderStream(
       renderer,
       splitChunks("| a | b |\n| c | d |\n| e | f |\n", 3),
-      false
+      false,
     );
 
-    rows = renderer.lineCacheData.filter((row) => row);
+    rows = renderer.tableCache.data.filter((row) => row);
 
     expect(rows.length).toBeGreaterThan(1);
 
@@ -838,7 +880,7 @@ describe("HyperMarkdown loose list blocks", () => {
       renderer = createRenderer({ md: source, streaming: false });
 
       expect(streamed.replace(/\n+/g, "")).toBe(
-        renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+        renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
       );
     });
   });
@@ -852,7 +894,7 @@ describe("HyperMarkdown streaming links", () => {
     "inline link": "[inline link](https://example.com)",
     "link with title": '[t](https://example.com "Title")',
     "relative link": "[relative link](../path/to/file.md)",
-    "image": "![inline image](https://example.com/image.png)",
+    image: "![inline image](https://example.com/image.png)",
     "parens inside url": "[parens](https://example.com/path(inner))",
     "link mid sentence": "see [docs](https://x.dev) now",
   };
@@ -892,7 +934,7 @@ describe("HyperMarkdown streaming links", () => {
       renderer = createRenderer({ md: source, streaming: false });
 
       expect(streamed.replace(/\n+/g, "")).toBe(
-        renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+        renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
       );
     });
   });
@@ -901,7 +943,11 @@ describe("HyperMarkdown streaming links", () => {
     let renderer;
 
     renderer = createRenderer({ streaming: true, animation: false });
-    renderStream(renderer, "https://example.com".substring(0, 12).split(""), false);
+    renderStream(
+      renderer,
+      "https://example.com".substring(0, 12).split(""),
+      false,
+    );
 
     expect(renderToStaticMarkup(renderer.render())).toContain("<a ");
   });
@@ -910,10 +956,14 @@ describe("HyperMarkdown streaming links", () => {
     let renderer;
 
     renderer = createRenderer({ streaming: true, animation: false });
-    renderStream(renderer, splitChunks("text with [brackets] here.\n\n", 2), true);
+    renderStream(
+      renderer,
+      splitChunks("text with [brackets] here.\n\n", 2),
+      true,
+    );
 
     expect(visibleText(renderToStaticMarkup(renderer.render()))).toContain(
-      "text with [brackets] here."
+      "text with [brackets] here.",
     );
   });
 
@@ -923,7 +973,9 @@ describe("HyperMarkdown streaming links", () => {
     renderer = createRenderer({ streaming: true, animation: false });
     renderStream(renderer, "![img](htt".split(""), false);
 
-    expect(visibleText(renderToStaticMarkup(renderer.render())).trim()).toBe("");
+    expect(visibleText(renderToStaticMarkup(renderer.render())).trim()).toBe(
+      "",
+    );
   });
 });
 
@@ -955,10 +1007,10 @@ describe("HyperMarkdown emphasis never becomes a rule", () => {
 
     renderer = createRenderer({ streaming: true, animation: false });
 
-    output = renderer.mdString(
+    output = inline.processInlineSyntax(
       "***bold italic***\n___bold italic___\n**_",
       "text",
-      true
+      true,
     );
 
     expect(output).not.toMatch(/^[ \t]*([-*_])\1{2,}[ \t]*$/m);
@@ -998,9 +1050,9 @@ describe("HyperMarkdown streaming angle constructs", () => {
         renderer = createRenderer({ streaming: true, animation: false });
         renderStream(renderer, source.substring(0, n).split(""), false);
 
-        expect(visibleText(renderToStaticMarkup(renderer.render()))).not.toContain(
-          "<"
-        );
+        expect(
+          visibleText(renderToStaticMarkup(renderer.render())),
+        ).not.toContain("<");
       }
     });
 
@@ -1018,7 +1070,7 @@ describe("HyperMarkdown streaming angle constructs", () => {
       renderer = createRenderer({ md: source, streaming: false });
 
       expect(streamed.replace(/\n+/g, "")).toBe(
-        renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+        renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
       );
     });
   });
@@ -1030,7 +1082,7 @@ describe("HyperMarkdown streaming angle constructs", () => {
     renderStream(renderer, "2 < 3 is".split(""), false);
 
     expect(visibleText(renderToStaticMarkup(renderer.render()))).toContain(
-      "2 < 3"
+      "2 < 3",
     );
   });
 
@@ -1038,7 +1090,11 @@ describe("HyperMarkdown streaming angle constructs", () => {
     let renderer;
 
     renderer = createRenderer({ streaming: true, animation: false });
-    renderStream(renderer, "https://example.com".substring(0, 12).split(""), false);
+    renderStream(
+      renderer,
+      "https://example.com".substring(0, 12).split(""),
+      false,
+    );
 
     expect(renderToStaticMarkup(renderer.render())).toContain("<a ");
   });
@@ -1069,9 +1125,9 @@ describe("HyperMarkdown nested lists never flash as headings", () => {
 
     renderer = createRenderer({ streaming: true, animation: false });
 
-    expect(renderer.mdString("-   Another item\n    -", "text", true)).toBe(
-      "-   Another item\n"
-    );
+    expect(
+      inline.processInlineSyntax("-   Another item\n    -", "text", true),
+    ).toBe("-   Another item\n");
   });
 
   // Top-level items still stream as one <ul> each — a separate, pre-existing
@@ -1122,7 +1178,7 @@ describe("HyperMarkdown nested lists never flash as headings", () => {
       renderer = createRenderer({ md: source, streaming: false });
 
       expect(streamed.replace(/\n+/g, "")).toBe(
-        renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+        renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
       );
     });
   });
@@ -1158,7 +1214,10 @@ function finishedText(source, size, finalizeOnLastChunk) {
 describe("HyperMarkdown keeps every block", () => {
   const sources = {
     "tight list": { md: "- a\n- b\n- c\n\n", items: ["a", "b", "c"] },
-    "two letter items": { md: "- aa\n- bb\n- cc\n\n", items: ["aa", "bb", "cc"] },
+    "two letter items": {
+      md: "- aa\n- bb\n- cc\n\n",
+      items: ["aa", "bb", "cc"],
+    },
     "word items": {
       md: "- alpha\n- beta\n- gamma\n\n",
       items: ["alpha", "beta", "gamma"],
@@ -1185,16 +1244,10 @@ describe("HyperMarkdown keeps every block", () => {
         source = sources[name];
 
         [false, true].forEach((finalizeOnLastChunk) => {
-          const rendered = finishedText(
-            source.md,
-            size,
-            finalizeOnLastChunk
-          );
+          const rendered = finishedText(source.md, size, finalizeOnLastChunk);
 
           source.items.forEach((item) => {
-            expect(rendered).toMatch(
-              new RegExp("(^|\\W)" + item + "(\\W|$)")
-            );
+            expect(rendered).toMatch(new RegExp("(^|\\W)" + item + "(\\W|$)"));
           });
         });
       });
@@ -1225,8 +1278,8 @@ function bodyText(renderer) {
       React.Fragment,
       null,
       renderer.generateCachedData(),
-      renderer.generateStreamData()
-    )
+      renderer.generateStreamData(),
+    ),
   );
 
   dom = new JSDOM("<body>" + markup + "</body>");
@@ -1290,12 +1343,7 @@ describe("HyperMarkdown finishes what the document renderer produces", () => {
 
     ["test-markdown-stress-one.json", "test-markdown-stress-two.json"].forEach(
       (name) => {
-        raw = JSON.parse(
-          fs.readFileSync(
-            path.resolve(FIXTURES, name),
-            "utf8"
-          )
-        );
+        raw = JSON.parse(fs.readFileSync(path.resolve(FIXTURES, name), "utf8"));
 
         chunks = raw
           .map((item) => item?.data?.choices?.[0]?.delta?.content)
@@ -1314,12 +1362,12 @@ describe("HyperMarkdown finishes what the document renderer produces", () => {
           dom = new JSDOM("<body>" + markup + "</body>");
           return (dom.window.document.body.textContent || "").replace(
             /\s+/g,
-            ""
+            "",
           );
         };
 
         expect(asText(streamed)).toBe(asText(document));
-      }
+      },
     );
   }, 300000);
 });
@@ -1344,8 +1392,8 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.mdString(balanced[name], "text", true)).toBe(
-        balanced[name]
+      expect(inline.processInlineSyntax(balanced[name], "text", true)).toBe(
+        balanced[name],
       );
     });
   });
@@ -1357,7 +1405,10 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
     "single underscore": ["_it", "_it_"],
     "double underscore": ["__bo", "__bo__"],
     "triple underscore": ["___bi", "___bi___"],
-    "bold around italic": ["**mixed _nested_ emphasis", "**mixed _nested_ emphasis**"],
+    "bold around italic": [
+      "**mixed _nested_ emphasis",
+      "**mixed _nested_ emphasis**",
+    ],
     "bold then italic": ["**_bold italic", "**_bold italic_**"],
     "italic then bold": ["*__bold italic", "*__bold italic__*"],
     "bold outer italic inner": ["__*bold italic", "__*bold italic*__"],
@@ -1371,8 +1422,8 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.mdString(closed[name][0], "text", true)).toBe(
-        closed[name][1]
+      expect(inline.processInlineSyntax(closed[name][0], "text", true)).toBe(
+        closed[name][1],
       );
     });
   });
@@ -1382,7 +1433,9 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
 
     renderer = createRenderer({ streaming: true, animation: false });
 
-    expect(renderer.mdString("a **b** c **", "text", true)).toBe("a **b** c ");
+    expect(inline.processInlineSyntax("a **b** c **", "text", true)).toBe(
+      "a **b** c ",
+    );
   });
 
   it("leaves emphasis markers inside a raw HTML block alone", () => {
@@ -1391,7 +1444,7 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
     renderer = createRenderer({ streaming: true, animation: false });
 
     expect(
-      renderer.mdString('<img src="x" />\n**after html', "text", true)
+      inline.processInlineSyntax('<img src="x" />\n**after html', "text", true),
     ).toBe('<img src="x" />\n**after html');
   });
 
@@ -1400,7 +1453,9 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
 
     renderer = createRenderer({ streaming: true, animation: false });
 
-    expect(renderer.mdString("symbols &cop", "text", true)).toBe("symbols ");
+    expect(inline.processInlineSyntax("symbols &cop", "text", true)).toBe(
+      "symbols ",
+    );
   });
 });
 
@@ -1409,8 +1464,8 @@ describe("HyperMarkdown emphasis delimiter runs", () => {
 describe("HyperMarkdown withholds undecided constructs", () => {
   const cases = {
     "raw html block keeps its markers": [
-      '<p>raw</p>\n**bold after',
-      '<p>raw</p>\n**bold after',
+      "<p>raw</p>\n**bold after",
+      "<p>raw</p>\n**bold after",
     ],
     "inline html still gets emphasis": [
       "normal <span>x</span> and **bold",
@@ -1426,10 +1481,7 @@ describe("HyperMarkdown withholds undecided constructs", () => {
     "task marker with content": ["> - [x] Task", "> - [x] Task"],
     "nested marker with no text": ["- item\n-   -", "- item\n"],
     "stacked dangling markers": ["a\n**_", "a\n"],
-    "strikethrough closer after a space": [
-      "~~struck **",
-      "~~struck~~",
-    ],
+    "strikethrough closer after a space": ["~~struck **", "~~struck~~"],
   };
 
   Object.keys(cases).forEach((name) => {
@@ -1438,8 +1490,8 @@ describe("HyperMarkdown withholds undecided constructs", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.mdString(cases[name][0], "text", true)).toBe(
-        cases[name][1]
+      expect(inline.processInlineSyntax(cases[name][0], "text", true)).toBe(
+        cases[name][1],
       );
     });
   });
@@ -1450,7 +1502,7 @@ describe("HyperMarkdown withholds undecided constructs", () => {
     renderer = createRenderer({ streaming: true, animation: false });
 
     expect(
-      renderer.mdString("| **Bold Header** | `", "table", true)
+      inline.processInlineSyntax("| **Bold Header** | `", "table", true),
     ).not.toContain("`");
   });
 
@@ -1460,7 +1512,7 @@ describe("HyperMarkdown withholds undecided constructs", () => {
     renderer = createRenderer({ streaming: true, animation: false });
 
     expect(
-      renderer.mdString("| A | B |\n| :", "table", true)
+      inline.processInlineSyntax("| A | B |\n| :", "table", true),
     ).not.toMatch(/\|\s*:\s*$/);
   });
 });
@@ -1469,7 +1521,8 @@ describe("HyperMarkdown withholds undecided constructs", () => {
 // itself becomes "~~~~", which markdown reads as a code block.
 describe("HyperMarkdown never manufactures a fence", () => {
   const sources = {
-    "strikethrough lines": "~~This text is deleted.~~\n~~**Bold and deleted**~~\n~~*Italic*~~\n\n",
+    "strikethrough lines":
+      "~~This text is deleted.~~\n~~**Bold and deleted**~~\n~~*Italic*~~\n\n",
     "single tilde run": "~~struck~~\n~single tilde~\n~also~\n\n",
     "backtick lines": "`code`\n`more code`\n\n",
   };
@@ -1497,7 +1550,11 @@ describe("HyperMarkdown never manufactures a fence", () => {
     renderer = createRenderer({ streaming: true, animation: false });
 
     expect(
-      renderer.mdString("~~This text is deleted.~~\n~~**", "text", true)
+      inline.processInlineSyntax(
+        "~~This text is deleted.~~\n~~**",
+        "text",
+        true,
+      ),
     ).toBe("~~This text is deleted.~~\n");
   });
 
@@ -1507,7 +1564,11 @@ describe("HyperMarkdown never manufactures a fence", () => {
     renderer = createRenderer({ streaming: true, animation: false });
 
     expect(
-      renderer.mdString("**Bold *italic ~~strike `code`~~***", "text", true)
+      inline.processInlineSyntax(
+        "**Bold *italic ~~strike `code`~~***",
+        "text",
+        true,
+      ),
     ).toBe("**Bold *italic ~~strike `code`~~***");
   });
 });
@@ -1528,8 +1589,8 @@ describe("HyperMarkdown counts backslashes when deciding escapes", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.mdString(cases[name][0], "text", true)).toBe(
-        cases[name][1]
+      expect(inline.processInlineSyntax(cases[name][0], "text", true)).toBe(
+        cases[name][1],
       );
     });
   });
@@ -1590,7 +1651,7 @@ describe("HyperMarkdown table does not remount when it closes", () => {
 
     before = treeShape(
       renderer.streamData[renderer.streamData.length - 1].element,
-      0
+      0,
     );
 
     renderer.streamMd(chunks[chunks.length - 1], true, true, false);
@@ -1598,7 +1659,7 @@ describe("HyperMarkdown table does not remount when it closes", () => {
 
     after = treeShape(
       renderer.streamData[renderer.streamData.length - 1].element,
-      0
+      0,
     );
 
     expect(after).toBe(before);
@@ -1619,14 +1680,14 @@ describe("HyperMarkdown table does not remount when it closes", () => {
       renderer.streamMd(chunks[i], true, true, false);
     }
 
-    cached = renderer.lineCacheData[0];
+    cached = renderer.tableCache.data[0];
 
     renderer.streamMd(chunks[chunks.length - 1], true, true, false);
     renderer.streamMd("", true, true, true);
 
     rows = renderer.streamData[renderer.streamData.length - 1].props;
 
-    expect(renderer.lineCacheData[0]).toBe(cached);
+    expect(renderer.tableCache.data[0]).toBe(cached);
   });
 
   it("leaves a header-only table without a body", () => {
@@ -1660,7 +1721,7 @@ describe("HyperMarkdown animation leaves raw-text elements alone", () => {
       renderer = createRenderer({ md: source, streaming: false });
 
       expect(streamed.replace(/\n+/g, "")).toBe(
-        renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+        renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
       );
     });
   });
@@ -1686,7 +1747,7 @@ describe("HyperMarkdown footnote placeholders", () => {
     renderer = createRenderer({ md: source, streaming: false });
 
     expect(streamed.replace(/\n+/g, "")).toBe(
-      renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+      renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
     );
   });
 
@@ -1721,7 +1782,10 @@ describe("HyperMarkdown footnote placeholders", () => {
     seen
       .filter((entry) => entry.known === 2)
       .forEach((entry) => {
-        if (entry.md.indexOf("[^1]") === -1 && entry.md.indexOf("[^2]") === -1) {
+        if (
+          entry.md.indexOf("[^1]") === -1 &&
+          entry.md.indexOf("[^2]") === -1
+        ) {
           expect(entry.md).not.toContain("[^1]:");
           expect(entry.md).not.toContain("[^2]:");
         }
@@ -1810,7 +1874,7 @@ describe("HyperMarkdown mixed ordered and unordered lists", () => {
         renderer = createRenderer({ md: source, streaming: false });
 
         expect(listShape(streamed)).toBe(
-          listShape(renderToStaticMarkup(renderer.render()))
+          listShape(renderToStaticMarkup(renderer.render())),
         );
       });
     });
@@ -1824,7 +1888,7 @@ describe("HyperMarkdown mixed ordered and unordered lists", () => {
     renderStream(
       renderer,
       splitChunks("1. one\n\n2. two\n\n3. three\n\n", 3),
-      true
+      true,
     );
 
     markup = renderToStaticMarkup(renderer.render());
@@ -1841,7 +1905,7 @@ describe("HyperMarkdown mixed ordered and unordered lists", () => {
     renderStream(
       renderer,
       splitChunks("1. one\n2. two\n\n## Heading\n\nbody\n\n", 3),
-      true
+      true,
     );
 
     markup = renderToStaticMarkup(renderer.render());
@@ -1856,7 +1920,9 @@ describe("HyperMarkdown mixed ordered and unordered lists", () => {
     renderer = createRenderer({ streaming: true, animation: false });
     renderStream(renderer, "> 1".split(""), false);
 
-    expect(visibleText(renderToStaticMarkup(renderer.render())).trim()).toBe("");
+    expect(visibleText(renderToStaticMarkup(renderer.render())).trim()).toBe(
+      "",
+    );
   });
 });
 
@@ -1880,11 +1946,11 @@ describe("HyperMarkdown skips blocks that render nothing", () => {
   };
 
   const notDefinitionsOnly = {
-    "prose": "Just a paragraph.",
+    prose: "Just a paragraph.",
     "reference then prose": "[^1]: One.\nAnd some prose.",
     "prose then reference": "Some prose.[^1]",
     "link definition": "[ref]: https://example.com",
-    "empty": "",
+    empty: "",
   };
 
   Object.keys(definitionsOnly).forEach((name) => {
@@ -1893,10 +1959,8 @@ describe("HyperMarkdown skips blocks that render nothing", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.definitionsOnly(definitionsOnly[name])).toBe(true);
-      expect(
-        renderer.processMd(definitionsOnly[name], true, false)
-      ).toBeNull();
+      expect(blocks.definitionsOnly(definitionsOnly[name])).toBe(true);
+      expect(renderer.processMd(definitionsOnly[name], true, false)).toBeNull();
     });
   });
 
@@ -1906,7 +1970,7 @@ describe("HyperMarkdown skips blocks that render nothing", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.definitionsOnly(notDefinitionsOnly[name])).toBe(false);
+      expect(blocks.definitionsOnly(notDefinitionsOnly[name])).toBe(false);
     });
   });
 
@@ -1919,9 +1983,9 @@ describe("HyperMarkdown skips blocks that render nothing", () => {
       renderer,
       splitChunks(
         "First claim.[^1] Second claim.[^2]\n\n[^1]: The first note.\n[^2]: The second note.\n\n",
-        3
+        3,
       ),
-      true
+      true,
     );
 
     markup = renderToStaticMarkup(renderer.render());
@@ -1947,14 +2011,14 @@ describe("HyperMarkdown skips blocks that render nothing", () => {
     renderer = createRenderer({ md: source, streaming: false });
 
     expect(bodyOf(streamed)).toBe(
-      bodyOf(renderToStaticMarkup(renderer.render()))
+      bodyOf(renderToStaticMarkup(renderer.render())),
     );
 
     function bodyOf(markup) {
       const rendered = new JSDOM("<body>" + markup + "</body>");
       return (rendered.window.document.body.textContent || "").replace(
         /\s+/g,
-        ""
+        "",
       );
     }
   });
@@ -1967,7 +2031,7 @@ describe("HyperMarkdown skips blocks that render nothing", () => {
 describe("HyperMarkdown list item cache", () => {
   const cacheable = {
     "plain bullets": "- one\n- two\n- three",
-    "ordered": "1. one\n2. two",
+    ordered: "1. one\n2. two",
     "nested sublist": "- one\n  - nested\n  - also nested\n- two",
     "loose list": "- one\n\n- two",
     "task list": "- [ ] todo\n- [x] done",
@@ -1987,7 +2051,7 @@ describe("HyperMarkdown list item cache", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.listCacheable(cacheable[name])).toBe(true);
+      expect(blocks.listCacheable(cacheable[name])).toBe(true);
     });
   });
 
@@ -1997,7 +2061,7 @@ describe("HyperMarkdown list item cache", () => {
 
       renderer = createRenderer({ streaming: true, animation: false });
 
-      expect(renderer.listCacheable(notCacheable[name])).toBe(false);
+      expect(blocks.listCacheable(notCacheable[name])).toBe(false);
     });
   });
 
@@ -2007,7 +2071,7 @@ describe("HyperMarkdown list item cache", () => {
     renderer = createRenderer({ streaming: true, animation: false });
 
     expect(
-      renderer.listItems("- one\n  - nested\n  - also nested\n- two")
+      blocks.listItems("- one\n  - nested\n  - also nested\n- two"),
     ).toEqual(["- one\n  - nested\n  - also nested", "- two"]);
   });
 
@@ -2016,7 +2080,7 @@ describe("HyperMarkdown list item cache", () => {
 
     renderer = createRenderer({ streaming: true, animation: false });
 
-    expect(renderer.listItems("1. one\n    - nested\n2. two")).toEqual([
+    expect(blocks.listItems("1. one\n    - nested\n2. two")).toEqual([
       "1. one\n    - nested",
       "2. two",
     ]);
@@ -2048,7 +2112,7 @@ describe("HyperMarkdown list item cache", () => {
         renderer = createRenderer({ md: source, streaming: false });
 
         expect(streamed.replace(/\n+/g, "")).toBe(
-          renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+          renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
         );
       });
     });
@@ -2072,7 +2136,8 @@ describe("HyperMarkdown list item cache", () => {
     let source;
     let renderer;
 
-    source = "1. First item\n   - nested one\n   - nested two\n2. Second item\n\n";
+    source =
+      "1. First item\n   - nested one\n   - nested two\n2. Second item\n\n";
 
     for (n = 1; n <= source.length; n++) {
       renderer = createRenderer({ streaming: true, animation: false });
@@ -2105,10 +2170,12 @@ describe("HyperMarkdown list item cache", () => {
     renderStream(
       renderer,
       splitChunks(
-        Array.from({ length: 30 }, (_, i) => `${i + 1}. item number ${i}`).join("\n"),
-        4
+        Array.from({ length: 30 }, (_, i) => `${i + 1}. item number ${i}`).join(
+          "\n",
+        ),
+        4,
       ),
-      false
+      false,
     );
 
     // without the cache every chunk is a whole-list parse (100+)
@@ -2125,7 +2192,8 @@ describe("HyperMarkdown tight lists stay one list", () => {
     "tight asterisks": "* one\n* two\n* three\n\n",
     "tight plus": "+ one\n+ two\n+ three\n\n",
     "tight task list": "- [ ] todo\n- [x] done\n- [ ] later\n\n",
-    "tight with inline markup": "- **bold** one\n- `code` two\n- [link](https://x.dev)\n\n",
+    "tight with inline markup":
+      "- **bold** one\n- `code` two\n- [link](https://x.dev)\n\n",
     "tight then paragraph": "- one\n- two\n\nTail.\n\n",
     "tight then heading": "- one\n- two\n\n## Heading\n\n",
   };
@@ -2146,7 +2214,7 @@ describe("HyperMarkdown tight lists stay one list", () => {
         renderer = createRenderer({ md: source, streaming: false });
 
         expect(streamed.replace(/\n+/g, "")).toBe(
-          renderToStaticMarkup(renderer.render()).replace(/\n+/g, "")
+          renderToStaticMarkup(renderer.render()).replace(/\n+/g, ""),
         );
       });
     });
