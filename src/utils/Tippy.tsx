@@ -1,60 +1,73 @@
-import React, { Component } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+
 import TippyReact from "@tippyjs/react";
 import type { Placement } from "tippy.js";
 
-/**
- * Thin wrapper over @tippyjs/react, matching the imperative show/hide surface
- * the renderer's toolbars use for their "copied" confirmations.
- */
-interface TippyProps {
-  content?: React.ReactNode;
+export interface TippyProps {
+  content?: ReactNode;
   placement?: Placement;
   trigger?: string;
   touch?: boolean;
   arrow?: boolean;
-  children?: React.ReactElement;
+  children?: ReactElement;
 }
 
-class Tippy extends Component<TippyProps, { visible: boolean }> {
-  constructor(props: TippyProps) {
-    super(props);
-    this.state = { visible: false };
-  }
-
-  show(): void {
-    if (this.props.trigger === "manual") {
-      this.setState({ visible: true });
-    }
-  }
-
-  hide(): void {
-    if (this.props.trigger === "manual") {
-      this.setState({ visible: false });
-    }
-  }
-
-  render() {
-    const { content, placement, trigger, touch, arrow, children } = this.props;
-    const manual = trigger === "manual";
-
-    if (!children) {
-      return null;
-    }
-
-    return (
-      <TippyReact
-        content={content}
-        placement={placement}
-        touch={touch}
-        arrow={arrow}
-        {...(manual
-          ? { visible: this.state.visible }
-          : { trigger: trigger ?? "mouseenter" })}
-      >
-        {children}
-      </TippyReact>
-    );
-  }
+export interface TippyHandle {
+  show(): void;
+  hide(): void;
 }
+
+/**
+ * Thin wrapper over @tippyjs/react, matching the imperative show/hide surface
+ * the renderer's toolbars use for their "copied" confirmations. Only tooltips
+ * with `trigger="manual"` answer to the handle; the rest follow the pointer.
+ */
+const Tippy = forwardRef<TippyHandle, TippyProps>(function Tippy(props, ref) {
+  const { content, placement, trigger, touch, arrow, children } = props;
+
+  const manual = trigger === "manual";
+  const [visible, setVisible] = useState(false);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      show() {
+        if (manual) {
+          setVisible(true);
+        }
+      },
+      hide() {
+        if (manual) {
+          setVisible(false);
+        }
+      },
+    }),
+    [manual]
+  );
+
+  if (!children) {
+    return null;
+  }
+
+  return (
+    <TippyReact
+      content={content}
+      placement={placement}
+      touch={touch}
+      arrow={arrow}
+      {...(manual ? { visible } : { trigger: trigger ?? "mouseenter" })}
+    >
+      {children}
+    </TippyReact>
+  );
+});
+
+Tippy.displayName = "Tippy";
 
 export default Tippy;

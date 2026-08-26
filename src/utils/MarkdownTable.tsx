@@ -1,471 +1,427 @@
-import React, { Component, PureComponent } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import * as runtime from "./runtime";
-import Tippy from "./Tippy";
+import Tippy, { type TippyHandle } from "./Tippy";
 
+const ICON_MAXIMIZE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="maximize2-icon maximize-2"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>';
 
+const ICON_MINIMIZE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="minimize2-icon minimize-2"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>';
 
-class Header extends Component<any, any> {
-  [key: string]: any;
+const ICON_COPY =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="copy-icon copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
 
-  constructor(props) {
-    super(props);
+/** Distance from the sticky chat header at which the toolbar goes flat. */
+const HEADER_OFFSET = 56;
 
-    this.state = {
-      fullscreen: false,
+/** Below this the table is nearly scrolled past, so the toolbar drops away. */
+const HEADER_MIN_VISIBLE = 106;
+
+interface TableHeaderProps {
+  /** True while the table is still being streamed in. */
+  stream?: boolean;
+  tableRef: RefObject<HTMLTableElement | null>;
+  wrapperRef: RefObject<HTMLDivElement | null>;
+  /** Tells the wrapper the header toggled fullscreen. */
+  onToggleFullScreen?: (fullscreen: boolean) => void;
+}
+
+/**
+ * The toolbar pinned above a table: fullscreen and copy, plus the "scroll"
+ * class that flattens it once the table starts leaving the viewport.
+ */
+function TableHeaderComponent(props: TableHeaderProps) {
+  const { stream, tableRef, wrapperRef, onToggleFullScreen } = props;
+
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const tippyCopyRef = useRef<TippyHandle | null>(null);
+
+  // The scroll handler is registered once but reads the current fullscreen
+  // value, so it goes through a ref rather than the closed-over state.
+  const fullscreenRef = useRef(fullscreen);
+  fullscreenRef.current = fullscreen;
+
+  const tickingRef = useRef(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
+
+  const updateHeaderScrollClass = useCallback(() => {
+    if (tickingRef.current === true) {
+      return;
+    }
+
+    tickingRef.current = true;
+
+    requestAnimationFrame(() => {
+      const header = headerRef.current;
+      const wrapper = wrapperRef.current;
+
+      tickingRef.current = false;
+
+      if (!header) {
+        return;
+      }
+
+      if (fullscreenRef.current === true || !wrapper) {
+        header.classList.remove("scroll");
+        return;
+      }
+
+      const rect = wrapper.getBoundingClientRect();
+      const top = rect?.top || 0;
+      const height = rect?.height || 0;
+
+      if (top < HEADER_OFFSET && height + top > HEADER_MIN_VISIBLE) {
+        header.classList.add("scroll");
+      } else {
+        header.classList.remove("scroll");
+      }
+    });
+  }, [wrapperRef]);
+
+  useEffect(() => {
+    const id = runtime.guid();
+
+    updateHeaderScrollClass();
+    runtime.emitter.on("chat:scroll", id, updateHeaderScrollClass);
+
+    return () => {
+      runtime.emitter.off("chat:scroll", id);
     };
+  }, [updateHeaderScrollClass]);
 
-    this.ticking = false;
-    this.tippyCopyTimeout = null;
+  useEffect(() => {
+    return () => {
+      clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
 
-    this.headerRef = React.createRef();
-
-    this.tippyFullScreenRef = React.createRef();
-    this.tippyCopyContentRef = React.createRef();
-
-    this.copyContent = this.copyContent.bind(this);
-    this.toggleFullScreen = this.toggleFullScreen.bind(this);
-    this.updateHeaderScrollClass = this.updateHeaderScrollClass.bind(this);
-  }
-
-  componentDidMount() {
-    const vm = this;
-    vm.updateHeaderScrollClass();
-    runtime.emitter.on("chat:scroll", vm.guid, vm.updateHeaderScrollClass);
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    const vm = this;
-
-    if (checkProps() === true || checkState() === true) {
-      return true;
-    } else {
-      return false;
-    }
-
-    function checkProps() {
-      if (
-        vm.props.stream !== nextProps.stream ||
-        vm.props.tableRef !== nextProps.tableRef
-      ) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-    function checkState() {
-      if (vm.state.fullscreen !== nextState.fullscreen) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-  }
-
-  copyContent(event) {
+  const copyContent = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const vm = this;
-    const props = vm.props;
-    const tableElement = props?.tableRef?.current;
+    const table = tableRef.current;
 
-    // Use .textContent to preserve whitespace and newlines
-    if (tableElement) {
-      navigator.clipboard
-        .writeText(tableElement.innerText)
-        .then(() => {
-          showTippyCopy();
-        })
-        .catch((err) => {
-          console.log(err);
-        });
+    if (!table) {
+      return;
     }
 
-    function showTippyCopy() {
-      vm.tippyCopyContentRef?.current?.show();
+    // innerText, not textContent: it keeps the row and cell breaks the browser
+    // lays out, which is what makes the copy paste back as a table.
+    navigator.clipboard
+      .writeText(table.innerText)
+      .then(() => {
+        tippyCopyRef.current?.show();
 
-      clearTimeout(vm.tippyCopyTimeout);
-      vm.tippyCopyTimeout = setTimeout(() => {
-        vm.tippyCopyContentRef?.current?.hide();
-      }, 600);
-    }
+        clearTimeout(copyTimeoutRef.current);
+        copyTimeoutRef.current = setTimeout(() => {
+          tippyCopyRef.current?.hide();
+        }, 600);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }, [tableRef]);
+
+  const toggleFullScreen = useCallback(
+    (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      setFullscreen((current) => {
+        const next = current !== true;
+
+        if (onToggleFullScreen) {
+          onToggleFullScreen(next);
+          runtime.emitter.dispatchObjectEvent("fullscreen:change", next);
+        }
+
+        return next;
+      });
+    },
+    [onToggleFullScreen]
+  );
+
+  const copyLabel =
+    stream === true ? "Table partially copied" : "Table copied";
+
+  return (
+    <div ref={headerRef} className="table-header">
+      <div className="table-header-content">
+        <span className="table-title-container">
+          <span className="table-title">Table</span>
+        </span>
+        <span className="table-spacer" />
+        <span className="table-button-container">
+          <Tippy
+            placement={"top"}
+            touch={false}
+            trigger={"mouseenter"}
+            content={"Full screen"}
+          >
+            <button
+              className="table-icon-button first"
+              onClick={toggleFullScreen}
+            >
+              <span className="button-content">
+                <span
+                  className="button-icon"
+                  dangerouslySetInnerHTML={{
+                    __html: fullscreen === true ? ICON_MINIMIZE : ICON_MAXIMIZE,
+                  }}
+                ></span>
+              </span>
+            </button>
+          </Tippy>
+          <Tippy
+            ref={tippyCopyRef}
+            arrow={false}
+            trigger={"manual"}
+            placement={"top-end"}
+            content={copyLabel}
+          >
+            <span className="tippy-button">
+              <Tippy
+                placement={"top-end"}
+                content={"Copy"}
+                touch={false}
+                trigger={"mouseenter"}
+              >
+                <button
+                  className="table-icon-button last"
+                  onClick={copyContent}
+                >
+                  <span className="button-content">
+                    <span
+                      className="button-icon"
+                      dangerouslySetInnerHTML={{ __html: ICON_COPY }}
+                    ></span>
+                  </span>
+                </button>
+              </Tippy>
+            </span>
+          </Tippy>
+        </span>
+      </div>
+      <div className="table-header-background">
+        <div className="table-header-fade" />
+        <div className="table-header-blur" />
+      </div>
+    </div>
+  );
+}
+
+const TableHeader = memo(
+  TableHeaderComponent,
+  (prev, next) => prev.stream === next.stream && prev.tableRef === next.tableRef
+);
+
+TableHeader.displayName = "TableHeader";
+
+interface TableShape {
+  /** No header cell has content, so the header row is hidden by CSS. */
+  headless: boolean;
+  /** Widest header seen so far, used for the column-count style hooks. */
+  headerColumns: number;
+}
+
+/**
+ * Reads the shape of the rendered table out of its children.
+ *
+ * A streaming table arrives one row at a time, so both answers wobble before
+ * they settle: the header looks empty until its first cell lands, and the
+ * column count grows as cells appear. Each is latched once it can no longer
+ * change, so the table never re-styles itself mid-stream.
+ */
+function readTableShape(
+  children: ReactNode,
+  shape: TableShape,
+  headlessSettled: RefObject<boolean>,
+  columnsSettled: RefObject<boolean>
+): void {
+  if (headlessSettled.current === true && columnsSettled.current === true) {
+    return;
   }
 
-  toggleFullScreen(event) {
-    event.preventDefault();
-    event.stopPropagation();
+  let headless = true;
+  let headerColumns = 0;
 
-    const vm = this;
-    const props = vm.props;
+  // A header with no rows is a single child, and a one-column header row a
+  // single cell. React hands those over unwrapped, so counting by .length
+  // silently skips the table and leaves it looking headless.
+  const tableChildren = React.Children.toArray(children) as ReactElement<any>[];
 
-    if (vm.state.fullscreen !== true) {
-      vm.setState({ fullscreen: true }, () => {
-        if (props?.toggleFullScreen) {
-          props.toggleFullScreen(true);
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", true);
-        }
-      });
-    } else {
-      vm.setState({ fullscreen: false }, () => {
-        if (props?.toggleFullScreen) {
-          props.toggleFullScreen(false);
-          runtime.emitter.dispatchObjectEvent("fullscreen:change", false);
-        }
-      });
-    }
-  }
+  for (let i = 0, iCount = tableChildren.length; i < iCount; i++) {
+    const child = tableChildren[i];
 
-  updateHeaderScrollClass(event?: any) {
-    const vm = this;
+    if (child.type === "thead") {
+      const headRow = React.Children.toArray(
+        child.props.children
+      )[0] as ReactElement<any> | undefined;
 
-    if (vm.ticking !== true) {
-      requestAnimationFrame(() => {
-        let rec;
-        let top;
-        let height;
+      const headCells = headRow
+        ? (React.Children.toArray(headRow.props.children) as ReactElement<any>[])
+        : [];
 
-        const wrapper = vm.props.wrapperRef?.current;
+      for (let j = 0, jCount = headCells.length; j < jCount; j++) {
+        if (headCells[j].type === "th") {
+          headerColumns++;
 
-        if (vm.state.fullscreen === true) {
-          vm.headerRef?.current?.classList?.remove("scroll");
-        } else {
-          if (wrapper) {
-            rec = wrapper.getBoundingClientRect();
-            top = rec?.top || 0;
-            height = rec?.height || 0;
-
-            if (top >= 56) {
-              vm.headerRef?.current?.classList?.remove("scroll");
-            } else {
-              if (height + top > 106) {
-                vm.headerRef?.current?.classList?.add("scroll");
-              } else {
-                vm.headerRef?.current?.classList?.remove("scroll");
-              }
-            }
+          if (headCells[j]?.props?.children) {
+            headless = false;
           }
         }
+      }
+    }
 
-        vm.ticking = false;
-      });
+    if (child.type === "tbody") {
+      const bodyRows = React.Children.toArray(child.props.children);
 
-      vm.ticking = true;
+      // Past a couple of body rows the header can no longer turn up.
+      if (bodyRows.length > 2) {
+        headlessSettled.current = true;
+      }
     }
   }
 
-  componentWillUnmount() {
-    const vm = this;
-    runtime.emitter.off("chat:scroll", vm.guid);
-  }
+  shape.headless = headless;
 
-  render() {
-    let tippyCopyTxt;
-    let iconFullScreen;
-
-    const vm = this;
-    const props = vm.props;
-
-    tippyCopyTxt = "Table copied";
-
-    if (props.stream === true) {
-      tippyCopyTxt = "Table partially copied";
-    }
-
-    if (vm.state.fullscreen === true) {
-      iconFullScreen =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="minimize2-icon minimize-2"><path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/></svg>';
+  if (columnsSettled.current !== true) {
+    if (headerColumns >= shape.headerColumns) {
+      shape.headerColumns = headerColumns;
     } else {
-      iconFullScreen =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="maximize2-icon maximize-2"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>';
+      columnsSettled.current = true;
     }
-
-    return (
-      <div ref={vm.headerRef} className="table-header">
-        <div className="table-header-content">
-          <span className="table-title-container">
-            <span className="table-title">Table</span>
-          </span>
-          <span className="table-spacer" />
-          <span className="table-button-container">
-            <Tippy
-              ref={vm.tippyFullScreenRef}
-              placement={"top"}
-              touch={false}
-              trigger={"mouseenter"}
-              content={"Full screen"}
-            >
-              <button
-                className="table-icon-button first"
-                onClick={vm.toggleFullScreen}
-              >
-                <span className="button-content">
-                  <span
-                    className="button-icon"
-                    dangerouslySetInnerHTML={{
-                      __html: iconFullScreen,
-                    }}
-                  ></span>
-                </span>
-              </button>
-            </Tippy>
-            <Tippy
-              ref={vm.tippyCopyContentRef}
-              arrow={false}
-              trigger={"manual"}
-              placement={"top-end"}
-              content={tippyCopyTxt}
-            >
-              <span className="tippy-button">
-                <Tippy
-                  placement={"top-end"}
-                  content={"Copy"}
-                  touch={false}
-                  trigger={"mouseenter"}
-                >
-                  <button
-                    className="table-icon-button last"
-                    onClick={vm.copyContent}
-                  >
-                    <span className="button-content">
-                      <span
-                        className="button-icon"
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="copy-icon copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
-                        }}
-                      ></span>
-                    </span>
-                  </button>
-                </Tippy>
-              </span>
-            </Tippy>
-          </span>
-        </div>
-        <div className="table-header-background">
-          <div className="table-header-fade" />
-          <div className="table-header-blur" />
-        </div>
-      </div>
-    );
   }
 }
 
-class MarkdownTable extends PureComponent<any, any> {
-  [key: string]: any;
+export interface MarkdownTableProps
+  extends React.TableHTMLAttributes<HTMLTableElement> {
+  /** True while rows are still arriving. */
+  stream?: boolean;
+  /** Passed in by the renderer; not a DOM attribute. */
+  renderer?: unknown;
+  /** Passed in by the renderer; not a DOM attribute. */
+  scrollDown?: unknown;
+}
 
-  constructor(props) {
-    super(props);
+/** How close to the bottom still counts as "following" the stream. */
+const SCROLL_MARGIN = 100;
 
-    this.state = {
-      fullscreen: false,
+/**
+ * A table with its own toolbar, horizontal scroll container and fullscreen
+ * mode. In fullscreen it follows the stream downward until the reader scrolls
+ * away, the same way the chat transcript does.
+ */
+function MarkdownTableComponent(props: MarkdownTableProps) {
+  const { renderer: _renderer, scrollDown: _scrollDown, stream, ...tableProps } =
+    props;
+
+  const [fullscreen, setFullscreen] = useState(false);
+
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const shapeRef = useRef<TableShape>({ headless: true, headerColumns: 0 });
+  const headlessSettled = useRef(false);
+  const columnsSettled = useRef(false);
+
+  const userScroll = useRef(false);
+  const lastScrollHeight = useRef(0);
+
+  readTableShape(
+    props.children,
+    shapeRef.current,
+    headlessSettled,
+    columnsSettled
+  );
+
+  // Fullscreen tables follow the stream, so the listener only exists while
+  // fullscreen is on; outside it the wrapper scrolls horizontally only.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+
+    if (fullscreen !== true || !wrapper) {
+      return;
+    }
+
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = wrapper;
+      userScroll.current = scrollTop + clientHeight <= scrollHeight - SCROLL_MARGIN;
     };
 
-    this.headless = true;
-    this.headerColumns = 0;
+    wrapper.addEventListener("scroll", onScroll);
 
-    this.headlessReady = false;
-    this.headerColumnsReady = false;
+    return () => {
+      wrapper.removeEventListener("scroll", onScroll);
+    };
+  }, [fullscreen]);
 
-    this.userScroll = false;
-    this.scrollMargin = 100;
-    this.currentScrollHeight = 0;
+  // No dependency list: every render can have added a row, and the table only
+  // follows along while the reader has not scrolled away from the bottom.
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
 
-    this.tableRef = React.createRef();
-    this.wrapperRef = React.createRef();
-
-    this.toggleFullScreen = this.toggleFullScreen.bind(this);
-
-    this.scrollDown = this.scrollDown.bind(this);
-    this.scrollDownListener = this.scrollDownListener.bind(this);
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    const vm = this;
-
-    if (vm.state.fullscreen === true) {
-      vm.scrollDown();
-    }
-  }
-
-  toggleFullScreen(fullscreen) {
-    const vm = this;
-    vm.setState({ fullscreen: fullscreen }, () => {
-      if (vm.state.fullscreen === true) {
-        vm.wrapperRef.current.addEventListener("scroll", vm.scrollDownListener);
-      } else {
-        vm.wrapperRef.current.removeEventListener(
-          "scroll",
-          vm.scrollDownListener
-        );
-      }
-    });
-  }
-
-  setTableProperties() {
-    let i;
-    let iCount;
-
-    let j;
-    let jCount;
-
-    let thead;
-
-    let headRow;
-    let headCells;
-    let bodyRows;
-
-    let tableChildren;
-
-    let headless;
-    let headerColumns;
-
-    const vm = this;
-    const { children } = vm.props;
-
-    if (vm.headlessReady === true && vm.headerColumnsReady === true) {
+    if (fullscreen !== true || !wrapper || userScroll.current === true) {
       return;
-    } else {
-      headless = true;
-
-      headerColumns = 0;
-
-      // A header with no rows is a single child, and a one-column header row a
-      // single cell. React hands those over unwrapped, so counting by .length
-      // silently skips the table and leaves it looking headless.
-      tableChildren = React.Children.toArray(children);
-
-      for (i = 0, iCount = tableChildren.length; i < iCount; i++) {
-        if (tableChildren[i].type === "thead") {
-          thead = tableChildren[i];
-
-          headRow = React.Children.toArray(thead.props.children)[0];
-          headCells = headRow
-            ? React.Children.toArray(headRow.props.children)
-            : [];
-
-          for (j = 0, jCount = headCells.length; j < jCount; j++) {
-            if (headCells[j].type === "th") {
-              headerColumns++;
-              if (headCells[j]?.props?.children) {
-                headless = false;
-              }
-            }
-          }
-        }
-
-        if (tableChildren[i].type === "tbody") {
-          bodyRows = React.Children.toArray(tableChildren[i].props.children);
-
-          if (bodyRows.length > 2) {
-            vm.headlessReady = true;
-          }
-        }
-      }
-
-      vm.headless = headless;
-
-      if (vm.headerColumnsReady !== true) {
-        if (headerColumns >= vm.headerColumns) {
-          vm.headerColumns = headerColumns;
-        } else {
-          vm.headerColumnsReady = true;
-        }
-      }
-    }
-  }
-
-  scrollDown() {
-    const vm = this;
-
-    if (vm.userScroll !== true) {
-      if (vm.currentScrollHeight !== vm.wrapperRef.current.scrollHeight) {
-        vm.wrapperRef.current.scrollTo({
-          top: vm.wrapperRef.current.scrollHeight,
-          behavior: "instant",
-        });
-
-        vm.currentScrollHeight = vm.wrapperRef.current.scrollHeight;
-      }
-    }
-  }
-
-  scrollDownListener() {
-    let scrollTop;
-    let scrollHeight;
-    let clientHeight;
-
-    const vm = this;
-
-    scrollTop = vm.wrapperRef.current.scrollTop;
-    scrollHeight = vm.wrapperRef.current.scrollHeight;
-    clientHeight = vm.wrapperRef.current.clientHeight;
-
-    if (scrollTop + clientHeight <= scrollHeight - vm.scrollMargin) {
-      vm.userScroll = true;
-    } else {
-      vm.userScroll = false;
-    }
-  }
-
-  componentWillUnmount() {
-    const vm = this;
-    vm.wrapperRef.current.removeEventListener("scroll", vm.scrollDownListener);
-  }
-
-  render() {
-    let stream;
-    let fullscreen;
-
-    const vm = this;
-    const props = vm.props;
-    const state = vm.state;
-
-    const { renderer: _, scrollDown: __, stream: ___, ...comProps } = props;
-
-    vm.setTableProperties();
-
-    if (props.stream !== true) {
-      stream = "";
-    } else {
-      stream = " stream-active";
     }
 
-    if (state.fullscreen !== true) {
-      fullscreen = "";
-    } else {
-      fullscreen = " fullscreen";
+    if (lastScrollHeight.current !== wrapper.scrollHeight) {
+      wrapper.scrollTo({ top: wrapper.scrollHeight, behavior: "instant" });
+      lastScrollHeight.current = wrapper.scrollHeight;
     }
+  });
 
-    return (
-      <div
-        ref={vm.wrapperRef}
-        className={"table-wrapper" + stream + fullscreen}
-      >
-        <div className="table-container">
-          <Header
-            stream={props.stream}
-            tableRef={vm.tableRef}
-            wrapperRef={vm.wrapperRef}
-            toggleFullScreen={vm.toggleFullScreen}
-          />
-          <div className="table-content">
-            <div className="table-scroll no-scrollbar">
-              <table
-                {...comProps}
-                ref={vm.tableRef}
-                data-headless={vm.headless}
-                data-header-columns={vm.headerColumns}
-              >
-                {props.children}
-              </table>
-            </div>
+  const onToggleFullScreen = useCallback((next: boolean) => {
+    setFullscreen(next);
+  }, []);
+
+  const wrapperClass =
+    "table-wrapper" +
+    (stream === true ? " stream-active" : "") +
+    (fullscreen === true ? " fullscreen" : "");
+
+  return (
+    <div ref={wrapperRef} className={wrapperClass}>
+      <div className="table-container">
+        <TableHeader
+          stream={stream}
+          tableRef={tableRef}
+          wrapperRef={wrapperRef}
+          onToggleFullScreen={onToggleFullScreen}
+        />
+        <div className="table-content">
+          <div className="table-scroll no-scrollbar">
+            <table
+              {...tableProps}
+              ref={tableRef}
+              data-headless={shapeRef.current.headless}
+              data-header-columns={shapeRef.current.headerColumns}
+            >
+              {props.children}
+            </table>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 }
+
+const MarkdownTable = memo(MarkdownTableComponent);
+
+MarkdownTable.displayName = "MarkdownTable";
 
 export default MarkdownTable;

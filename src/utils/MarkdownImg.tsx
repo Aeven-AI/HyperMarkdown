@@ -1,56 +1,36 @@
-import React, { Component } from "react";
-import Tippy from "./Tippy";
+import { memo } from "react";
 
-class MarkdownImg extends Component<any, any> {
-  [key: string]: any;
-
-  constructor(props) {
-    super(props);
-
-    this.openGallery = this.openGallery.bind(this);
-  }
-
-  componentDidMount() {
-    const vm = this;
-    console.log("IMAGE MOUNTED");
-    console.log(vm.props);
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    const vm = this;
-
-    if (vm.props.src !== nextProps.src) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  openGallery(event) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const vm = this;
-    const props = vm.props;
-
-    console.log("OPEN GALLERY", props);
-  }
-
-  render() {
-    const vm = this;
-    const props = vm.props;
-
-    return (
-      <span className="markdown-image-container">
-        <span className="markdown-image">
-          <span className="image-error"></span>
-          <span className="image-loader"></span>
-
-          <img className="image" src={props.src} onClick={vm.openGallery} />
-        </span>
-      </span>
-    );
-  }
+interface ImageProps {
+  src?: string;
+  alt?: string;
+  title?: string;
+  [key: string]: unknown;
 }
 
-export default MarkdownImg;
+/**
+ * Images rendered from markdown, wrapped so a host can style loading and error
+ * states around them.
+ */
+function MarkdownImg(props: ImageProps) {
+  const { src, alt, title } = props;
+
+  return (
+    <span className="markdown-image-container">
+      <span className="markdown-image">
+        <span className="image-error" />
+        <span className="image-loader" />
+        <img className="image" src={src} alt={alt ?? ""} title={title} />
+      </span>
+    </span>
+  );
+}
+
+// Re-renders only when the source changes, as the class did.
+const MemoMarkdownImg = memo(
+  MarkdownImg,
+  (prev, next) => prev.src === next.src
+);
+
+MemoMarkdownImg.displayName = "MarkdownImg";
+
+export default MemoMarkdownImg;

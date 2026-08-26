@@ -59,18 +59,16 @@ if (typeof global.$ !== "function") {
   });
 }
 
-let HyperMarkdown;
+let MarkdownStream;
 let MarkdownA;
 
 beforeAll(async () => {
-  const markdownModule = await import(
-    "../src/HyperMarkdown"
-  );
+  const markdownModule = await import("../src/core/MarkdownStream");
   const markdownLinkModule = await import(
     "../src/utils/MarkdownA"
   );
 
-  HyperMarkdown = markdownModule.default;
+  MarkdownStream = markdownModule.default;
   MarkdownA = markdownLinkModule.default;
 });
 
@@ -85,25 +83,8 @@ function createRenderer(props = {}) {
     scrollDown: props.scrollDown || undefined,
   };
 
-  renderer = new HyperMarkdown(mergedProps);
-  renderer.setState = function setState(state, callback) {
-    let nextState;
-
-    if (typeof state === "function") {
-      nextState = state(renderer.state);
-    } else {
-      nextState = state;
-    }
-
-    renderer.state = {
-      ...renderer.state,
-      ...nextState,
-    };
-
-    if (typeof callback === "function") {
-      callback();
-    }
-  };
+  // The engine is plain TypeScript: no React lifecycle to stand in for.
+  renderer = new MarkdownStream(mergedProps);
 
   return renderer;
 }
@@ -1578,7 +1559,9 @@ function treeShape(node, depth) {
   }
 
   type =
-    typeof node.type === "string" ? node.type : (node.type && node.type.name) || "?";
+    typeof node.type === "string"
+      ? node.type
+      : (node.type && (node.type.displayName || node.type.name)) || "?";
 
   return (
     type +
