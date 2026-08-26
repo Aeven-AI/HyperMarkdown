@@ -442,7 +442,7 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
   }
 }
 
-export interface MarkdownCodeBlockProps {
+export interface CodeBlockProps {
   children?: ReactElement<CodeElementProps>;
   preChildren?: ReactNode;
   stream?: boolean | undefined;
@@ -452,14 +452,14 @@ export interface MarkdownCodeBlockProps {
   scrollDown?: unknown;
 }
 
-interface MarkdownCodeBlockState {
+interface CodeBlockState {
   fullscreen: boolean;
   finalStream: boolean;
 }
 
-class MarkdownCodeBlock extends PureComponent<
-  MarkdownCodeBlockProps,
-  MarkdownCodeBlockState
+class MarkdownCode extends PureComponent<
+  CodeBlockProps,
+  CodeBlockState
 > {
   private userScroll = false;
   private readonly scrollMargin = 100;
@@ -469,7 +469,7 @@ class MarkdownCodeBlock extends PureComponent<
   private settledChildren: ReactNode | undefined;
   private settleTimeout: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(props: MarkdownCodeBlockProps) {
+  constructor(props: CodeBlockProps) {
     super(props);
 
     this.state = {
@@ -488,8 +488,8 @@ class MarkdownCodeBlock extends PureComponent<
   }
 
   override componentDidUpdate(
-    prevProps: Readonly<MarkdownCodeBlockProps>,
-    _prevState: Readonly<MarkdownCodeBlockState>
+    prevProps: Readonly<CodeBlockProps>,
+    _prevState: Readonly<CodeBlockState>
   ) {
     const vm = this;
 
@@ -691,4 +691,4 @@ class MarkdownCodeBlock extends PureComponent<
   }
 }
 
-export default MarkdownCodeBlock;
+export default MarkdownCode;

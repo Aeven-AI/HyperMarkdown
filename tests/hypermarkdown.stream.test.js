@@ -59,14 +59,14 @@ if (typeof global.$ !== "function") {
   });
 }
 
-let Store;
+let Renderer;
 let MarkdownLink;
 
 beforeAll(async () => {
-  const markdownModule = await import("../lib/store");
+  const markdownModule = await import("../lib/renderer/renderer");
   const markdownLinkModule = await import("../lib/link");
 
-  Store = markdownModule.default;
+  Renderer = markdownModule.default;
   MarkdownLink = markdownLinkModule.default;
 });
 
@@ -82,7 +82,7 @@ function createRenderer(props = {}) {
   };
 
   // The engine is plain TypeScript: no React lifecycle to stand in for.
-  renderer = new Store(mergedProps);
+  renderer = new Renderer(mergedProps);
 
   return renderer;
 }

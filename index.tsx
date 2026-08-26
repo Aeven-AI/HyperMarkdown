@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import Store from "./lib/store";
+import Renderer from "./lib/renderer/renderer";
 import { emitter, guid } from "./lib/platform/runtime";
 
 // Layout effects warn during server rendering, where there is no DOM to
@@ -91,10 +91,10 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     // One engine per mounted component, created lazily so a re-render never
     // builds a second one.
-    const storeRef = useRef<Store | null>(null);
+    const storeRef = useRef<Renderer | null>(null);
 
     if (storeRef.current === null) {
-      storeRef.current = new Store({
+      storeRef.current = new Renderer({
         md,
         streaming,
         animation,
@@ -205,10 +205,8 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 HyperMarkdown.displayName = "HyperMarkdown";
 
 /** @deprecated Prefer the HyperMarkdown component and its imperative handle. */
-export { default as MarkdownStream } from "./lib/store";
+export { default as MarkdownStream } from "./lib/renderer/renderer";
 /** @deprecated Internal engine options retained for API compatibility. */
-export type {
-  StoreOptions as MarkdownStreamOptions,
-} from "./lib/store";
+export type { RendererOptions as MarkdownStreamOptions } from "./lib/renderer/types";
 export { HyperMarkdown };
 export default HyperMarkdown;
