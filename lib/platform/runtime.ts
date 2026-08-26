@@ -75,6 +75,29 @@ class Emitter {
 
 export const emitter = new Emitter();
 
+/**
+ * Watch anything that could move a block through the viewport, so a block's
+ * sticky toolbar can restyle itself as it scrolls past.
+ *
+ * Scroll events do not bubble, but they do travel the capture phase, so a
+ * single capturing listener on the window sees every scroll container on the
+ * page. That keeps the component self-contained: the host does not have to
+ * forward its own scroll events for the toolbars to work.
+ */
+export function onViewportScroll(handler: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  window.addEventListener("scroll", handler, true);
+  window.addEventListener("resize", handler);
+
+  return () => {
+    window.removeEventListener("scroll", handler, true);
+    window.removeEventListener("resize", handler);
+  };
+}
+
 /** Mermaid is heavy and rarely needed; load it only when a diagram appears. */
 let mermaidModule: unknown = null;
 let mermaidPromise: Promise<unknown> | null = null;

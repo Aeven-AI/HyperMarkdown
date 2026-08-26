@@ -18,14 +18,14 @@ export default defineConfig({
   plugins: [
     react(),
     dts({
-      include: ["src"],
+      include: ["index.tsx", "lib"],
       exclude: ["**/*.test.*"],
       tsconfigPath: "./tsconfig.app.json",
     }),
   ],
   build: {
     lib: {
-      entry: resolve(__dirname, "src/index.ts"),
+      entry: resolve(__dirname, "index.tsx"),
       name: "HyperMarkdown",
       fileName: "hypermarkdown",
     },

@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 
-import * as runtime from "./runtime";
+import * as runtime from "./platform/runtime";
 
 interface AnchorProps {
   href?: string;
@@ -15,7 +15,7 @@ interface AnchorProps {
  * Anchors rendered from markdown. Ordinary links open in a new tab; footnote
  * references and back-references stay in the page and jump by hash.
  */
-function MarkdownA(props: AnchorProps) {
+function MarkdownLink(props: AnchorProps) {
   const { renderer: _renderer, scrollDown: _scrollDown, ...rest } = props;
   const comProps: Record<string, any> = { ...rest };
 
@@ -93,11 +93,11 @@ function footnoteLabel(id: unknown, children: any) {
 }
 
 // Re-renders only when the destination changes, as the class did.
-const MemoMarkdownA = memo(
-  MarkdownA,
+const MemoMarkdownLink = memo(
+  MarkdownLink,
   (prev, next) => prev.href === next.href
 );
 
-MemoMarkdownA.displayName = "MarkdownA";
+MemoMarkdownLink.displayName = "MarkdownLink";
 
-export default MemoMarkdownA;
+export default MemoMarkdownLink;

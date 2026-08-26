@@ -59,17 +59,15 @@ if (typeof global.$ !== "function") {
   });
 }
 
-let MarkdownStream;
-let MarkdownA;
+let MarkdownRenderStore;
+let MarkdownLink;
 
 beforeAll(async () => {
-  const markdownModule = await import("../src/core/MarkdownStream");
-  const markdownLinkModule = await import(
-    "../src/utils/MarkdownA"
-  );
+  const markdownModule = await import("../lib/markdown-render-store");
+  const markdownLinkModule = await import("../lib/link");
 
-  MarkdownStream = markdownModule.default;
-  MarkdownA = markdownLinkModule.default;
+  MarkdownRenderStore = markdownModule.default;
+  MarkdownLink = markdownLinkModule.default;
 });
 
 function createRenderer(props = {}) {
@@ -84,7 +82,7 @@ function createRenderer(props = {}) {
   };
 
   // The engine is plain TypeScript: no React lifecycle to stand in for.
-  renderer = new MarkdownStream(mergedProps);
+  renderer = new MarkdownRenderStore(mergedProps);
 
   return renderer;
 }
@@ -107,10 +105,10 @@ function renderStream(renderer, chunks, finalize = false) {
   }
 }
 
-// rehype-react wires `a` to an arrow component that forwards to MarkdownA, so
-// the element sitting in the tree is that wrapper, not MarkdownA itself.
+// rehype-react wires `a` to an arrow component that forwards to MarkdownLink, so
+// the element sitting in the tree is that wrapper, not MarkdownLink itself.
 function isLinkNode(node) {
-  if (node.type === MarkdownA) {
+  if (node.type === MarkdownLink) {
     return true;
   }
 

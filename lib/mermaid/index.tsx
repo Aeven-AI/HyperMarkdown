@@ -1,8 +1,8 @@
 import React, { Component } from "react";
 
-import * as runtime from "./runtime";
+import * as runtime from "../platform/runtime";
 
-import Tippy from "./Tippy";
+import Tooltip from "../tooltip";
 
 
 
@@ -32,7 +32,7 @@ class Header extends Component<any, any> {
   componentDidMount() {
     const vm = this;
     vm.updateHeaderScrollClass();
-    runtime.emitter.on("chat:scroll", vm.guid, vm.updateHeaderScrollClass);
+    vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -116,7 +116,7 @@ class Header extends Component<any, any> {
     }
   }
 
-  updateHeaderScrollClass(event?: any) {
+  updateHeaderScrollClass(_event?: any) {
     const vm = this;
 
     if (vm.ticking !== true) {
@@ -156,7 +156,7 @@ class Header extends Component<any, any> {
 
   componentWillUnmount() {
     const vm = this;
-    runtime.emitter.off("chat:scroll", vm.guid);
+    vm.stopWatchingScroll?.();
   }
 
   render() {
@@ -190,7 +190,7 @@ class Header extends Component<any, any> {
           </span>
           <span className="mermaid-spacer" />
           <span className="mermaid-button-container">
-            <Tippy
+            <Tooltip
               ref={vm.tippyFullScreenRef}
               placement={"top"}
               touch={false}
@@ -210,8 +210,8 @@ class Header extends Component<any, any> {
                   ></span>
                 </span>
               </button>
-            </Tippy>
-            <Tippy
+            </Tooltip>
+            <Tooltip
               ref={vm.tippyCopyContentRef}
               arrow={false}
               trigger={"manual"}
@@ -219,7 +219,7 @@ class Header extends Component<any, any> {
               content={tippyCopyTxt}
             >
               <span className="tippy-button">
-                <Tippy
+                <Tooltip
                   placement={"top-end"}
                   content={"Copy"}
                   touch={false}
@@ -239,9 +239,9 @@ class Header extends Component<any, any> {
                       ></span>
                     </span>
                   </button>
-                </Tippy>
+                </Tooltip>
               </span>
-            </Tippy>
+            </Tooltip>
           </span>
         </div>
         <div className="mermaid-header-background">
@@ -253,7 +253,7 @@ class Header extends Component<any, any> {
   }
 }
 
-class MarkdownM extends Component<any, any> {
+class MermaidDiagram extends Component<any, any> {
   [key: string]: any;
 
   constructor(props) {
@@ -284,7 +284,7 @@ class MarkdownM extends Component<any, any> {
     const vm = this;
     vm.renderMermaidDiagram();
     vm.updateHeaderScrollClass();
-    runtime.emitter.on("chat:scroll", vm.guid, vm.updateHeaderScrollClass);
+    vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
   }
 
   componentDidUpdate(prevProps) {
@@ -379,7 +379,7 @@ class MarkdownM extends Component<any, any> {
         .then((mermaid) => {
           renderMermaidDiagram(mermaid, sandbox);
         })
-        .catch((mermaidError) => {
+        .catch((_mermaidError) => {
           vm.removeSandbox(sandbox);
         });
     }
@@ -404,7 +404,7 @@ class MarkdownM extends Component<any, any> {
             }
           });
         })
-        .catch((dataError) => {
+        .catch((_dataError) => {
           vm.removeSandbox(renderSandboxRef);
         });
     }
@@ -443,7 +443,7 @@ class MarkdownM extends Component<any, any> {
     }
   }
 
-  updateHeaderScrollClass(event?: any) {
+  updateHeaderScrollClass(_event?: any) {
     const vm = this;
 
     if (vm.ticking !== true) {
@@ -546,4 +546,4 @@ class MarkdownM extends Component<any, any> {
   }
 }
 
-export default MarkdownM;
+export default MermaidDiagram;

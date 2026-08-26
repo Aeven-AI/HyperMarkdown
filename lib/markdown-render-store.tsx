@@ -1,6 +1,6 @@
 import React, { Fragment } from "react";
 
-import * as runtime from "../utils/runtime";
+import * as runtime from "./platform/runtime";
 
 import { unified } from "unified";
 import { EXIT, SKIP, visit } from "unist-util-visit";
@@ -18,17 +18,17 @@ import rehypeHighlight from "rehype-highlight";
 
 import remarkGfm from "remark-gfm";
 
-import MarkdownA from "../utils/MarkdownA";
-import MarkdownM from "../utils/MarkdownM";
-import MarkdownImg from "../utils/MarkdownImg";
-import MarkdownPre from "../utils/MarkdownPre";
-import MarkdownTable from "../utils/MarkdownTable";
+import MarkdownLink from "./link";
+import MermaidDiagram from "./mermaid";
+import MarkdownImage from "./image";
+import MarkdownCodeBlock from "./code-block";
+import MarkdownTable from "./table";
 
-import MarkdownSyntax from "../utils/MarkdownSyntax";
+import MarkdownSyntax from "./streaming/markdown-syntax";
 
 const markdownSyntax = new MarkdownSyntax();
 
-export interface MarkdownStreamOptions {
+export interface MarkdownRenderOptions {
   /** Markdown to render in one go. Ignored while `streaming` is true. */
   md?: string;
   /** Feed content through `streamMd()` instead of the `md` prop. */
@@ -39,13 +39,13 @@ export interface MarkdownStreamOptions {
   scrollDown?: () => void;
 }
 
-class MarkdownStream {
+class MarkdownRenderStore {
   // Ported from JavaScript: the streaming machinery keeps a lot of mutable
   // bookkeeping on the instance. Declared loosely here and annotated field by
   // field as the port is tightened.
   [key: string]: any;
 
-  private options: MarkdownStreamOptions;
+  private options: MarkdownRenderOptions;
   private listeners = new Set<() => void>();
 
   /** setState-style callbacks waiting for the host's next commit. */
@@ -55,7 +55,7 @@ class MarkdownStream {
   version = 0;
 
 
-  constructor(options: MarkdownStreamOptions = {}) {
+  constructor(options: MarkdownRenderOptions = {}) {
     const props = options;
     this.options = options;
 
@@ -201,7 +201,7 @@ class MarkdownStream {
    * Update the options the engine reads while rendering. Called on every host
    * render, so it must stay cheap and must not invalidate cached output.
    */
-  setOptions(next: Partial<MarkdownStreamOptions>) {
+  setOptions(next: Partial<MarkdownRenderOptions>) {
     this.options = { ...this.options, ...next };
   }
 
@@ -287,7 +287,7 @@ class MarkdownStream {
             components: {
               a: (props) => {
                 return (
-                  <MarkdownA
+                  <MarkdownLink
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -296,7 +296,7 @@ class MarkdownStream {
               },
               m: (props) => {
                 return (
-                  <MarkdownM
+                  <MermaidDiagram
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -305,7 +305,7 @@ class MarkdownStream {
               },
               img: (props) => {
                 return (
-                  <MarkdownImg
+                  <MarkdownImage
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -314,7 +314,7 @@ class MarkdownStream {
               },
               pre: (props) => {
                 return (
-                  <MarkdownPre
+                  <MarkdownCodeBlock
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -408,7 +408,7 @@ class MarkdownStream {
             components: {
               a: (props) => {
                 return (
-                  <MarkdownA
+                  <MarkdownLink
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -417,7 +417,7 @@ class MarkdownStream {
               },
               m: (props) => {
                 return (
-                  <MarkdownM
+                  <MermaidDiagram
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -426,7 +426,7 @@ class MarkdownStream {
               },
               img: (props) => {
                 return (
-                  <MarkdownImg
+                  <MarkdownImage
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -435,7 +435,7 @@ class MarkdownStream {
               },
               pre: (props) => {
                 return (
-                  <MarkdownPre
+                  <MarkdownCodeBlock
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -476,7 +476,7 @@ class MarkdownStream {
             components: {
               a: (props) => {
                 return (
-                  <MarkdownA
+                  <MarkdownLink
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -485,7 +485,7 @@ class MarkdownStream {
               },
               m: (props) => {
                 return (
-                  <MarkdownM
+                  <MermaidDiagram
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -494,7 +494,7 @@ class MarkdownStream {
               },
               img: (props) => {
                 return (
-                  <MarkdownImg
+                  <MarkdownImage
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -503,7 +503,7 @@ class MarkdownStream {
               },
               pre: (props) => {
                 return (
-                  <MarkdownPre
+                  <MarkdownCodeBlock
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -546,7 +546,7 @@ class MarkdownStream {
             components: {
               a: (props) => {
                 return (
-                  <MarkdownA
+                  <MarkdownLink
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -555,7 +555,7 @@ class MarkdownStream {
               },
               m: (props) => {
                 return (
-                  <MarkdownM
+                  <MermaidDiagram
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -564,7 +564,7 @@ class MarkdownStream {
               },
               img: (props) => {
                 return (
-                  <MarkdownImg
+                  <MarkdownImage
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -573,7 +573,7 @@ class MarkdownStream {
               },
               pre: (props) => {
                 return (
-                  <MarkdownPre
+                  <MarkdownCodeBlock
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -612,7 +612,7 @@ class MarkdownStream {
             components: {
               a: (props) => {
                 return (
-                  <MarkdownA
+                  <MarkdownLink
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -621,7 +621,7 @@ class MarkdownStream {
               },
               m: (props) => {
                 return (
-                  <MarkdownM
+                  <MermaidDiagram
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -630,7 +630,7 @@ class MarkdownStream {
               },
               img: (props) => {
                 return (
-                  <MarkdownImg
+                  <MarkdownImage
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -639,7 +639,7 @@ class MarkdownStream {
               },
               pre: (props) => {
                 return (
-                  <MarkdownPre
+                  <MarkdownCodeBlock
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -679,7 +679,7 @@ class MarkdownStream {
             components: {
               a: (props) => {
                 return (
-                  <MarkdownA
+                  <MarkdownLink
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -688,7 +688,7 @@ class MarkdownStream {
               },
               m: (props) => {
                 return (
-                  <MarkdownM
+                  <MermaidDiagram
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -697,7 +697,7 @@ class MarkdownStream {
               },
               img: (props) => {
                 return (
-                  <MarkdownImg
+                  <MarkdownImage
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -706,7 +706,7 @@ class MarkdownStream {
               },
               pre: (props) => {
                 return (
-                  <MarkdownPre
+                  <MarkdownCodeBlock
                     {...props}
                     renderer={vm}
                     scrollDown={vm.options.scrollDown}
@@ -777,7 +777,7 @@ class MarkdownStream {
     return {
       a: (props) => {
         return (
-          <MarkdownA
+          <MarkdownLink
             {...props}
             renderer={vm}
             scrollDown={vm.options.scrollDown}
@@ -786,7 +786,7 @@ class MarkdownStream {
       },
       m: (props) => {
         return (
-          <MarkdownM
+          <MermaidDiagram
             {...props}
             renderer={vm}
             scrollDown={vm.options.scrollDown}
@@ -795,7 +795,7 @@ class MarkdownStream {
       },
       img: (props) => {
         return (
-          <MarkdownImg
+          <MarkdownImage
             {...props}
             renderer={vm}
             scrollDown={vm.options.scrollDown}
@@ -1224,7 +1224,7 @@ class MarkdownStream {
         );
 
         processedData = (
-          <MarkdownPre
+          <MarkdownCodeBlock
             stream={true}
             streaming={streaming}
             animation={animation}
@@ -1259,7 +1259,7 @@ class MarkdownStream {
 
         if (
           React.isValidElement(processedDataCode) &&
-          processedDataCode.type !== MarkdownPre
+          processedDataCode.type !== MarkdownCodeBlock
         ) {
           processedData = processedDataCode;
         } else {
@@ -1276,7 +1276,7 @@ class MarkdownStream {
           }
 
           processedData = (
-            <MarkdownPre
+            <MarkdownCodeBlock
               stream={false}
               streaming={streaming}
               animation={animation}
@@ -3805,7 +3805,7 @@ class MarkdownStream {
     }
   }
 
-  mdReference(mdBuffer, blockType) {
+  mdReference(mdBuffer, _blockType) {
     let refKeys;
     let refString;
 
@@ -3982,7 +3982,7 @@ class MarkdownStream {
       }
     }
 
-    function getLineClose(mdBuffer, blockType) {
+    function getLineClose(mdBuffer, _blockType) {
       let closeIndex;
 
       const singleLine = "\n";
@@ -4377,4 +4377,4 @@ class MarkdownStream {
   }
 }
 
-export default MarkdownStream;
+export default MarkdownRenderStore;

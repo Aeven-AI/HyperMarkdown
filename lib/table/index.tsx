@@ -9,8 +9,8 @@ import React, {
   type RefObject,
 } from "react";
 
-import * as runtime from "./runtime";
-import Tippy, { type TippyHandle } from "./Tippy";
+import * as runtime from "../platform/runtime";
+import Tooltip, { type TooltipHandle } from "../tooltip";
 
 const ICON_MAXIMIZE =
   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="maximize2-icon maximize-2"><path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/></svg>';
@@ -46,7 +46,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
   const [fullscreen, setFullscreen] = useState(false);
 
   const headerRef = useRef<HTMLDivElement | null>(null);
-  const tippyCopyRef = useRef<TippyHandle | null>(null);
+  const tippyCopyRef = useRef<TooltipHandle | null>(null);
 
   // The scroll handler is registered once but reads the current fullscreen
   // value, so it goes through a ref rather than the closed-over state.
@@ -93,14 +93,8 @@ function TableHeaderComponent(props: TableHeaderProps) {
   }, [wrapperRef]);
 
   useEffect(() => {
-    const id = runtime.guid();
-
     updateHeaderScrollClass();
-    runtime.emitter.on("chat:scroll", id, updateHeaderScrollClass);
-
-    return () => {
-      runtime.emitter.off("chat:scroll", id);
-    };
+    return runtime.onViewportScroll(updateHeaderScrollClass);
   }, [updateHeaderScrollClass]);
 
   useEffect(() => {
@@ -166,7 +160,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
         </span>
         <span className="table-spacer" />
         <span className="table-button-container">
-          <Tippy
+          <Tooltip
             placement={"top"}
             touch={false}
             trigger={"mouseenter"}
@@ -185,8 +179,8 @@ function TableHeaderComponent(props: TableHeaderProps) {
                 ></span>
               </span>
             </button>
-          </Tippy>
-          <Tippy
+          </Tooltip>
+          <Tooltip
             ref={tippyCopyRef}
             arrow={false}
             trigger={"manual"}
@@ -194,7 +188,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
             content={copyLabel}
           >
             <span className="tippy-button">
-              <Tippy
+              <Tooltip
                 placement={"top-end"}
                 content={"Copy"}
                 touch={false}
@@ -211,9 +205,9 @@ function TableHeaderComponent(props: TableHeaderProps) {
                     ></span>
                   </span>
                 </button>
-              </Tippy>
+              </Tooltip>
             </span>
-          </Tippy>
+          </Tooltip>
         </span>
       </div>
       <div className="table-header-background">

@@ -2,9 +2,9 @@
 import { createRef } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import HyperMarkdown, { type HyperMarkdownHandle } from "../src/HyperMarkdown";
+import HyperMarkdown, { type HyperMarkdownHandle } from "../index";
 
 beforeAll(() => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -97,5 +97,71 @@ describe("HyperMarkdown component", () => {
 
     act(() => ref.current!.reset());
     expect(host.textContent?.trim()).toBe("");
+  });
+
+  it("does not access the removed React element.ref getter", () => {
+    let refWarning;
+    let error;
+
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args) => {
+        error = args.join(" ");
+
+        if (error.includes("Accessing element.ref was removed in React 19")) {
+          refWarning = error;
+        }
+      });
+
+    const { root } = mount(
+      <HyperMarkdown md={"```javascript\nconsole.log('hello');\n```\n"} />
+    );
+
+    expect(refWarning).toBeUndefined();
+
+    act(() => root.unmount());
+    consoleError.mockRestore();
+  });
+
+  it("toggles code blocks in and out of fullscreen", () => {
+    let button;
+    let wrapper;
+
+    const { host } = mount(
+      <HyperMarkdown md={"```javascript\nconsole.log('hello');\n```\n"} />
+    );
+
+    button = host.querySelector(".codeblock-icon-button.first");
+    wrapper = host.querySelector(".codeblock-wrapper");
+
+    expect(button).toBeTruthy();
+    expect(wrapper?.classList.contains("fullscreen")).toBe(false);
+
+    act(() => button?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(wrapper?.classList.contains("fullscreen")).toBe(true);
+
+    act(() => button?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(wrapper?.classList.contains("fullscreen")).toBe(false);
+  });
+
+  it("toggles tables in and out of fullscreen", () => {
+    let button;
+    let wrapper;
+
+    const { host } = mount(
+      <HyperMarkdown md={"| A | B |\n| - | - |\n| 1 | 2 |\n"} />
+    );
+
+    button = host.querySelector(".table-icon-button.first");
+    wrapper = host.querySelector(".table-wrapper");
+
+    expect(button).toBeTruthy();
+    expect(wrapper?.classList.contains("fullscreen")).toBe(false);
+
+    act(() => button?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(wrapper?.classList.contains("fullscreen")).toBe(true);
+
+    act(() => button?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(wrapper?.classList.contains("fullscreen")).toBe(false);
   });
 });

@@ -1,16 +1,17 @@
 import {
+  cloneElement,
   forwardRef,
+  useCallback,
+  useEffect,
   useImperativeHandle,
-  useState,
+  useRef,
   type ReactElement,
-  type ReactNode,
 } from "react";
 
-import TippyReact from "@tippyjs/react";
-import type { Placement } from "tippy.js";
+import tippy, { type Instance, type Placement } from "tippy.js";
 
-export interface TippyProps {
-  content?: ReactNode;
+export interface TooltipProps {
+  content?: string;
   placement?: Placement;
   trigger?: string;
   touch?: boolean;
@@ -18,56 +19,88 @@ export interface TippyProps {
   children?: ReactElement;
 }
 
-export interface TippyHandle {
+export interface TooltipHandle {
   show(): void;
   hide(): void;
 }
 
 /**
- * Thin wrapper over @tippyjs/react, matching the imperative show/hide surface
- * the renderer's toolbars use for their "copied" confirmations. Only tooltips
- * with `trigger="manual"` answer to the handle; the rest follow the pointer.
+ * React adapter for tippy.js, matching the imperative show/hide surface the
+ * renderer's toolbars use for their "copied" confirmations. It attaches the
+ * reference through props, as required by React 19, instead of reading the
+ * removed ReactElement.ref getter.
  */
-const Tippy = forwardRef<TippyHandle, TippyProps>(function Tippy(props, ref) {
+const Tooltip = forwardRef<TooltipHandle, TooltipProps>(function Tooltip(
+  props,
+  ref
+) {
   const { content, placement, trigger, touch, arrow, children } = props;
 
   const manual = trigger === "manual";
-  const [visible, setVisible] = useState(false);
+  const instanceRef = useRef<Instance | null>(null);
+  const referenceRef = useRef<Element | null>(null);
+
+  const setReference = useCallback((element: Element | null) => {
+    referenceRef.current = element;
+  }, []);
+
+  useEffect(() => {
+    let instance;
+
+    const reference = referenceRef.current;
+
+    if (!reference) {
+      return;
+    }
+
+    instance = tippy(reference, {
+      content: content ?? "",
+      placement,
+      touch,
+      arrow,
+      trigger: manual ? "manual" : trigger ?? "mouseenter",
+    });
+    instanceRef.current = instance;
+
+    return () => {
+      instance.destroy();
+      instanceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    instanceRef.current?.setProps({
+      content: content ?? "",
+      placement,
+      touch,
+      arrow,
+      trigger: manual ? "manual" : trigger ?? "mouseenter",
+    });
+  }, [arrow, content, manual, placement, touch, trigger]);
 
   useImperativeHandle(
     ref,
     () => ({
       show() {
-        if (manual) {
-          setVisible(true);
-        }
+        instanceRef.current?.show();
       },
       hide() {
-        if (manual) {
-          setVisible(false);
-        }
+        instanceRef.current?.hide();
       },
     }),
-    [manual]
+    []
   );
 
   if (!children) {
     return null;
   }
 
-  return (
-    <TippyReact
-      content={content}
-      placement={placement}
-      touch={touch}
-      arrow={arrow}
-      {...(manual ? { visible } : { trigger: trigger ?? "mouseenter" })}
-    >
-      {children}
-    </TippyReact>
+  return cloneElement(
+    children as ReactElement<{ ref?: (element: Element | null) => void }>,
+    { ref: setReference }
   );
 });
 
-Tippy.displayName = "Tippy";
+Tooltip.displayName = "Tooltip";
 
-export default Tippy;
+export default Tooltip;

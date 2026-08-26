@@ -32,7 +32,6 @@
     "react-dom": ">=18"
   },
   "dependencies": {
-    "@tippyjs/react": "^4.2.6",
     "hast-util-to-jsx-runtime": "^2.3.6",
     "katex": "^0.16.25",
     "mermaid": "^11.12.0",

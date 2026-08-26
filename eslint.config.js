@@ -18,10 +18,12 @@ export default defineConfig([
       // The port keeps the original code's shape; these are tightened as the
       // internals get annotated.
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-this-alias": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
+      "prefer-const": "off",
     },
   },
 ]);

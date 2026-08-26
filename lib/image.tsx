@@ -11,7 +11,7 @@ interface ImageProps {
  * Images rendered from markdown, wrapped so a host can style loading and error
  * states around them.
  */
-function MarkdownImg(props: ImageProps) {
+function MarkdownImage(props: ImageProps) {
   const { src, alt, title } = props;
 
   return (
@@ -26,11 +26,11 @@ function MarkdownImg(props: ImageProps) {
 }
 
 // Re-renders only when the source changes, as the class did.
-const MemoMarkdownImg = memo(
-  MarkdownImg,
+const MemoMarkdownImage = memo(
+  MarkdownImage,
   (prev, next) => prev.src === next.src
 );
 
-MemoMarkdownImg.displayName = "MarkdownImg";
+MemoMarkdownImage.displayName = "MarkdownImage";
 
-export default MemoMarkdownImg;
+export default MemoMarkdownImage;

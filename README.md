@@ -13,7 +13,7 @@ pnpm add hypermarkdown
 React 18 or 19 is a peer dependency.
 
 ```tsx
-import { HyperMarkdown } from "hypermarkdown";
+import { HyperMarkdown, type HyperMarkdownHandle } from "hypermarkdown";
 import "katex/dist/katex.min.css";
 ```
 
@@ -29,12 +29,12 @@ Hold a ref and push chunks in as they arrive. The component keeps its own
 buffer, so pass each delta rather than the accumulated text.
 
 ```tsx
-const renderer = useRef<HyperMarkdown>(null);
+const renderer = useRef<HyperMarkdownHandle>(null);
 
 for await (const delta of stream) {
-  renderer.current?.streamMd(delta, true, animation, false);
+  renderer.current?.write(delta);
 }
-renderer.current?.streamMd("", true, animation, true); // finalize
+renderer.current?.write("", true); // finalize
 
 <HyperMarkdown ref={renderer} streaming animation scrollDown={pinToBottom} />;
 ```
@@ -42,12 +42,14 @@ renderer.current?.streamMd("", true, animation, true); // finalize
 | prop | type | meaning |
 | --- | --- | --- |
 | `md` | `string` | Markdown to render in one go. Ignored while `streaming`. |
-| `streaming` | `boolean` | Take content through `streamMd()` instead of `md`. |
+| `streaming` | `boolean` | Take content through the imperative `write()` API instead of `md`. |
 | `animation` | `boolean` | Fade words in as they arrive. |
 | `scrollDown` | `() => void` | Called after each render, to keep the view pinned. |
+| `onFullscreenChange` | `(fullscreen: boolean) => void` | A code block, table or diagram entered or left fullscreen. Hide your own navigation and input chrome here, or the block ends up fullscreen underneath it. |
+| `onAlert` | `(alert: { header, content, buttonText }) => void` | A block wants to tell the reader something. Without a handler the message is dropped, since the component has no dialog of its own. |
 
-`streamMd(delta, streaming, animation, finalize)` — call with `finalize: true`
-once when the stream ends so any buffered block is flushed.
+Call `write(delta)` for each chunk, then call `write("", true)` once when the
+stream ends so any buffered block is flushed.
 
 ## What it does while streaming
 

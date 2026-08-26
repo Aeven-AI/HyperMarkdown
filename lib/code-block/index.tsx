@@ -1,7 +1,7 @@
 import React, { Component, PureComponent } from "react";
 
-import * as runtime from "./runtime";
-import Tippy from "./Tippy";
+import * as runtime from "../platform/runtime";
+import Tooltip from "../tooltip";
 
 
 
@@ -37,7 +37,7 @@ class Header extends Component<any, any> {
   componentDidMount() {
     const vm = this;
     vm.updateHeaderScrollClass();
-    runtime.emitter.on("chat:scroll", vm.guid, vm.updateHeaderScrollClass);
+    vm.stopWatchingScroll = runtime.onViewportScroll(vm.updateHeaderScrollClass);
   }
 
   shouldComponentUpdate(nextProps, nextState) {
@@ -166,7 +166,7 @@ class Header extends Component<any, any> {
     }
   }
 
-  updateHeaderScrollClass(event?: any) {
+  updateHeaderScrollClass(_event?: any) {
     const vm = this;
 
     if (vm.ticking !== true) {
@@ -211,7 +211,7 @@ class Header extends Component<any, any> {
       return null;
     } else {
       return (
-        <Tippy
+        <Tooltip
           ref={vm.tippyFullScreenRef}
           placement={"top"}
           touch={false}
@@ -234,14 +234,14 @@ class Header extends Component<any, any> {
               />
             </span>
           </button>
-        </Tippy>
+        </Tooltip>
       );
     }
   }
 
   componentWillUnmount() {
     const vm = this;
-    runtime.emitter.off("chat:scroll", vm.guid);
+    vm.stopWatchingScroll?.();
   }
 
   render() {
@@ -276,7 +276,7 @@ class Header extends Component<any, any> {
           <span className="codeblock-spacer" />
           <span className="codeblock-button-container">
             <PreviewButtonComponent {...props} />
-            <Tippy
+            <Tooltip
               ref={vm.tippyFullScreenRef}
               placement={"top"}
               touch={false}
@@ -298,8 +298,8 @@ class Header extends Component<any, any> {
                   />
                 </span>
               </button>
-            </Tippy>
-            <Tippy
+            </Tooltip>
+            <Tooltip
               ref={vm.tippyCopyContentRef}
               arrow={false}
               trigger={"manual"}
@@ -307,7 +307,7 @@ class Header extends Component<any, any> {
               content={tippyCopyTxt}
             >
               <span className="tippy-button">
-                <Tippy
+                <Tooltip
                   placement={"top-end"}
                   content={"Copy code"}
                   touch={false}
@@ -327,9 +327,9 @@ class Header extends Component<any, any> {
                       />
                     </span>
                   </button>
-                </Tippy>
+                </Tooltip>
               </span>
-            </Tippy>
+            </Tooltip>
           </span>
         </div>
         <div className="codeblock-header-background">
@@ -364,7 +364,7 @@ class LineNumber extends Component<any, any> {
     }, 0);
   }
 
-  componentDidUpdate(prevProps, prevState) {
+  componentDidUpdate(_prevProps, _prevState) {
     const vm = this;
     vm.lineNumberCount();
   }
@@ -434,7 +434,7 @@ class LineNumber extends Component<any, any> {
   }
 }
 
-class MarkdownPre extends PureComponent<any, any> {
+class MarkdownCodeBlock extends PureComponent<any, any> {
   [key: string]: any;
 
   constructor(props) {
@@ -444,8 +444,6 @@ class MarkdownPre extends PureComponent<any, any> {
       fullscreen: false,
       finalStream: false,
     };
-
-    this.children;
 
     this.userScroll = false;
     this.scrollMargin = 100;
@@ -464,11 +462,9 @@ class MarkdownPre extends PureComponent<any, any> {
     this.scrollDownListener = this.scrollDownListener.bind(this);
   }
 
-  componentDidMount() {
-    const vm = this;
-  }
+  componentDidMount() {}
 
-  componentDidUpdate(prevProps, prevState) {
+  componentDidUpdate(_prevProps, _prevState) {
     const vm = this;
 
     if (vm.state.fullscreen === true) {
@@ -631,4 +627,4 @@ class MarkdownPre extends PureComponent<any, any> {
   }
 }
 
-export default MarkdownPre;
+export default MarkdownCodeBlock;
