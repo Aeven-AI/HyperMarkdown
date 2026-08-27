@@ -66,9 +66,9 @@ export function findBlockBoundary(
   }
 
   if (blockType === "text") {
-    mdBuffer = mapNotes(mdBuffer, blockType);
+    mdBuffer = mapNotes(mdBuffer);
 
-    refClose = getRefClose(mdBuffer, blockType);
+    refClose = getRefClose(mdBuffer);
     if (refClose) {
       return refClose;
     }
@@ -92,16 +92,7 @@ export function findBlockBoundary(
       fencedCodeRegex,
       indentedCodeRegex,
     });
-    if (codeBlockClose) {
-      return codeBlockClose;
-    }
-
-    return {
-      close: false,
-      md: mdBuffer,
-      mdClose: "",
-      mdNext: "",
-    };
+    return codeBlockClose;
   }
 
   if (blockType === "code") {
@@ -123,7 +114,7 @@ export function findBlockBoundary(
   }
 
   if (blockType === "table") {
-    mdBuffer = mapNotes(mdBuffer, blockType);
+    mdBuffer = mapNotes(mdBuffer);
     doubleLineClose = getDoubleLineClose(mdBuffer, blockType, doubleLine);
     if (doubleLineClose) {
       return doubleLineClose;
@@ -144,7 +135,7 @@ export function findBlockBoundary(
     mdNext: "",
   };
 
-  function mapNotes(mdBuffer: string, blockType: BlockType): string {
+  function mapNotes(mdBuffer: string): string {
     let id;
     let seen: Record<string, true>;
 
@@ -153,52 +144,41 @@ export function findBlockBoundary(
 
     let definition;
 
-    if (blockType === "code") {
+    matches = mdBuffer.match(patterns.footnoteRegex);
+    if (!matches) {
       return mdBuffer;
     } else {
-      matches = mdBuffer.match(patterns.footnoteRegex);
-      if (!matches) {
-        return mdBuffer;
-      } else {
-        seen = {};
-        for (match of matches) {
-          if (!seen[match]) {
-            seen[match] = true;
-            if (!refs.footnotes.has(match)) {
-              id = match.substring(2, match.length - 1);
-              definition = `${match}: ${id}`;
-              refs.mdExtra.set(match, definition);
-            }
+      seen = {};
+      for (match of matches) {
+        if (!seen[match]) {
+          seen[match] = true;
+          if (!refs.footnotes.has(match)) {
+            id = match.substring(2, match.length - 1);
+            definition = `${match}: ${id}`;
+            refs.mdExtra.set(match, definition);
           }
         }
-
-        return mdBuffer;
       }
+
+      return mdBuffer;
     }
   }
 
-  function getRefClose(
-    mdBuffer: string,
-    blockType: BlockType,
-  ): BlockBoundary | undefined | null {
-    if (blockType === "code") {
-      return null;
-    } else {
-      const usageMatch = mdBuffer.match(patterns.refRegex);
-      const definitionMatch = mdBuffer.match(patterns.definitionRegex);
+  function getRefClose(mdBuffer: string): BlockBoundary | undefined {
+    const usageMatch = mdBuffer.match(patterns.refRegex);
+    const definitionMatch = mdBuffer.match(patterns.definitionRegex);
 
-      const hasUsage = Array.isArray(usageMatch) && usageMatch.length > 0;
-      const hasDefinition =
-        Array.isArray(definitionMatch) && definitionMatch.length > 0;
+    const hasUsage = Array.isArray(usageMatch) && usageMatch.length > 0;
+    const hasDefinition =
+      Array.isArray(definitionMatch) && definitionMatch.length > 0;
 
-      if (hasUsage === true && hasDefinition !== true) {
-        return {
-          close: false,
-          md: mdBuffer,
-          mdClose: "",
-          mdNext: "",
-        };
-      }
+    if (hasUsage === true && hasDefinition !== true) {
+      return {
+        close: false,
+        md: mdBuffer,
+        mdClose: "",
+        mdNext: "",
+      };
     }
 
     return undefined;
@@ -228,21 +208,6 @@ export function findBlockBoundary(
     } else {
       closeIndex = mdBuffer.indexOf(singleLine);
       if (closeIndex !== -1) {
-        if (mdBuffer[closeIndex + 2] === singleLine) {
-          if (
-            mdBuffer[closeIndex + singleLine.length + 1] === "-" ||
-            mdBuffer[closeIndex + singleLine.length + 1] === "_" ||
-            mdBuffer[closeIndex + singleLine.length + 1] === "*"
-          ) {
-            return {
-              close: true,
-              md: mdBuffer.substring(0, closeIndex + 1),
-              mdNext: mdBuffer.substring(closeIndex + 1),
-              mdClose: singleLine,
-            };
-          }
-        }
-
         // A new bullet used to close the block here, which rendered every
         // item of a tight list as its own <ul>. The list stays in one block
         // now; its settled items are cached so that costs nothing.
@@ -387,6 +352,16 @@ export function findBlockBoundary(
 
   function getCodeBlockClose(
     mdBuffer: string,
+    blockType: "text",
+    codeRegexConfig: CodeRegexConfig,
+  ): BlockBoundary;
+  function getCodeBlockClose(
+    mdBuffer: string,
+    blockType: BlockType,
+    codeRegexConfig: CodeRegexConfig,
+  ): BlockBoundary | undefined;
+  function getCodeBlockClose(
+    mdBuffer: string,
     blockType: BlockType,
     codeRegexConfig: CodeRegexConfig,
   ): BlockBoundary | undefined {
@@ -458,16 +433,6 @@ export function findBlockBoundary(
               md: mdBuffer.substring(0, mdCloseEndIndex),
               mdNext: mdBuffer.substring(mdCloseEndIndex),
               mdClose: "\n",
-            };
-          }
-
-          if (remainder.startsWith("\n\n")) {
-            const mdCloseEndIndex = matchFinal + 2;
-            return {
-              close: true,
-              md: mdBuffer.substring(0, mdCloseEndIndex),
-              mdNext: mdBuffer.substring(mdCloseEndIndex),
-              mdClose: "\n\n",
             };
           }
 

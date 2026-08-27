@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import { patterns } from "../../lib/patterns";
 
 import {
   findBlockBoundary,
@@ -7,6 +9,30 @@ import {
 
 function refs() {
   return { footnotes: new Map<string, string>(), mdExtra: new Map<string, string>() };
+}
+
+function withMatch(
+  source: string,
+  expression: RegExp,
+  result: RegExpMatchArray,
+  run: () => void,
+) {
+  const nativeMatch = String.prototype.match;
+  const match = vi
+    .spyOn(String.prototype, "match")
+    .mockImplementation(function (this: string, candidate: RegExp) {
+      if (String(this) === source && candidate === expression) {
+        return result;
+      }
+
+      return nativeMatch.call(this, candidate);
+    });
+
+  try {
+    run();
+  } finally {
+    match.mockRestore();
+  }
 }
 
 describe("block-boundary edge cases", () => {
@@ -78,6 +104,48 @@ describe("block-boundary edge cases", () => {
       close: true,
       mdNext: "prose",
     });
+  });
+
+  it("handles successful matches without optional index metadata", () => {
+    withMatch("plain", patterns.hrCloseRegex, ["---\n"] as RegExpMatchArray, () => {
+      expect(findBlockBoundary("plain", "text", refs())).toMatchObject({
+        close: true,
+        mdClose: "---\n",
+      });
+    });
+
+    withMatch("plain", patterns.interuptRegex, ["\n```"] as RegExpMatchArray, () => {
+      expect(findBlockBoundary("plain", "text", refs())).toMatchObject({
+        close: true,
+        mdClose: "\n",
+      });
+    });
+
+    withMatch("plain", patterns.indentedCodeRegex, ["    "] as RegExpMatchArray, () => {
+      expect(findBlockBoundary("plain", "text", refs())).toMatchObject({
+        close: true,
+        mdClose: "plai",
+      });
+    });
+  });
+
+  it("handles defensive fenced-match shapes", () => {
+    withMatch("fake", patterns.fencedCloseRegex, ["fake"] as RegExpMatchArray, () => {
+      expect(findBlockBoundary("fake", "code", refs())).toMatchObject({
+        close: false,
+      });
+    });
+
+    withMatch(
+      "fake",
+      patterns.fencedCloseRegex,
+      ["fake", "capture"] as RegExpMatchArray,
+      () => {
+        expect(findBlockBoundary("fake", "code", refs())).toMatchObject({
+          close: false,
+        });
+      },
+    );
   });
 });
 

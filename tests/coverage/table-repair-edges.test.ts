@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import { patterns } from "../../lib/patterns";
 
 import {
   checkHeaded,
@@ -46,5 +48,46 @@ describe("table repair edge cases", () => {
     const markdown = "| A <!-- note -->\n| --- |";
 
     expect(convertTable(markdown, false)).toBe(markdown);
+  });
+
+  it("covers absent regex metadata and split entries defensively", () => {
+    const match = ["row"] as unknown as RegExpExecArray;
+    match.index = 0;
+    match.input = "row";
+    const exec = vi
+      .spyOn(patterns.tableRendererInitRegex, "exec")
+      .mockReturnValueOnce(match)
+      .mockReturnValueOnce(null);
+    expect(repairTableSyntax("row", "renderer", false)).toContain("row");
+    exec.mockRestore();
+
+    const nativeSplit = String.prototype.split;
+    let splitCount = 0;
+    const split = vi
+      .spyOn(String.prototype, "split")
+      .mockImplementation(function (
+        this: string,
+        separator?: string | RegExp,
+        limit?: number,
+      ) {
+        if (String(this) === "|" && separator === "\n" && splitCount++ === 1) {
+          return [];
+        }
+
+        return nativeSplit.call(this, separator, limit);
+      });
+    expect(convertTable("|", false)).toBe("|");
+    split.mockRestore();
+  });
+
+  it("handles missing leading-whitespace match metadata", () => {
+    const headless = new String("a | b") as unknown as string;
+    (headless as any).match = () => null;
+    expect(convertTableHeadless(headless, ["a | b"])).toContain("| :--- |");
+
+    const headed = new String("| A |") as unknown as string;
+    (headed as any).match = () => null;
+    expect(convertTableWithHeader(true, headed, "| A |", ["| A |"]))
+      .toContain("| :--- |");
   });
 });

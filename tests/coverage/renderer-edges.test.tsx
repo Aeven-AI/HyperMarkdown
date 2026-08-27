@@ -35,6 +35,11 @@ describe("renderer defensive and callback paths", () => {
     renderer.streamMd("<thi", true, false, true);
     expect(renderer.render()).toBeTruthy();
 
+    const storedPending: any = new Renderer({ streaming: true });
+    storedPending.blockType = "pending";
+    storedPending.streamMd("x", true, false, true);
+    expect(storedPending.render()).toBeTruthy();
+
     renderer.mdBuffer = "stalled";
     renderer.blockType = "pending";
     renderer.streamProcess = vi.fn();
@@ -62,6 +67,24 @@ describe("renderer defensive and callback paths", () => {
     renderer.listCache.data = ["not an element"];
     renderer.listCache.itemText = ["- item"];
     expect(renderer.listElement()).toBeTruthy();
+    renderer.listCache.itemText = [];
+    expect(renderer.listElement().type).toBe("ul");
+
+    let markerRead = 0;
+    const marker = ["2."];
+    Object.defineProperty(marker, "1", {
+      configurable: true,
+      get: () => (markerRead++ === 0 ? "2." : undefined),
+    });
+    renderer.listCache.itemText = [
+      { match: () => marker } as any,
+    ];
+    expect(renderer.listElement().props.start).toBeUndefined();
+
+    renderer.listCache.itemText = [
+      { match: () => ["marker-without-capture"] } as any,
+    ];
+    expect(renderer.listElement().type).toBe("ul");
     renderer.listCache.data = [
       <li key="task" className={["task-list-item"] as any}>task</li>,
     ];
@@ -77,6 +100,10 @@ describe("renderer defensive and callback paths", () => {
     renderer.options.reasoningTarget = () => null;
     expect(renderer.placeReasoning(element, 1)).toBe(element);
     renderer.streamReasoning("plain", [], 1, { close: false }, true, false);
+
+    renderer.mdBuffer = "";
+    expect(() => renderer.streamProcess("pending", [], true, false, false))
+      .not.toThrow();
   });
 
   it("reuses processed footnotes and selects the animated processor", () => {

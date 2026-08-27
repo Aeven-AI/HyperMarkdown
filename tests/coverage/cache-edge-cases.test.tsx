@@ -27,6 +27,32 @@ describe("cache defensive edges", () => {
     expect(cache.language).toBeNull();
   });
 
+  it("covers code-cache match metadata and blank highlighted lines", () => {
+    const cache: any = new CodeCache();
+    const nativeMatch = String.prototype.match;
+    let suppliedMatchWithoutIndex = false;
+    const match = vi
+      .spyOn(String.prototype, "match")
+      .mockImplementation(function (this: string, expression: RegExp) {
+        if (
+          suppliedMatchWithoutIndex !== true &&
+          String(this) === "line\n" &&
+          expression.source === "\\r\\n?|\\n"
+        ) {
+          suppliedMatchWithoutIndex = true;
+          return ["\n"] as RegExpMatchArray;
+        }
+
+        return nativeMatch.call(this, expression);
+      });
+
+    cache.fenceRead = true;
+    cache.append("line\n", false);
+    expect(cache.data.length).toBeGreaterThan(0);
+    expect(cache.colour("\n", vi.fn())).toBeNull();
+    match.mockRestore();
+  });
+
   it("returns null when a list processor cannot produce an item", () => {
     const cache = new ListCache();
     const processor = processorReturning({ type: "root", children: [] });
@@ -48,5 +74,29 @@ describe("cache defensive edges", () => {
     expect(cache.data).toEqual([]);
     cache.reset();
     expect(cache.head).toBeNull();
+  });
+
+  it("normalizes a defensive table body boundary", () => {
+    const cache: any = new TableCache();
+    const source = "| A |\n|---|\n";
+    const nativeLastIndexOf = String.prototype.lastIndexOf;
+    const lastIndexOf = vi
+      .spyOn(String.prototype, "lastIndexOf")
+      .mockImplementation(function (
+        this: string,
+        search: string,
+        position?: number,
+      ) {
+        if (String(this) === source && search === "\n") {
+          return -1;
+        }
+
+        return nativeLastIndexOf.call(this, search, position);
+      });
+
+    cache.renderHead = vi.fn(() => ({ type: "tr" }));
+    cache.append(source, processorReturning({ type: "root", children: [] }), components);
+    expect(cache.head).toEqual({ type: "tr" });
+    lastIndexOf.mockRestore();
   });
 });

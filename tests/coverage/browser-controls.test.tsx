@@ -294,6 +294,22 @@ describe("toolbar controls", () => {
     expect(noChildren.language()).toBe("Code");
     expect(noClass.language()).toBe("Code");
     expect(noMatch.language()).toBe("Code");
+
+    const nativeExec = RegExp.prototype.exec;
+    const exec = vi
+      .spyOn(RegExp.prototype, "exec")
+      .mockImplementation(function (this: RegExp, value: string) {
+        if (this.source === "language-(\\w+)" && value === "language-js") {
+          return ["language-js"] as RegExpExecArray;
+        }
+
+        return nativeExec.call(this, value);
+      });
+    const missingCapture = new (MarkdownCode as any)({
+      children: <code className="language-js" />,
+    });
+    expect(missingCapture.language()).toBe("Code");
+    exec.mockRestore();
     expect(() => noChildren.scrollDown()).not.toThrow();
     expect(() => noChildren.scrollDownListener()).not.toThrow();
     noChildren.updater = {
@@ -308,6 +324,17 @@ describe("toolbar controls", () => {
     Object.defineProperty(code, "textContent", { configurable: true, value: null });
     const lineNumber = new (LineNumber as any)({ codeRef: refWith(code) });
     expect(() => lineNumber.lineNumberCount()).not.toThrow();
+  });
+
+  it("grows, trims, and exactly fills line-number groups", () => {
+    const lineNumber: any = new (LineNumber as any)({
+      animation: false,
+      codeRef: refWith(document.createElement("div")),
+      lineCount: 130,
+    });
+
+    expect(lineNumber.spans(130, false)).toHaveLength(3);
+    expect(lineNumber.spans(64, false)).toHaveLength(1);
   });
 
   it("hides disabled code and diagram controls", () => {
@@ -487,6 +514,9 @@ describe("diagram controls and engine lifecycle", () => {
       },
     };
     expect(() => inert.toggleFullScreen(true)).not.toThrow();
+
+    inert.mermaidSandboxes = new Set([null]);
+    expect(() => inert.removeSandbox()).not.toThrow();
   });
 
   it("covers header update decisions and empty charts", () => {
