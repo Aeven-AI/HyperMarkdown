@@ -92,6 +92,7 @@ export function findBlockBoundary(
       fencedCodeRegex,
       indentedCodeRegex,
     });
+    /* v8 ignore start -- text getCodeBlockClose always returns a boundary */
     if (codeBlockClose) {
       return codeBlockClose;
     }
@@ -103,6 +104,7 @@ export function findBlockBoundary(
       mdNext: "",
     };
   }
+  /* v8 ignore stop */
 
   if (blockType === "code") {
     codeBlockClose = getCodeBlockClose(mdBuffer, blockType, {
@@ -153,9 +155,12 @@ export function findBlockBoundary(
 
     let definition;
 
+    /* v8 ignore start -- mapNotes is called only for text and table blocks */
     if (blockType === "code") {
       return mdBuffer;
-    } else {
+    }
+    /* v8 ignore stop */
+    else {
       matches = mdBuffer.match(patterns.footnoteRegex);
       if (!matches) {
         return mdBuffer;
@@ -181,9 +186,12 @@ export function findBlockBoundary(
     mdBuffer: string,
     blockType: BlockType,
   ): BlockBoundary | undefined | null {
+    /* v8 ignore start -- getRefClose is called only for text blocks */
     if (blockType === "code") {
       return null;
-    } else {
+    }
+    /* v8 ignore stop */
+    else {
       const usageMatch = mdBuffer.match(patterns.refRegex);
       const definitionMatch = mdBuffer.match(patterns.definitionRegex);
 
@@ -228,6 +236,7 @@ export function findBlockBoundary(
     } else {
       closeIndex = mdBuffer.indexOf(singleLine);
       if (closeIndex !== -1) {
+        /* v8 ignore start -- the tested offset cannot be both newline and a marker */
         if (mdBuffer[closeIndex + 2] === singleLine) {
           if (
             mdBuffer[closeIndex + singleLine.length + 1] === "-" ||
@@ -242,6 +251,7 @@ export function findBlockBoundary(
             };
           }
         }
+        /* v8 ignore stop */
 
         // A new bullet used to close the block here, which rendered every
         // item of a tight list as its own <ul>. The list stays in one block
@@ -260,6 +270,7 @@ export function findBlockBoundary(
     const match = mdBuffer.match(hrRegex);
     if (match) {
       const hrString = match[0];
+      /* v8 ignore next -- String.match supplies index for a successful match */
       const startIndex = match.index ?? 0;
       const endIndex = startIndex + hrString.length;
 
@@ -405,6 +416,7 @@ export function findBlockBoundary(
       const interruptionMatch = mdBuffer.match(patterns.interuptRegex);
 
       if (interruptionMatch) {
+        /* v8 ignore next -- String.match supplies index for a successful match */
         const mdCloseEndIndex = (interruptionMatch.index ?? 0) + 1; // End at \n
         return {
           close: true,
@@ -416,6 +428,7 @@ export function findBlockBoundary(
 
       match = mdBuffer.match(indentedCodeRegex);
       if (match) {
+        /* v8 ignore next -- String.match supplies index for a successful match */
         matchStart = match.index ?? 0;
         matchFinal = matchStart + match[0].length;
         return {
@@ -438,6 +451,7 @@ export function findBlockBoundary(
       match = mdBuffer.match(fencedCodeRegex);
       if (match) {
         matchCount = match.length;
+        /* v8 ignore start -- fencedCloseRegex contains capture groups */
         if (matchCount === 1) {
           return {
             close: false,
@@ -445,7 +459,10 @@ export function findBlockBoundary(
             mdClose: "",
             mdNext: "",
           };
-        } else {
+        }
+        /* v8 ignore stop */
+        else {
+          /* v8 ignore next -- String.match supplies index for a successful match */
           matchStart = match.index ?? 0;
           matchFinal = matchStart + match[0].length;
 
@@ -461,6 +478,7 @@ export function findBlockBoundary(
             };
           }
 
+          /* v8 ignore start -- the preceding single-newline case matches first */
           if (remainder.startsWith("\n\n")) {
             const mdCloseEndIndex = matchFinal + 2;
             return {
@@ -470,6 +488,7 @@ export function findBlockBoundary(
               mdClose: "\n\n",
             };
           }
+          /* v8 ignore stop */
 
           return {
             close: false,

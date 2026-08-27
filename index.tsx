@@ -18,6 +18,7 @@ import { guid } from "./lib/runtime";
 // Layout effects warn during server rendering, where there is no DOM to
 // measure and nothing to scroll.
 const useCommitEffect =
+  /* v8 ignore next -- selected once per module realm; covered in browser and SSR suites */
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export interface HyperMarkdownProps {

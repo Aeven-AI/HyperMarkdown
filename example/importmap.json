@@ -1,0 +1,28 @@
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.2.8",
+    "react/jsx-runtime": "https://esm.sh/react@19.2.8/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@19.2.8?deps=react@19.2.8,react-dom@19.2.8",
+    "react-dom/client": "https://esm.sh/react-dom@19.2.8/client?deps=react@19.2.8,react-dom@19.2.8",
+    "hast-util-to-jsx-runtime": "https://esm.sh/hast-util-to-jsx-runtime@2.3.6?deps=react@19.2.8,react-dom@19.2.8",
+    "mermaid": "https://esm.sh/mermaid@11.12.0",
+    "rehype-highlight": "https://esm.sh/rehype-highlight@7.0.2",
+    "rehype-katex": "https://esm.sh/rehype-katex@7.0.1",
+    "rehype-raw": "https://esm.sh/rehype-raw@7.0.0",
+    "rehype-react": "https://esm.sh/rehype-react@8.0.0?deps=react@19.2.8,react-dom@19.2.8",
+    "rehype-sanitize": "https://esm.sh/rehype-sanitize@6.0.0",
+    "remark-cjk-friendly": "https://esm.sh/remark-cjk-friendly@2.3.1",
+    "remark-gfm": "https://esm.sh/remark-gfm@4.0.1",
+    "remark-math": "https://esm.sh/remark-math@6.0.0",
+    "remark-parse": "https://esm.sh/remark-parse@11.0.0",
+    "remark-rehype": "https://esm.sh/remark-rehype@11.1.2",
+    "tippy.js": "https://esm.sh/tippy.js@6.3.7",
+    "unified": "https://esm.sh/unified@11.0.5",
+    "unist-util-visit": "https://esm.sh/unist-util-visit@5.1.0",
+    "hypermarkdown": "../dist/hypermarkdown.js",
+    "hypermarkdown/plugins/math": "../dist/plugins/math.js",
+    "hypermarkdown/plugins/code": "../dist/plugins/code.js",
+    "hypermarkdown/plugins/mermaid": "../dist/plugins/mermaid.js",
+    "hypermarkdown/plugins/cjk": "../dist/plugins/cjk.js"
+  }
+}

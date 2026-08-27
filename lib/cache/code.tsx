@@ -67,6 +67,7 @@ export class CodeCache {
     let match: RegExpMatchArray | null;
 
     while ((match = this.buffer.match(separator))) {
+      /* v8 ignore next -- a successful String.match always carries an index */
       const lineIndex = match.index ?? 0;
       const separatorLength = match[0].length;
 

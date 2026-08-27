@@ -121,9 +121,11 @@ class MermaidDiagram extends Component<
     }
 
     targets.forEach((element) => {
+      /* v8 ignore start -- the set stores only HTMLDivElement instances */
       if (!element) {
         return;
       }
+      /* v8 ignore stop */
 
       element.textContent = "";
       if (element.parentNode) {

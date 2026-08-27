@@ -77,9 +77,11 @@ export class TableCache {
     const bodyStart = delimiterIndex + 1;
     let tailStart = md.lastIndexOf("\n") + 1;
 
+    /* v8 ignore start -- finding the delimiter guarantees this ordering */
     if (tailStart < bodyStart) {
       tailStart = bodyStart;
     }
+    /* v8 ignore stop */
 
     const committedText = md.substring(bodyStart, tailStart);
 

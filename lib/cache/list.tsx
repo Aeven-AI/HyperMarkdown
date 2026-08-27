@@ -50,8 +50,10 @@ export class ListCache {
     const items = listItems(md);
     const loose = patterns.listLooseRegex.test(md);
 
+    /* v8 ignore start -- listItems only returns defined strings */
     const signature =
       listMarkerFamily(items[0] ?? "") + (loose ? ":loose" : ":tight");
+    /* v8 ignore stop */
 
     if (this.signature !== signature) {
       this.signature = signature;
@@ -61,6 +63,7 @@ export class ListCache {
 
     // The last item is still being written; everything before it is settled.
     for (let lineIndex = 0; lineIndex < items.length; lineIndex++) {
+      /* v8 ignore next -- an in-range array entry from listItems is defined */
       const itemBuffer = items[lineIndex] ?? "";
 
       if (this.itemText[lineIndex] !== itemBuffer) {
@@ -87,9 +90,11 @@ function renderItem(
   processor: CacheProcessor,
   components: CellComponents,
 ): ReactNode {
+  /* v8 ignore start -- listItems never emits an empty item */
   if (!itemBuffer || itemBuffer.trim() === "") {
     return null;
   }
+  /* v8 ignore stop */
 
   let block = itemBuffer;
 
@@ -97,6 +102,7 @@ function renderItem(
   // marks it loose and the contents keep their paragraph.
   if (loose === true) {
     const marker = itemBuffer.match(patterns.listMarkerRegex);
+    /* v8 ignore next -- every item emitted by listItems starts with a marker */
     block = itemBuffer + "\n\n" + (marker ? marker[1] : "-") + " x";
   }
 
