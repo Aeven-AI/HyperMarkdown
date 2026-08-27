@@ -4,6 +4,7 @@ import { markstream } from "./markstream.js";
 import { deepseek } from "./deepseek.js";
 import { reactMarkdown } from "./react-markdown.js";
 import { markdownIt } from "./markdown-it.js";
+import { librechat } from "./librechat.js";
 
 export const RENDERERS = [
   hypermarkdown,
@@ -12,6 +13,7 @@ export const RENDERERS = [
   deepseek,
   reactMarkdown,
   markdownIt,
+  librechat,
 ];
 
 export const byName = new Map(RENDERERS.map((r) => [r.name, r]));
