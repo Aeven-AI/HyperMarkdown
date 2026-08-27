@@ -955,6 +955,11 @@ class Renderer {
             streaming={streaming}
             animation={animation}
             children={codeElement}
+            lineCount={vm.codeCache.lineCount}
+            renderer={vm}
+            events={vm.events}
+            ui={vm.ui}
+            scrollDown={vm.options.scrollDown}
           />
         );
 
@@ -1012,6 +1017,11 @@ class Renderer {
               animation={animation}
               children={codeElement}
               preChildren={preChildren}
+              lineCount={vm.codeCache.lineCount}
+              renderer={vm}
+              events={vm.events}
+              ui={vm.ui}
+              scrollDown={vm.options.scrollDown}
             />
           );
         }

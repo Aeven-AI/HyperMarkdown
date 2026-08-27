@@ -20,7 +20,7 @@
  *   node run.js --fixture=table                  fixtures matching a substring
  */
 import { spawn } from "node:child_process";
-import { readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { arch, cpus, platform, release, totalmem } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -51,6 +51,12 @@ const runs = arg("runs", "1");
 const warmup = arg("warmup", "0");
 const only = arg("only", "");
 const fixtureFilter = arg("fixture", "");
+
+// Re-measure some renderers and keep the rest of `latest` as it stands. The
+// point of a benchmark is that the numbers next to each other were taken the
+// same way, so this refuses to merge a run whose shape differs from the one on
+// disk, and the report says which rows are new and which carried over.
+const merge = process.argv.includes("--merge");
 
 const { RENDERERS } = await import("./renderers/index.js");
 
@@ -94,12 +100,74 @@ for (const file of fixtures) {
 
 mkdirSync(join(here, "results"), { recursive: true });
 
+let carried = null;
+
+if (merge) {
+  const latestPath = join(here, "results", "latest.json");
+
+  if (!existsSync(latestPath)) {
+    process.stderr.write("\n--merge needs an existing results/latest.json.\n");
+    process.exit(1);
+  }
+
+  const previous = JSON.parse(readFileSync(latestPath, "utf8"));
+  const refreshed = new Set(renderers.map((r) => r.name));
+  const measuredFixtures = new Set(fixtures);
+
+  // Merging across different settings would put numbers side by side that were
+  // not taken the same way, which is the one thing the table must not do.
+  const mismatch = [
+    previous.runs !== Number(runs) ? `runs ${previous.runs} vs ${runs}` : null,
+    previous.warmup !== Number(warmup) ? `warmup ${previous.warmup} vs ${warmup}` : null,
+    previous.environment?.cpu !== environment.cpu
+      ? `cpu ${previous.environment?.cpu} vs ${environment.cpu}`
+      : null,
+    previous.environment?.node !== environment.node
+      ? `node ${previous.environment?.node} vs ${environment.node}`
+      : null,
+  ].filter(Boolean);
+
+  if (mismatch.length > 0) {
+    process.stderr.write(
+      `\n--merge refused: this run does not match results/latest.json ` +
+        `(${mismatch.join(", ")}).\n`
+    );
+    process.exit(1);
+  }
+
+  // Every fixture the refreshed renderers appear in has to have been measured,
+  // or the merged table would mix new rows with stale ones for the same name.
+  const stale = previous.results.filter(
+    (row) => refreshed.has(row.renderer) && !measuredFixtures.has(row.fixture)
+  );
+
+  if (stale.length > 0) {
+    process.stderr.write(
+      `\n--merge refused: ${stale.length} row(s) for the refreshed renderer(s) ` +
+        `were not re-measured (${[...new Set(stale.map((r) => r.fixture))].join(", ")}). ` +
+        `Drop --fixture so every one is covered.\n`
+    );
+    process.exit(1);
+  }
+
+  const kept = previous.results.filter((row) => !refreshed.has(row.renderer));
+
+  carried = {
+    refreshed: [...refreshed],
+    previousCompletedAt: previous.completedAt,
+    keptRenderers: [...new Set(kept.map((row) => row.renderer))],
+  };
+
+  results.push(...kept);
+}
+
 // A partial run must never overwrite a full one. `latest.*` is reserved for a
 // sweep over every fixture with every renderer; anything narrower writes to a
 // name that says what it was, so a --fixture or --only run cannot silently
 // destroy the report someone spent an hour measuring.
 const complete =
-  fixtures.length === allFixtures.length && renderers.length === RENDERERS.length;
+  merge ||
+  (fixtures.length === allFixtures.length && renderers.length === RENDERERS.length);
 
 const stem = complete
   ? "latest"
@@ -128,6 +196,7 @@ writeFileSync(
       aggregation: "median-total run",
       completedAt: new Date().toISOString(),
       environment,
+      ...(carried ? { merged: carried } : {}),
       results,
     },
     null,
@@ -295,6 +364,18 @@ function report() {
     "",
   ];
 
+  if (carried) {
+    out.push(
+      `**Partial refresh.** ${carried.refreshed.join(", ")} ` +
+        `${carried.refreshed.length === 1 ? "was" : "were"} re-measured just now; ` +
+        `${carried.keptRenderers.join(", ")} carry over unchanged from the run of ` +
+        `${carried.previousCompletedAt}. Same machine, same settings, but the rows ` +
+        "were not taken on the same day — regenerate the lot with `npm run bench` " +
+        "before quoting the ratios anywhere that matters.",
+      ""
+    );
+  }
+
   for (const file of fixtures) {
     const rows = results.filter((r) => r.fixture === file);
     const ok = rows.filter((r) => !r.failed);
@@ -322,7 +403,9 @@ function report() {
       let maxTotal;
       let minTotal;
       let totals;
-      const strategy = renderers.find((r) => r.name === row.renderer)?.strategy ?? "";
+      // RENDERERS, not the filtered list: a merged report still has to name
+      // the strategy of a renderer this run did not re-measure.
+      const strategy = RENDERERS.find((r) => r.name === row.renderer)?.strategy ?? "";
 
       if (row.failed) {
         out.push(`| ${row.renderer} | ${strategy} | failed | | | | | | | ${row.failed} |`);

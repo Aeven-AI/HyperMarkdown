@@ -22,6 +22,8 @@ export interface CodeBlockProps {
   events?: Emitter | undefined;
   ui?: UiConfig | undefined;
   scrollDown?: unknown;
+  /** Line total from the streaming cache, when it is the one rendering. */
+  lineCount?: number | undefined;
 }
 
 interface CodeBlockState {
@@ -234,7 +236,11 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
           <div className="codeblock-pre-code-content">
             <pre>
               {ui.lineNumbers === false ? null : (
-                <LineNumber codeRef={vm.codeRef} animation={props.animation} />
+                <LineNumber
+                  codeRef={vm.codeRef}
+                  animation={props.animation}
+                  lineCount={vm.settledChildren ? undefined : props.lineCount}
+                />
               )}
 
               <div ref={vm.codeRef} className="code-content no-scrollbar">

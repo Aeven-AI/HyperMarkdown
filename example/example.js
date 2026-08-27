@@ -6,7 +6,14 @@
  * — the recorded deltas, replayed at their original size. No build step and no
  * framework beyond React: the component is loaded from ../dist.
  */
-import { createElement as h, StrictMode, useEffect, useRef, useState } from "react";
+import {
+  createElement as h,
+  memo,
+  StrictMode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 
 import { HyperMarkdown } from "hypermarkdown";
@@ -14,6 +21,8 @@ import { katexPlugin } from "hypermarkdown/plugins/math";
 import { highlightPlugin } from "hypermarkdown/plugins/code";
 import { mermaidPlugin } from "hypermarkdown/plugins/mermaid";
 import { cjkPlugin } from "hypermarkdown/plugins/cjk";
+
+import { preloadFonts } from "./font-preloader.js";
 
 /** Built once: a new plugin object would rebuild every pipeline. */
 const plugins = {
@@ -32,9 +41,10 @@ const plugins = {
 };
 
 /** How fast to replay the recording, in milliseconds between chunks. */
-const SPEED = 8;
+const SPEED = 20;
 
-const [transcript, recording] = await Promise.all([
+const [, transcript, recording] = await Promise.all([
+  preloadFonts(),
   fetch("./test-content.json").then((r) => r.json()),
   fetch("./test-markdown-stress-two.json").then((r) => r.json()),
 ]);
@@ -44,7 +54,7 @@ const chunks = recording
   .map((row) => row?.data?.choices?.[0]?.delta?.content ?? "")
   .filter((content) => content !== "");
 
-function Turn({ row }) {
+const Turn = memo(function Turn({ row }) {
   if (row.type === "user") {
     return h(
       "div",
@@ -63,12 +73,13 @@ function Turn({ row }) {
       plugins,
     }),
   );
-}
+});
 
 function StreamedTurn({ playing, onProgress }) {
   const renderer = useRef(null);
   const thinking = useRef(null);
   const index = useRef(0);
+  const reportedPercent = useRef(-1);
 
   useEffect(() => {
     if (!playing) {
@@ -76,6 +87,8 @@ function StreamedTurn({ playing, onProgress }) {
     }
 
     const timer = setInterval(() => {
+      let percent;
+
       const handle = renderer.current;
 
       if (!handle) {
@@ -91,7 +104,12 @@ function StreamedTurn({ playing, onProgress }) {
 
       handle.write(chunks[index.current], false);
       index.current += 1;
-      onProgress(index.current);
+      percent = Math.round((index.current / chunks.length) * 100);
+
+      if (percent !== reportedPercent.current) {
+        reportedPercent.current = percent;
+        onProgress(index.current);
+      }
     }, SPEED);
 
     return () => {
@@ -103,7 +121,9 @@ function StreamedTurn({ playing, onProgress }) {
     "div",
     { className: "content-block system" },
     h("div", { className: "content-block-thinking", ref: thinking }),
-    h("div", { className: "content-block-container" },
+    h(
+      "div",
+      { className: "content-block-container" },
       h(HyperMarkdown, {
         ref: renderer,
         streaming: true,
@@ -111,21 +131,45 @@ function StreamedTurn({ playing, onProgress }) {
         plugins,
         preload: true,
         reasoningTarget: () => thinking.current,
-        scrollDown: scrollToBottom,
+        scrollDown,
       }),
     ),
   );
 }
 
 let scroller = null;
-let pinned = true;
+let userScroll = false;
+let currentScrollHeight = 0;
 
-function scrollToBottom() {
-  if (!scroller || !pinned) {
+// How far the reader may drift from the bottom before we stop following.
+const SCROLL_MARGIN = 100;
+
+/*
+ * The component calls this after every render. Scrolling only when the height
+ * actually changed keeps it cheap, and behavior: "instant" matters: the
+ * container sets scroll-behavior: smooth for the reader, so a plain scrollTop
+ * write would start an animation that the next chunk immediately invalidates.
+ */
+function scrollDown() {
+  if (userScroll === true || !scroller) {
     return;
   }
 
-  scroller.scrollTop = scroller.scrollHeight;
+  if (currentScrollHeight !== scroller.scrollHeight) {
+    scroller.scrollTo({ top: scroller.scrollHeight, behavior: "instant" });
+    currentScrollHeight = scroller.scrollHeight;
+  }
+}
+
+// Following stops when the reader scrolls up, and resumes at the bottom.
+function scrollDownListener() {
+  if (!scroller) {
+    return;
+  }
+
+  userScroll =
+    scroller.scrollTop + scroller.clientHeight <=
+    scroller.scrollHeight - SCROLL_MARGIN;
 }
 
 function App() {
@@ -135,23 +179,13 @@ function App() {
   const view = useRef(null);
 
   useEffect(() => {
-    scroller = view.current;
+    const el = view.current;
 
-    const onScroll = () => {
-      const el = view.current;
-
-      if (!el) {
-        return;
-      }
-
-      // Stop following once the reader scrolls away from the bottom.
-      pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    };
-
-    view.current?.addEventListener("scroll", onScroll);
+    scroller = el;
+    el.addEventListener("scroll", scrollDownListener, { passive: true });
 
     return () => {
-      view.current?.removeEventListener("scroll", onScroll);
+      el.removeEventListener("scroll", scrollDownListener);
     };
   }, []);
 
@@ -168,16 +202,24 @@ function App() {
         { className: "status" },
         h("span", null, `${chunks.length} chunks · ${percent}%`),
         h("span", null, playing ? "streaming" : "paused"),
-        h("button", { onClick: () => setPlaying((p) => !p) },
-          playing ? "Pause" : "Resume"),
-        h("button", {
-          onClick: () => {
-            pinned = true;
-            setDone(0);
-            setRun((r) => r + 1);
-            setPlaying(true);
+        h(
+          "button",
+          { onClick: () => setPlaying((p) => !p) },
+          playing ? "Pause" : "Resume",
+        ),
+        h(
+          "button",
+          {
+            onClick: () => {
+              userScroll = false;
+              currentScrollHeight = 0;
+              setDone(0);
+              setRun((r) => r + 1);
+              setPlaying(true);
+            },
           },
-        }, "Replay"),
+          "Replay",
+        ),
       ),
       transcript.map((row, idx) => h(Turn, { key: idx, row })),
       h(StreamedTurn, { key: run, playing, onProgress: setDone }),
@@ -185,6 +227,4 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")).render(
-  h(StrictMode, null, h(App)),
-);
+createRoot(document.getElementById("root")).render(h(StrictMode, null, h(App)));

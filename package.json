@@ -43,6 +43,7 @@
     "fsevents@2.3.3": true
   },
   "scripts": {
+    "benchmark": "node benchmarks/run.js --runs=5 --warmup=1",
     "build": "tsc -b && vite build && npm run build:css",
     "typecheck": "tsc -b",
     "test": "vitest run",
@@ -56,7 +57,10 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:unit": "vitest run --config vitest.unit.config.ts --coverage",
     "lint": "eslint .",
-    "build:css": "sass --no-source-map --style=compressed styles/hypermarkdown.scss dist/hypermarkdown.css"
+    "build:css": "sass --no-source-map --style=compressed styles/hypermarkdown.scss dist/hypermarkdown.css",
+    "bundle-analyzer": "vite-bundle-visualizer",
+    "bundle-analyzer-network": "vite-bundle-visualizer -t network",
+    "bundle-analyzer-sunburst": "vite-bundle-visualizer -t sunburst"
   },
   "peerDependencies": {
     "katex": "^0.16.25",
@@ -78,7 +82,8 @@
     "remark-rehype": "^11.1.2",
     "tippy.js": "^6.3.1",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0"
+    "unist-util-visit": "^5.0.0",
+    "vite-bundle-visualizer": "^1.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

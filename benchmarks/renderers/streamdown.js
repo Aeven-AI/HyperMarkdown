@@ -8,7 +8,7 @@ import { Streamdown } from "streamdown";
  * others here.
  */
 export const streamdown = {
-  name: "Streamdown",
+  name: "streamdown",
   strategy: "block-level memoization",
 
   create() {

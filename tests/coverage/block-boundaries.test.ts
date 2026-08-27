@@ -1,0 +1,96 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  findBlockBoundary,
+  splitReasoning,
+} from "../../lib/stream/find-block-boundary";
+
+function refs() {
+  return { footnotes: new Map<string, string>(), mdExtra: new Map<string, string>() };
+}
+
+describe("block-boundary edge cases", () => {
+  it("keeps unfinished and unknown blocks open", () => {
+    expect(findBlockBoundary("plain", "text", refs())).toMatchObject({ close: false });
+    expect(findBlockBoundary("table row", "table", refs())).toMatchObject({ close: false });
+    expect(findBlockBoundary("pending", "pending", refs())).toMatchObject({ close: false });
+    expect(findBlockBoundary("```js\nopen", "code", refs())).toMatchObject({ close: false });
+  });
+
+  it("maps missing footnotes and holds unresolved reference links", () => {
+    const state = refs();
+    const result = findBlockBoundary("note [^x] and [label][target]", "text", state);
+    expect(result.close).toBe(false);
+    expect(state.mdExtra.get("[^x]")).toBe("[^x]: x");
+
+    state.footnotes.set("[^x]", "known");
+    findBlockBoundary("[^x] [^x]", "text", state);
+    expect(state.mdExtra.size).toBe(1);
+  });
+
+  it("closes before a rule, fence interruption, and indented code", () => {
+    expect(findBlockBoundary("paragraph\n\n---\n", "text", refs())).toMatchObject({
+      close: true,
+      mdNext: "",
+    });
+    expect(findBlockBoundary("paragraph\n```js", "text", refs())).toMatchObject({
+      close: true,
+      mdNext: "```js",
+    });
+    expect(findBlockBoundary("    code", "text", refs())).toMatchObject({ close: true });
+  });
+
+  it("distinguishes one and two newlines after a closing fence", () => {
+    expect(findBlockBoundary("```js\ncode\n```\nnext", "code", refs())).toMatchObject({
+      close: true,
+      mdClose: "\n",
+      mdNext: "next",
+    });
+    expect(findBlockBoundary("```js\ncode\n```\n\nnext", "code", refs())).toMatchObject({
+      close: true,
+      mdClose: "\n",
+      mdNext: "\nnext",
+    });
+    expect(findBlockBoundary("```js\ncode\n```next", "code", refs())).toMatchObject({
+      close: false,
+    });
+  });
+
+  it("finds the end of indented code with and without a blank line", () => {
+    expect(findBlockBoundary("    one\n    two\nplain", "code", refs())).toMatchObject({
+      close: true,
+      mdNext: "\nplain",
+    });
+    expect(findBlockBoundary("    one\n\nplain", "code", refs())).toMatchObject({
+      close: true,
+    });
+    expect(findBlockBoundary("    one\n    two", "code", refs())).toMatchObject({
+      close: false,
+    });
+  });
+
+  it("ends a loose list before an indented fence or following prose", () => {
+    expect(findBlockBoundary("- one\n\n  ```js", "text", refs())).toMatchObject({
+      close: true,
+      mdNext: "  ```js",
+    });
+    expect(findBlockBoundary("- one\n\nprose", "text", refs())).toMatchObject({
+      close: true,
+      mdNext: "prose",
+    });
+  });
+});
+
+describe("finished reasoning splitting", () => {
+  it("falls back for unmatched tags and retains prose around matched tags", () => {
+    expect(splitReasoning("")).toEqual([{ md: "", reasoning: false }]);
+    expect(splitReasoning("before <think>unfinished")).toEqual([
+      { md: "before <think>unfinished", reasoning: false },
+    ]);
+    expect(splitReasoning("before <think>inside</think> after")).toEqual([
+      { md: "before ", reasoning: false },
+      { md: "inside", reasoning: true },
+      { md: " after", reasoning: false },
+    ]);
+  });
+});

@@ -5,6 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>HyperMarkdown — streaming example</title>
 
+    <link rel="preconnect" href="https://esm.sh" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="preload"
+      href="./assets/fonts/geist-sans-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/geist-sans-latin-600-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/geist-mono-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/KaTeX_Main-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/KaTeX_Math-Italic.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/KaTeX_Size1-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/KaTeX_Size2-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="./assets/fonts/KaTeX_Size3-Regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="modulepreload"
+      href="https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs"
+      crossorigin
+    />
+
     <!--
       The component's own stylesheet. Nothing else styles the messages: if a
       table, code block or diagram looks right here, it looks right anywhere
@@ -38,7 +102,7 @@
                   "react-dom": "https://esm.sh/react-dom@19.2.8?deps=react@19.2.8,react-dom@19.2.8",
                   "react-dom/client": "https://esm.sh/react-dom@19.2.8/client?deps=react@19.2.8,react-dom@19.2.8",
                   "hast-util-to-jsx-runtime": "https://esm.sh/hast-util-to-jsx-runtime@2.3.6?deps=react@19.2.8,react-dom@19.2.8",
-                  "mermaid": "https://esm.sh/mermaid@11.12.0",
+                  "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11.12.0/dist/mermaid.esm.min.mjs",
                   "rehype-highlight": "https://esm.sh/rehype-highlight@7.0.2",
                   "rehype-katex": "https://esm.sh/rehype-katex@7.0.1",
                   "rehype-raw": "https://esm.sh/rehype-raw@7.0.0",
@@ -64,6 +128,6 @@
 
   <body>
     <div id="root"></div>
-    <script type="module" src="./example.js?v=14"></script>
+    <script type="module" src="./example.js?v=18"></script>
   </body>
 </html>

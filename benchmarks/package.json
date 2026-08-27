@@ -2,7 +2,7 @@
   "name": "hypermarkdown-benchmarks",
   "private": true,
   "type": "module",
-  "description": "Head-to-head streaming benchmark: HyperMarkdown vs Streamdown vs react-markdown vs the deepseek-harness incremental strategy.",
+  "description": "Head-to-head streaming benchmark: hypermarkdown vs streamdown vs react-markdown vs the deepseek-harness incremental strategy.",
   "scripts": {
     "bench": "node prepare.js && node run.js"
   },

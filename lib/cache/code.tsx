@@ -17,6 +17,14 @@ export class CodeCache {
   /** The language the opening fence declared, if it declared one. */
   language: string | null = null;
 
+  /**
+   * Committed lines, i.e. those that arrived with their newline. This is the
+   * number the gutter needs, and counting here is free: the alternative is
+   * reading `textContent` off the rendered block, which re-serialises the
+   * whole fence on every chunk and makes streaming a long block quadratic.
+   */
+  lineCount = 0;
+
   private buffer = "";
   private consumed = 0;
   private nextKey = 0;
@@ -26,6 +34,7 @@ export class CodeCache {
   reset(): void {
     this.data = [];
     this.language = null;
+    this.lineCount = 0;
     this.buffer = "";
     this.consumed = 0;
     this.nextKey = 0;
@@ -71,11 +80,15 @@ export class CodeCache {
       const lineIndex = match.index ?? 0;
       const separatorLength = match[0].length;
 
-      this.render(
-        this.nextKey,
-        this.buffer.substring(0, lineIndex + separatorLength),
-        animation,
-      );
+      if (
+        this.render(
+          this.nextKey,
+          this.buffer.substring(0, lineIndex + separatorLength),
+          animation,
+        )
+      ) {
+        this.lineCount++;
+      }
 
       this.nextKey++;
       this.buffer = this.buffer.substring(lineIndex + separatorLength);
@@ -89,15 +102,16 @@ export class CodeCache {
     }
   }
 
-  private render(key: number, line: string, animation: boolean): void {
+  /** Renders one line into the cache; false when the line is not code. */
+  private render(key: number, line: string, animation: boolean): boolean {
     // A line holding nothing but a fence closes the block; it is not part of
     // the code. Parsing used to drop it as a side effect.
     if (this.closingFence(line) === true) {
-      return;
+      return false;
     }
 
     if (!line) {
-      return;
+      return false;
     }
 
     let content: ReactNode;
@@ -119,6 +133,8 @@ export class CodeCache {
     }
 
     this.data[key] = <Fragment key={key}>{content}</Fragment>;
+
+    return true;
   }
 
   private closingFence(line: string): boolean {

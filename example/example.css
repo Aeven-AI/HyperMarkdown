@@ -79,6 +79,20 @@ body,
   height: 100%;
 }
 
+/*
+ * #root stands in for the app's .main-content: the positioned, clipping parent
+ * that .chat is absolutely placed against. Without it .chat resolves against
+ * the viewport and a wide block can push the document itself into scrolling.
+ */
+#root {
+  position: relative;
+  overflow: hidden;
+}
+
+body {
+  overflow: hidden;
+}
+
 body {
   background: rgb(242, 242, 242);
   color: rgb(10, 10, 10);
