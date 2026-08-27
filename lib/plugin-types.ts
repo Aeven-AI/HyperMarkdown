@@ -1,3 +1,4 @@
+import type { Root as HastRoot } from "hast";
 import type { Pluggable } from "unified";
 
 /**
@@ -55,6 +56,19 @@ export interface CodeHighlighterPlugin {
   type: "code-highlighter";
   name: string;
   rehypePlugin: Pluggable;
+  /**
+   * Highlights a single line, for code that is still streaming.
+   *
+   * The rehype plugin above only runs once a fence closes, so without this a
+   * block stays plain until its last line arrives. Optional: a highlighter
+   * that cannot colour a line on its own simply leaves it undefined, and
+   * streamed code renders unhighlighted as before.
+   *
+   * Returns a hast tree, or null when the line cannot be highlighted.
+   */
+  highlightLine?:
+    | ((code: string, language: string | null) => HastRoot | null)
+    | undefined;
 }
 
 /**

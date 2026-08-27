@@ -103,7 +103,6 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
         if (!match) {
           return language;
         } else {
-          /* v8 ignore next -- the regex has a mandatory capture */
           language = match[1] ?? language;
           return language;
         }

@@ -65,7 +65,6 @@ export function repairTableSyntax(
         trimmed = cleaned.trim();
         lines = trimmed.split("\n");
 
-        /* v8 ignore next -- the renderer table regex guarantees two lines */
         delimiterLine = lines[1] || "";
         headed = checkHeaded(delimiterLine);
 
@@ -112,7 +111,6 @@ export function convertTable(mdBuffer: string, pending: boolean): string {
     return mdBuffer;
   } else {
     lines = trimmed.split("\n");
-    /* v8 ignore next -- splitting a string always produces a first entry */
     headerLine = lines[0] || "";
     delimiterLine = lines[1] || "";
 
@@ -224,7 +222,6 @@ export function convertTableHeadless(
     dummyHeader = "|" + " |".repeat(columnsMax);
     dummyDelimiter = "|" + " :--- |".repeat(columnsMax);
 
-    /* v8 ignore next -- the anchored whitespace regex always matches */
     white = mdBuffer.match(patterns.whiteRegex)?.[0] ?? "";
 
     tableContent = [dummyHeader, dummyDelimiter, ...bodyRows].join("\n");
@@ -301,7 +298,6 @@ export function convertTableWithHeader(
   // real delimiter is still arriving. Once closed the table is whatever it
   // is — a header with no rows stays that way, keeping its own alignment.
   if (pending === true && headerColumnCount > 0 && lines.length < 3) {
-    /* v8 ignore next -- the anchored whitespace regex always matches */
     white = mdBuffer.match(patterns.whiteRegex)?.[0] ?? "";
     delimiter = "|" + " :--- |".repeat(headerColumnCount - 2);
     tableContent = [headerRow, delimiter, ...bodyRows].join("\n");
