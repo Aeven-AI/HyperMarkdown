@@ -1,18 +1,74 @@
 /*
- * Page chrome only. Everything inside a message is styled by the component's
- * own stylesheet, ../dist/hypermarkdown.css — that is the point of the demo.
+ * Geist and Geist Mono (SIL OFL 1.1) — a Swiss neo-grotesque with a mono cut
+ * drawn to match it. The package names no typeface of its own: it reads
+ * --hm-font and --hm-font-mono, which are set below.
  */
-:root {
-  --page-background: rgb(242, 242, 242);
-  --page-color: rgb(10, 10, 10);
-  --bubble-background: rgb(255, 255, 255);
-  --rule: rgb(226, 226, 226);
-  --muted: rgb(120, 120, 120);
-  --page-font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+@font-face {
+  font-family: "Geist";
+  src:
+    url("./assets/fonts/geist-sans-latin-300-normal.woff2") format("woff2"),
+    url("./assets/fonts/geist-sans-latin-300-normal.woff") format("woff");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
 }
 
+@font-face {
+  font-family: "Geist";
+  src:
+    url("./assets/fonts/geist-sans-latin-400-normal.woff2") format("woff2"),
+    url("./assets/fonts/geist-sans-latin-400-normal.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src:
+    url("./assets/fonts/geist-sans-latin-500-normal.woff2") format("woff2"),
+    url("./assets/fonts/geist-sans-latin-500-normal.woff") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src:
+    url("./assets/fonts/geist-sans-latin-600-normal.woff2") format("woff2"),
+    url("./assets/fonts/geist-sans-latin-600-normal.woff") format("woff");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src:
+    url("./assets/fonts/geist-mono-latin-400-normal.woff2") format("woff2"),
+    url("./assets/fonts/geist-mono-latin-400-normal.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Page chrome, transcribed from the app's own src/app/views/chatTest/_ChatTest.scss
+ * with the SCSS variables resolved ($maxWidthChat 1024px, $borderRadiusMain 30px,
+ * $padding 24px, $heightHeader 56px, $backgroundColor rgb(242,242,242)). The chat
+ * input and header are dropped — the demo is only the renderer. Everything inside
+ * a message is styled by ../dist/hypermarkdown.css, which is the point.
+ */
 * {
   box-sizing: border-box;
+}
+
+html {
+  /* The app's own antialiasing, so glyph weight matches. */
+  font-smooth: grayscale;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html,
@@ -24,79 +80,159 @@ body,
 }
 
 body {
-  background: var(--page-background);
-  color: var(--page-color);
-  font-family: var(--page-font);
-  line-height: 1.6;
+  background: rgb(242, 242, 242);
+  color: rgb(10, 10, 10);
+
+  font-family: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 30px;
+  letter-spacing: 0.2px;
 }
 
-.transcript {
+/* Hand the component the same stacks this page uses. */
+.hypermarkdown {
+  --hm-font: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --hm-font-mono:
+    "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+}
+
+.chat {
+  display: flex;
+  position: absolute;
+
+  top: 0px;
+
+  width: 100%;
   height: 100%;
-  overflow-y: auto;
-  scroll-behavior: auto;
+
+  overflow: hidden;
+
+  flex-direction: column;
 }
 
-.transcript-inner {
+.chat-messages-container {
+  display: flex;
+  position: relative;
+
+  overflow-y: scroll;
+  scroll-behavior: smooth;
+
+  z-index: 5;
+  top: 0px;
+
+  gap: 56px;
+
+  width: 100%;
+  height: 100%;
+
+  padding-left: 24px;
+  padding-right: 24px;
+
+  padding-top: 56px;
+  padding-bottom: 250px;
+
+  align-items: center;
+  flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  .chat-messages-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+.content-block.user {
+  display: flex;
+  position: relative;
+
+  width: 100%;
   max-width: 1024px;
-  margin: 0 auto;
-  padding: 32px 24px 96px;
+
+  flex-grow: 1;
+  flex-direction: column;
+
+  align-items: flex-end;
+  justify-content: flex-start;
 }
 
+.content-block.user .content-block-container {
+  display: flex;
+  position: relative;
+
+  padding-left: 16px;
+  padding-right: 16px;
+
+  min-height: 50px;
+
+  border-radius: 30px;
+
+  background-color: #fff;
+
+  align-items: center;
+}
+
+.content-block.system {
+  display: block;
+  position: relative;
+
+  width: 100%;
+  max-width: 1024px;
+}
+
+.content-block.system .content-block-container {
+  display: flex;
+  position: relative;
+  width: 100%;
+
+  flex-grow: 1;
+  flex-direction: column;
+}
+
+.content-block-thinking:empty {
+  display: none;
+}
+
+/*
+ * Not part of the app: a small transport bar so the demo can be paused and
+ * replayed. It sits above the transcript rather than inside it.
+ */
 .status {
   position: sticky;
-  top: 0;
+  top: -56px;
   z-index: 10;
+
+  align-self: stretch;
 
   display: flex;
   gap: 12px;
   align-items: center;
 
-  margin: -32px -24px 24px;
+  margin: -56px -24px 0;
   padding: 10px 24px;
 
-  background: color-mix(in srgb, var(--page-background) 88%, transparent);
+  background: rgba(242, 242, 242, 0.88);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid rgb(226, 226, 226);
 
   font-size: 12px;
-  color: var(--muted);
+  line-height: 16px;
+  color: rgb(120, 120, 120);
 }
 
 .status button {
   font: inherit;
   color: inherit;
+
   background: none;
-  border: 1px solid var(--rule);
+  border: 1px solid rgb(226, 226, 226);
   border-radius: 999px;
   padding: 3px 12px;
+
   cursor: pointer;
 }
 
 .status button:hover {
-  color: var(--page-color);
-}
-
-/* A user turn: a plain bubble, no markdown rendering. */
-.content-block.user {
-  display: flex;
-  justify-content: flex-end;
-  margin: 24px 0;
-}
-
-.content-block.user .chat-message {
-  max-width: 75%;
-  padding: 12px 18px;
-  border-radius: 20px;
-  background: var(--bubble-background);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* An assistant turn: the component renders the whole thing. */
-.content-block.system {
-  margin: 24px 0 40px;
-}
-
-.content-block-thinking:empty {
-  display: none;
+  color: rgb(10, 10, 10);
 }

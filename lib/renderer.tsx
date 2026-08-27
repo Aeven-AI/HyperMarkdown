@@ -652,7 +652,22 @@ class Renderer {
       return element;
     }
 
-    return createPortal(element, node, String(blockId));
+    // Wrapped again on the way out: the stylesheet is scoped under
+    // .hypermarkdown, and a portal lands the block somewhere else in the tree
+    // entirely. Without this it arrives unstyled — no panel, and its words
+    // never fade in, because none of those rules can reach it.
+    return createPortal(
+      <div className={this.rootClassName()}>{element}</div>,
+      node,
+      String(blockId),
+    );
+  }
+
+  /** The class the stylesheet is scoped under, plus whatever the host added. */
+  private rootClassName(): string {
+    return this.options.className
+      ? "hypermarkdown " + this.options.className
+      : "hypermarkdown";
   }
 
   private streamText(
@@ -1414,9 +1429,7 @@ class Renderer {
     // The wrapper carries the class the shipped stylesheet is scoped under, so
     // importing that stylesheet is all a consumer has to do. Hosts with their
     // own styles can ignore it; the class costs them nothing.
-    const className = vm.options.className
-      ? "hypermarkdown " + vm.options.className
-      : "hypermarkdown";
+    const className = vm.rootClassName();
 
     return (
       <div className={className}>

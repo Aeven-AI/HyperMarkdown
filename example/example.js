@@ -19,7 +19,15 @@ import { cjkPlugin } from "hypermarkdown/plugins/cjk";
 const plugins = {
   math: katexPlugin(),
   code: highlightPlugin(),
-  diagram: mermaidPlugin({ theme: "neutral" }),
+  // The same configuration the app gives it: mermaid draws the diagram
+  // itself, so its theme and font come from here rather than from CSS.
+  diagram: mermaidPlugin({
+    theme: "neutral",
+    fontFamily: "Geist",
+    themeVariables: {
+      primaryColor: "#ca75ad",
+    },
+  }),
   cjk: cjkPlugin(),
 };
 
@@ -41,7 +49,7 @@ function Turn({ row }) {
     return h(
       "div",
       { className: "content-block user" },
-      h("div", { className: "chat-message" }, row.messageContent),
+      h("div", { className: "content-block-container" }, row.messageContent),
     );
   }
 
@@ -151,10 +159,10 @@ function App() {
 
   return h(
     "div",
-    { className: "transcript", ref: view },
+    { className: "chat" },
     h(
       "div",
-      { className: "transcript-inner" },
+      { className: "chat-messages-container", ref: view },
       h(
         "div",
         { className: "status" },
