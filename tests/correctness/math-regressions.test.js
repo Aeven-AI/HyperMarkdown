@@ -47,9 +47,7 @@ describe("Markstream-derived math correctness", () => {
   });
 
   it("protects dollar and parenthesis notation inside inline code", () => {
-    const document = parseMarkup(
-      renderStatic("`$...$`, `\\(...\\)`", options),
-    );
+    const document = parseMarkup(renderStatic("`$...$`, `\\(...\\)`", options));
     const codes = Array.from(document.querySelectorAll("code"));
 
     expect(document.querySelector(".katex")).toBeNull();

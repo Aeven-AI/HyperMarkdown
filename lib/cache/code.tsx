@@ -83,10 +83,7 @@ export class CodeCache {
     // A shorter run of the opening marker on the last line is most likely the
     // closing fence arriving; showing it would expose a partial fence. A line
     // that really contains that marker appears once its newline is committed.
-    if (
-      this.buffer.length > 0 &&
-      this.pendingFence(this.buffer) !== true
-    ) {
+    if (this.buffer.length > 0 && this.pendingFence(this.buffer) !== true) {
       this.render(this.nextKey, this.buffer, animation);
     }
   }

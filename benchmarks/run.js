@@ -54,6 +54,10 @@ const fixtureFilter = arg("fixture", "");
 
 const { RENDERERS } = await import("./renderers/index.js");
 
+const allFixtures = readdirSync(join(here, "fixtures"))
+  .filter((f) => f.endsWith(".md"))
+  .sort();
+
 const renderers = only
   ? RENDERERS.filter((r) =>
       only.split(",").some((n) => r.name.toLowerCase().includes(n.toLowerCase()))
@@ -90,8 +94,33 @@ for (const file of fixtures) {
 
 mkdirSync(join(here, "results"), { recursive: true });
 
+// A partial run must never overwrite a full one. `latest.*` is reserved for a
+// sweep over every fixture with every renderer; anything narrower writes to a
+// name that says what it was, so a --fixture or --only run cannot silently
+// destroy the report someone spent an hour measuring.
+const complete =
+  fixtures.length === allFixtures.length && renderers.length === RENDERERS.length;
+
+const stem = complete
+  ? "latest"
+  : "partial-" +
+    [
+      fixtureFilter ? `fixture-${fixtureFilter}` : null,
+      only ? `only-${only.replace(/[^a-z0-9]+/gi, "-")}` : null,
+    ]
+      .filter(Boolean)
+      .join("-");
+
+if (!complete) {
+  process.stderr.write(
+    `\nPartial run (${fixtures.length}/${allFixtures.length} fixtures, ` +
+      `${renderers.length}/${RENDERERS.length} renderers) — ` +
+      `writing results/${stem}.md, leaving results/latest.md alone.\n`
+  );
+}
+
 writeFileSync(
-  join(here, "results", "latest.json"),
+  join(here, "results", `${stem}.json`),
   JSON.stringify(
     {
       runs: Number(runs),
@@ -105,8 +134,8 @@ writeFileSync(
     2
   ) + "\n"
 );
-writeFileSync(join(here, "results", "latest.md"), report());
-process.stderr.write("\nWrote results/latest.md\n");
+writeFileSync(join(here, "results", `${stem}.md`), report());
+process.stderr.write(`\nWrote results/${stem}.md\n`);
 
 function measure(renderer, path, index, chunk) {
   return new Promise((resolve) => {

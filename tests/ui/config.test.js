@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 let Renderer;
 
 beforeAll(async () => {
-  Renderer = (await import("../lib/renderer")).default;
+  Renderer = (await import("../../lib/renderer")).default;
 });
 
 function html(md, options = {}) {
@@ -31,7 +31,7 @@ describe("translations", () => {
   it("keeps the defaults for strings not overridden", async () => {
     // Tooltip text is not in the server markup — Tippy only renders it on
     // show — so the merge is checked where it happens.
-    const { resolveUi } = await import("../lib/config");
+    const { resolveUi } = await import("../../lib/config");
     const ui = resolveUi({ translations: { table: "Tabel" } });
 
     expect(ui.translations.table).toBe("Tabel");

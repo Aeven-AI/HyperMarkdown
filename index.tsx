@@ -45,6 +45,16 @@ export interface HyperMarkdownProps {
   allowedTags?: AllowedTags | undefined;
   /** Where links and images may point. */
   linkSafety?: LinkSafetyConfig | undefined;
+  /**
+   * Somewhere else to put reasoning blocks — an element, or a function
+   * returning one. Reasoning renders in place when this is absent or returns
+   * null, so a ref that is empty on the first pass is fine.
+   */
+  reasoningTarget?:
+    | HTMLElement
+    | null
+    | (() => HTMLElement | null)
+    | undefined;
   /** Override any of the strings the toolbars show. */
   translations?: Partial<Translations> | undefined;
   /** Override any of the toolbar icons, as inline `<svg>` markup. */

@@ -48,9 +48,7 @@ export function convertMath(
     text = text.replace(
       /^[ \t]*\[\s*\r?\n([\s\S]*?)\r?\n[ \t]*(?:\\\]|\])[ \t]*$/gm,
       (match, body) =>
-        looksLikeBracketMath(body)
-          ? `\n$$\n${body.trim()}\n$$\n`
-          : match,
+        looksLikeBracketMath(body) ? `\n$$\n${body.trim()}\n$$\n` : match,
     );
 
     text = protectNonMathDollars(text);
@@ -59,10 +57,8 @@ export function convertMath(
   }
 
   function protectNonMathDollars(text: string): string {
-    return text.replace(
-      /(?<![$\\])\$([^$\r\n]+)\$(?!\$)/g,
-      (match, body) =>
-        looksLikeDollarMath(body) ? match : `\\$${body}\\$`,
+    return text.replace(/(?<![$\\])\$([^$\r\n]+)\$(?!\$)/g, (match, body) =>
+      looksLikeDollarMath(body) ? match : `\\$${body}\\$`,
     );
   }
 

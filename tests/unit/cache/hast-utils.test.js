@@ -39,7 +39,9 @@ describe("findSectionRow", () => {
 describe("findListItem", () => {
   it("returns the first direct item from the first list", () => {
     const first = element("li");
-    const tree = root([element("div", [element("ul", [first, element("li")])])]);
+    const tree = root([
+      element("div", [element("ul", [first, element("li")])]),
+    ]);
 
     expect(findListItem(tree)).toBe(first);
   });

@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 const FIXTURES = path.resolve(
   path.dirname(new URL(import.meta.url).pathname),
+  "..",
   "fixtures",
 );
 
@@ -66,26 +67,26 @@ let inline;
 let allPlugins;
 
 beforeAll(async () => {
-  const markdownModule = await import("../lib/renderer");
-  const markdownLinkModule = await import("../lib/link");
+  const markdownModule = await import("../../lib/renderer");
+  const markdownLinkModule = await import("../../lib/link");
 
   Renderer = markdownModule.default;
   blocks = {
-    ...(await import("../lib/stream/list-structure")),
-    ...(await import("../lib/stream/definitions")),
+    ...(await import("../../lib/stream/list-structure")),
+    ...(await import("../../lib/stream/definitions")),
   };
   inline = {
-    ...(await import("../lib/repair/process-inline-syntax")),
-    ...(await import("../lib/repair/tables")),
+    ...(await import("../../lib/repair/process-inline-syntax")),
+    ...(await import("../../lib/repair/tables")),
   };
   MarkdownLink = markdownLinkModule.default;
 
   // The suite covers the fully-equipped renderer; the degradation cases below
   // build their own without these.
   allPlugins = {
-    math: (await import("../lib/plugins/math")).katexPlugin(),
-    code: (await import("../lib/plugins/code")).highlightPlugin(),
-    diagram: (await import("../lib/plugins/mermaid")).mermaidPlugin(),
+    math: (await import("../../lib/plugins/math")).katexPlugin(),
+    code: (await import("../../lib/plugins/code")).highlightPlugin(),
+    diagram: (await import("../../lib/plugins/mermaid")).mermaidPlugin(),
   };
 });
 

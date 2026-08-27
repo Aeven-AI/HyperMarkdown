@@ -56,7 +56,9 @@ describe("portable Markdown correctness", () => {
   it("preserves numeric-only and JSON documents", () => {
     const numeric = visibleText(renderStatic("1234567"));
     const json = compactText(
-      renderStatic('{\n  "summary": "demo",\n  "questions": [\n    "one",\n    "two"\n  ]\n}'),
+      renderStatic(
+        '{\n  "summary": "demo",\n  "questions": [\n    "one",\n    "two"\n  ]\n}',
+      ),
     );
 
     expect(numeric).toBe("1234567");

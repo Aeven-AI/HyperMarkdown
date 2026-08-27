@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 let Renderer;
 
 beforeAll(async () => {
-  Renderer = (await import("../lib/renderer")).default;
+  Renderer = (await import("../../lib/renderer")).default;
 });
 
 /**
@@ -66,7 +66,10 @@ function codeBlock(lines) {
 
 describe("sub-block caching", () => {
   it("renders each row of a table with a header exactly once", () => {
-    const result = churn(tableWith("| A | B | C |", 40), (r) => r.tableCache.data);
+    const result = churn(
+      tableWith("| A | B | C |", 40),
+      (r) => r.tableCache.data,
+    );
 
     expect(result.entries).toBeGreaterThan(35);
     expect(result.worstFrame).toBe(0);

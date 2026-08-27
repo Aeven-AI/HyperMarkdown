@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 let Renderer;
 
 beforeAll(async () => {
-  Renderer = (await import("../lib/renderer")).default;
+  Renderer = (await import("../../lib/renderer")).default;
 });
 
 function html(md, options = {}) {

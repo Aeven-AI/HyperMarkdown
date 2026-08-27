@@ -1806,4 +1806,77 @@
     }
   }
 
+
+  /* A model's reasoning, kept apart from its answer. */
+  .reasoning-wrapper {
+    margin-top: 16px;
+    margin-bottom: 16px;
+
+    .reasoning-container {
+      border-radius: 12px;
+      border: 1px solid var(--hm-table-header-color);
+      overflow: hidden;
+    }
+
+    .reasoning-header {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+
+      margin: 0;
+      padding: 10px 14px;
+
+      background: none;
+      border: none;
+      cursor: pointer;
+
+      font-family: var(--hm-font);
+      font-size: var(--hm-size-small);
+      color: var(--hm-toolbar-color);
+      text-align: left;
+    }
+
+    .reasoning-title {
+      letter-spacing: var(--hm-title-tracking);
+    }
+
+    .reasoning-chevron {
+      display: flex;
+      align-items: center;
+
+      svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 200ms var(--hm-ease);
+      }
+    }
+
+    .reasoning-content {
+      padding: 0 14px 10px;
+      color: var(--hm-code-color);
+      font-size: var(--hm-size-small);
+
+      > *:first-child {
+        margin-top: 0;
+      }
+
+      > *:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  .reasoning-wrapper.collapsed {
+    .reasoning-chevron svg {
+      transform: rotate(-90deg);
+    }
+  }
+
+  .reasoning-wrapper.stream-active {
+    .reasoning-title {
+      opacity: 0.75;
+    }
+  }
 }

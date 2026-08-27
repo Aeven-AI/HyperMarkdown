@@ -21,8 +21,11 @@ const cases = [
   ["table row at newline", "left | middle | right\n", false, "table"],
 ];
 
-describe.each(cases)("detectBlockType: %s", (_name, input, finalize, expected) => {
-  it(`returns ${expected}`, () => {
-    expect(detectBlockType(input, finalize)).toBe(expected);
-  });
-});
+describe.each(cases)(
+  "detectBlockType: %s",
+  (_name, input, finalize, expected) => {
+    it(`returns ${expected}`, () => {
+      expect(detectBlockType(input, finalize)).toBe(expected);
+    });
+  },
+);

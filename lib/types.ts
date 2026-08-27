@@ -6,7 +6,7 @@ import type { AllowedTags, LinkSafetyConfig } from "./sanitize";
 import type { UiOptions } from "./config";
 
 /** How a block of streamed markdown is classified while it is still arriving. */
-export type BlockType = "text" | "code" | "table" | "pending";
+export type BlockType = "text" | "code" | "table" | "reasoning" | "pending";
 
 /** The kinds of block that render from a sub-block cache instead of a reparse. */
 export type CacheType = "code" | "table" | "list";
@@ -75,6 +75,20 @@ export interface RendererOptions extends UiOptions {
   allowedTags?: AllowedTags | undefined;
   /** Where links and images are allowed to point. */
   linkSafety?: LinkSafetyConfig | undefined;
+  /**
+   * Somewhere else to put reasoning blocks.
+   *
+   * By default a model's reasoning renders where it appeared, inside this
+   * component. A host that wants it elsewhere — above the message rather than
+   * inside it — passes the element it should go into, or a function returning
+   * one. Returning null renders it in place, so the callback can be handed a
+   * ref that is not populated on the first pass.
+   */
+  reasoningTarget?:
+    | HTMLElement
+    | null
+    | (() => HTMLElement | null)
+    | undefined;
   /**
    * Class for a wrapping element. Supplying one introduces a `<div>` around
    * the rendered blocks; without it they are rendered into a fragment and sit

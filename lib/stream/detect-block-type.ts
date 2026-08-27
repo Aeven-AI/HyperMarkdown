@@ -18,6 +18,18 @@ export function detectBlockType(
     return "text";
   }
 
+  // Checked first: the tag would otherwise read as an ordinary HTML block, and
+  // its contents would stream out as prose beside the answer.
+  if (patterns.reasoningOpenRegex.test(mdBuffer)) {
+    return "reasoning";
+  }
+
+  // Still arriving. "pending" holds the whole block back rather than letting
+  // a half-written tag render as text.
+  if (finalize !== true && patterns.reasoningPartialRegex.test(mdBuffer)) {
+    return "pending";
+  }
+
   hrPending = hrPendingCheck(mdBuffer);
   if (hrPending) {
     blockType = hrPending;

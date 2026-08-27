@@ -24,13 +24,19 @@ const equivalenceCases = [
   ["adjacent HTML", "<p>First</p><p><br></p><p>Second</p>\n\n"],
 ];
 
-describe.each(equivalenceCases)("Markstream-derived corpus: %s", (_name, source) => {
-  it.each([1, 3, 11])("matches final visible text at chunk size %i", (size) => {
-    expect(compactText(renderStreamed(source, size))).toBe(
-      compactText(renderStatic(source)),
+describe.each(equivalenceCases)(
+  "Markstream-derived corpus: %s",
+  (_name, source) => {
+    it.each([1, 3, 11])(
+      "matches final visible text at chunk size %i",
+      (size) => {
+        expect(compactText(renderStreamed(source, size))).toBe(
+          compactText(renderStatic(source)),
+        );
+      },
     );
-  });
-});
+  },
+);
 
 describe("incremental Markdown states", () => {
   it("does not promote incomplete headings to heading elements", () => {
@@ -44,7 +50,9 @@ describe("incremental Markdown states", () => {
 
   it("withholds incomplete links and produces the finalized destination", () => {
     const pending = renderPending("Before [label](https://exa");
-    const final = parseMarkup(renderStreamed("Before [label](https://example.test)", 2));
+    const final = parseMarkup(
+      renderStreamed("Before [label](https://example.test)", 2),
+    );
 
     expect(visibleText(pending)).toBe("Before");
     expect(final.querySelector("a")?.getAttribute("href")).toBe(

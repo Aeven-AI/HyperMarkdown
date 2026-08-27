@@ -32,9 +32,7 @@ describe("collectReferences", () => {
     const result = collectReferences("claim[^a]\n\n[^a]: Note A.", footnotes);
 
     expect(footnotes.get("[^a]")?.trim()).toBe("[^a]: Note A.");
-    expect(result?.replace(/\n{2,}/g, "\n").trim()).toBe(
-      "[^a]\n[^a]: Note A.",
-    );
+    expect(result?.replace(/\n{2,}/g, "\n").trim()).toBe("[^a]\n[^a]: Note A.");
   });
 
   it("preserves prior definitions when a later reference is processed", () => {

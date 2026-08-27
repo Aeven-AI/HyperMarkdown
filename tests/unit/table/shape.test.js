@@ -60,7 +60,12 @@ describe("readTableShape", () => {
     const shape = { headless: false, headerColumns: 0 };
     const [headlessSettled, columnsSettled] = refs();
 
-    readTableShape(section("thead", []), shape, headlessSettled, columnsSettled);
+    readTableShape(
+      section("thead", []),
+      shape,
+      headlessSettled,
+      columnsSettled,
+    );
 
     expect(shape).toEqual({ headless: true, headerColumns: 0 });
   });

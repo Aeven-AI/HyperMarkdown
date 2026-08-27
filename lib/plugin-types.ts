@@ -16,6 +16,7 @@ export interface PluginConfig {
   math?: MathPlugin | undefined;
   code?: CodeHighlighterPlugin | undefined;
   diagram?: DiagramPlugin | undefined;
+  cjk?: CjkPlugin | undefined;
 }
 
 /**
@@ -30,6 +31,20 @@ export interface MathPlugin {
   remarkPlugin: Pluggable;
   /** Turns those nodes into rendered markup. */
   rehypePlugin: Pluggable;
+}
+
+/**
+ * Makes emphasis behave the way a CJK author expects.
+ *
+ * CommonMark's flanking rules assume words are separated by spaces, so
+ * `**日本語（説明）**続き` renders its asterisks literally. Without this plugin
+ * that is what happens — the text is still readable, just not emphasised.
+ */
+export interface CjkPlugin {
+  type: "cjk";
+  name: string;
+  /** Runs before remark-gfm, which builds on the same delimiter machinery. */
+  remarkPluginsBefore: Pluggable[];
 }
 
 /**

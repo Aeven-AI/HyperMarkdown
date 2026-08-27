@@ -70,18 +70,21 @@ them in:
 npm install katex remark-math rehype-katex   # maths
 npm install rehype-highlight                 # syntax highlighting
 npm install mermaid                          # diagrams
+npm install remark-cjk-friendly              # CJK-friendly emphasis
 ```
 
 ```tsx
 import { katexPlugin } from "hypermarkdown/plugins/math";
 import { highlightPlugin } from "hypermarkdown/plugins/code";
 import { mermaidPlugin } from "hypermarkdown/plugins/mermaid";
+import { cjkPlugin } from "hypermarkdown/plugins/cjk";
 
 // Build once: a new plugin object rebuilds every pipeline.
 const plugins = {
   math: katexPlugin(),
   code: highlightPlugin(),
   diagram: mermaidPlugin(),
+  cjk: cjkPlugin(),
 };
 
 <HyperMarkdown md={md} plugins={plugins} />;
@@ -94,10 +97,45 @@ Each slot degrades rather than breaks when left empty:
 | `math` | `$x$` stays literal text, and the `\(…\)` normalisation is skipped |
 | `code` | code blocks render with their toolbar and line numbers, unhighlighted |
 | `diagram` | a ```` ```mermaid ```` fence renders as an ordinary code block |
+| `cjk` | `**日本語（説明）**続き` keeps its asterisks — CommonMark's flanking rules do not fit CJK |
 
 Mermaid is imported dynamically on the first diagram, so nothing before that
 point pays for it. Write your own plugin against `MathPlugin`,
 `CodeHighlighterPlugin` or `DiagramPlugin` to swap in a different engine.
+
+## Reasoning
+
+A model's thinking, wrapped in `<think>`, `<thinking>` or `<reasoning>`, is
+recognised as a block of its own rather than left to render as prose beside the
+answer. It streams into a collapsible panel — open while the model is thinking,
+collapsed once it finishes, and reopenable by the reader.
+
+```
+<think>
+Checking the constraints first.
+</think>
+
+The answer is 42.
+```
+
+The markdown inside is rendered as markdown, so a trace with lists or code in
+it reads the way it was written, and a half-arrived tag (`<thi`) is withheld
+rather than flashed as text. `controls={{ reasoning: false }}` renders the
+contents without the wrapper; `translations.thinking` and
+`translations.thoughtFor` change the labels.
+
+By default the block renders where the tag appeared. To put it somewhere else
+— above the message rather than inside it — give it an element to render into:
+
+```tsx
+<div ref={thinking} className="content-block-thinking" />
+<div className="content-block-container">
+  <HyperMarkdown reasoningTarget={() => thinking.current} … />
+</div>
+```
+
+It renders in place whenever the target is absent or returns null, so a ref
+that is still empty on the first pass is fine.
 
 ## Untrusted input
 

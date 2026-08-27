@@ -34,7 +34,22 @@ export const patterns = {
 
   fencedCodeRegex: /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*[\r\n]/,
   indentedCodeRegex: /^([ \t]*\n)*([ \t]{4,}|[ \t]*\t)/,
-  codeCachedInitRegex: /^(?:((?:`{3,}|~{3,}))(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/,
+  // CommonMark lets a fence sit under up to three spaces of indentation, and
+  // fencedCodeRegex already accepts that. Without the same allowance here the
+  // cache never finds its opening line, and the block renders its toolbar with
+  // no code inside it.
+  // A model's reasoning, wrapped in a tag of its own. Left un-anchored to the
+  // start of a line on purpose: a stream often opens with it immediately.
+  reasoningOpenRegex: /^[ \t]*<(think|thinking|reasoning)(?:\s[^>]*)?>/i,
+  // "<", "<thi", "<thinking" — the start of a reasoning tag that has not
+  // finished arriving. Rendered as text it would flash markup at the reader.
+  reasoningPartialRegex:
+    /^[ \t]*<\/?(?:t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?|r(?:e(?:a(?:s(?:o(?:n(?:i(?:n(?:g)?)?)?)?)?)?)?)?)?$/i,
+  reasoningOpenAnywhereRegex: /<(think|thinking|reasoning)(?:\s[^>]*)?>/i,
+  reasoningCloseRegex: /<\/(think|thinking|reasoning)[ \t]*>/i,
+
+  codeCachedInitRegex:
+    /^(?:[ ]{0,3}((?:`{3,}|~{3,}))(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/,
   incompleteFenceRegex: /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*$/,
   tableRendererInitRegex:
     /^((?:[^\n]*\|[^\n]*\n)+(?:[ \t]*\|[ \t]*-+[ \t]*(?::[ \t]*-+[ \t]*)*[ \t]*\|[^\n]*\n(?:[^\n]*\|[^\n]*\n)+|(?:[^\n]*\|[^\n]*\n)+))/gm,

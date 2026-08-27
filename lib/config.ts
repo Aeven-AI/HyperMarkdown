@@ -1,4 +1,10 @@
-import { ICON_COPY, ICON_MAXIMIZE, ICON_MINIMIZE, ICON_RUN } from "./icons";
+import {
+  ICON_CHEVRON,
+  ICON_COPY,
+  ICON_MAXIMIZE,
+  ICON_MINIMIZE,
+  ICON_RUN,
+} from "./icons";
 
 /**
  * Every string the renderer puts on screen. Override any subset; anything not
@@ -9,6 +15,11 @@ export interface Translations {
   table: string;
   /** Title shown on a diagram's toolbar. */
   diagram: string;
+
+  /** Header of a reasoning block while the model is still thinking. */
+  thinking: string;
+  /** Header once it has finished. `{seconds}` is replaced with the duration. */
+  thoughtFor: string;
 
   copy: string;
   copyCode: string;
@@ -31,6 +42,9 @@ export interface Translations {
 export const defaultTranslations: Translations = {
   table: "Table",
   diagram: "Diagram",
+
+  thinking: "Thinking…",
+  thoughtFor: "Thought for {seconds}s",
 
   copy: "Copy",
   copyCode: "Copy code",
@@ -59,6 +73,8 @@ export interface IconMap {
   maximize: string;
   minimize: string;
   run: string;
+  /** The disclosure arrow on a reasoning block. */
+  chevron: string;
 }
 
 export const defaultIcons: IconMap = {
@@ -66,6 +82,7 @@ export const defaultIcons: IconMap = {
   maximize: ICON_MAXIMIZE,
   minimize: ICON_MINIMIZE,
   run: ICON_RUN,
+  chevron: ICON_CHEVRON,
 };
 
 /** Which toolbar buttons a block offers. `false` hides the toolbar entirely. */
@@ -77,6 +94,8 @@ export interface BlockControls {
 }
 
 export interface ControlsConfig {
+  /** Reasoning blocks. `false` renders the reasoning without its wrapper. */
+  reasoning?: boolean | undefined;
   table?: boolean | BlockControls | undefined;
   code?: boolean | BlockControls | undefined;
   diagram?: boolean | BlockControls | undefined;
@@ -129,6 +148,8 @@ export interface UiConfig {
     table: ResolvedControls;
     code: ResolvedControls;
     diagram: ResolvedControls;
+    /** False renders reasoning inline, without its collapsible wrapper. */
+    reasoning: boolean;
   };
   /** Show the line-number gutter on code blocks. */
   lineNumbers: boolean;
@@ -155,6 +176,7 @@ export function resolveUi(options: UiOptions = {}): UiConfig {
       table: resolveBlock(options.controls?.table),
       code: resolveBlock(options.controls?.code),
       diagram: resolveBlock(options.controls?.diagram),
+      reasoning: options.controls?.reasoning !== false,
     },
     lineNumbers: options.lineNumbers !== false,
     codeBlockMaxHeight: options.codeBlockMaxHeight,

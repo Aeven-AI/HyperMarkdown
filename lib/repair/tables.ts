@@ -134,8 +134,7 @@ export function checkHeaded(delimiterLine: string): boolean {
     .map((cell) => cell.trim());
 
   return (
-    cells.length > 0 &&
-    cells.every((cell) => /^:?-+:?$/.test(cell) === true)
+    cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell) === true)
   );
 }
 

@@ -144,6 +144,12 @@ export function createProcessor(
   const beforeRehype: PluggableList = [];
   const afterRehype: PluggableList = [];
 
+  // Before remark-gfm on purpose: it retokenises emphasis, which gfm's
+  // strikethrough builds on.
+  if (plugins.cjk) {
+    beforeRehype.push(...plugins.cjk.remarkPluginsBefore);
+  }
+
   if (plugins.math) {
     beforeRehype.push(plugins.math.remarkPlugin);
   }

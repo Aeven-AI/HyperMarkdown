@@ -5,10 +5,13 @@ import React, {
   type ReactNode,
 } from "react";
 
+import { createPortal } from "react-dom";
+
 import * as runtime from "./runtime";
 
 import MarkdownCode from "./code";
 import MarkdownTable from "./table";
+import Reasoning from "./reasoning";
 
 import { patterns } from "./patterns";
 import { convertMath } from "./math-notation";
@@ -29,7 +32,10 @@ import { processInlineSyntax } from "./repair/process-inline-syntax";
 import { repairTableSyntax } from "./repair/tables";
 import { definitionsOnly } from "./stream/definitions";
 import { detectBlockType } from "./stream/detect-block-type";
-import { findBlockBoundary } from "./stream/find-block-boundary";
+import {
+  findBlockBoundary,
+  splitReasoning,
+} from "./stream/find-block-boundary";
 import { listCacheable } from "./stream/list-structure";
 
 import type {
@@ -292,25 +298,37 @@ class Renderer {
     timeNow = runtime.timeNow();
 
     if (state.md && state.md !== "") {
-      blockId = vm.blockId;
+      // A finished document can still carry reasoning, and it has to come out
+      // in its own block here too — otherwise a stored conversation renders
+      // the model's thinking as though it were part of the answer.
+      for (const part of splitReasoning(state.md)) {
+        blockId = vm.blockId;
 
-      md = state.md;
-      md = vm.mdMath(md, "renderer");
-      md = repairTableSyntax(md, "renderer", false);
+        if (part.reasoning) {
+          processedData = vm.placeReasoning(
+            <Reasoning stream={false} ui={vm.ui} renderer={vm}>
+              {vm.processMd(vm.mdMath(part.md, "text"), false, false)}
+            </Reasoning>,
+            blockId,
+          );
+        } else {
+          md = part.md;
+          md = vm.mdMath(md, "renderer");
+          md = repairTableSyntax(md, "renderer", false);
 
-      //md = state.md;
+          processedData = vm.processMd(md, false, false);
+        }
 
-      processedData = vm.processMd(md, false, false);
+        if (processedData) {
+          blockItem = {
+            key: blockId,
+            time: timeNow,
+            element: processedData,
+          };
 
-      if (processedData) {
-        blockItem = {
-          key: blockId,
-          time: timeNow,
-          element: processedData,
-        };
-
-        vm.cachedData.push(blockItem);
-        vm.blockId++;
+          vm.cachedData.push(blockItem);
+          vm.blockId++;
+        }
       }
     }
 
@@ -506,6 +524,18 @@ class Renderer {
       return;
     }
 
+    if (blockType === "reasoning") {
+      vm.streamReasoning(
+        mdBuffer,
+        mdState,
+        vm.blockId,
+        closeObject,
+        streaming,
+        animation,
+      );
+      return;
+    }
+
     if (blockType === "table") {
       mdBuffer = processInlineSyntax(
         mdBuffer,
@@ -522,6 +552,106 @@ class Renderer {
         animation,
       );
     }
+  }
+
+  /**
+   * A model's reasoning, kept in its own block.
+   *
+   * The tags are stripped and what is inside them is rendered as ordinary
+   * markdown, so a reasoning trace with lists and code in it reads the way it
+   * was written. Nothing is emitted until the opening tag is complete, which
+   * is what stops "<thi" appearing as text for a chunk or two.
+   */
+  private streamReasoning(
+    mdBuffer: string,
+    mdState: string[],
+    blockId: number,
+    closeObject: BlockBoundary,
+    streaming: boolean,
+    animation: boolean,
+  ): void {
+    const vm = this;
+    const timeNow = runtime.timeNow();
+
+    const open = patterns.reasoningOpenRegex.exec(mdBuffer);
+
+    if (!open) {
+      return;
+    }
+
+    let inner = mdBuffer.slice(open[0].length);
+    const closing = patterns.reasoningCloseRegex.exec(inner);
+
+    if (closing) {
+      inner = inner.slice(0, closing.index);
+    }
+
+    const closed = closeObject?.close === true;
+
+    if (closed) {
+      vm.buffering = false;
+      vm.mdBuffer = closeObject.mdNext;
+    }
+
+    const body = processInlineSyntax(
+      inner,
+      "text",
+      closed !== true,
+      vm.inlineCaches,
+    );
+
+    const rendered = vm.processMd(
+      vm.mdMath(body, "text"),
+      streaming,
+      animation,
+    );
+
+    const processedData =
+      vm.ui.controls.reasoning === false ? (
+        rendered
+      ) : (
+        vm.placeReasoning(
+          <Reasoning stream={closed !== true} ui={vm.ui} renderer={vm}>
+            {rendered}
+          </Reasoning>,
+          blockId,
+        )
+      );
+
+    const block = vm.streamDataMap.get(blockId);
+
+    if (block) {
+      block.time = timeNow;
+      block.element = processedData;
+    } else {
+      const blockItem = { key: blockId, time: timeNow, element: processedData };
+      vm.streamData.push(blockItem);
+      vm.streamDataMap.set(blockId, blockItem);
+    }
+
+    vm.applyState({ md: mdState }, () => {
+      if (vm.options.scrollDown) {
+        vm.options.scrollDown();
+      }
+    });
+  }
+
+  /**
+   * Put a reasoning block where the host asked for it.
+   *
+   * Without a target it stays where it appeared. With one it is portalled out,
+   * so a chat can show the thinking above the message while the answer renders
+   * inside it — the parse stays here either way.
+   */
+  private placeReasoning(element: ReactElement, blockId: number): ReactNode {
+    const target = this.options.reasoningTarget;
+    const node = typeof target === "function" ? target() : target;
+
+    if (!node) {
+      return element;
+    }
+
+    return createPortal(element, node, String(blockId));
   }
 
   private streamText(

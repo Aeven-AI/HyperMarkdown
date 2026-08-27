@@ -7,10 +7,10 @@ let highlightPlugin;
 let mermaidPlugin;
 
 beforeAll(async () => {
-  Renderer = (await import("../lib/renderer")).default;
-  katexPlugin = (await import("../lib/plugins/math")).katexPlugin;
-  highlightPlugin = (await import("../lib/plugins/code")).highlightPlugin;
-  mermaidPlugin = (await import("../lib/plugins/mermaid")).mermaidPlugin;
+  Renderer = (await import("../../lib/renderer")).default;
+  katexPlugin = (await import("../../lib/plugins/math")).katexPlugin;
+  highlightPlugin = (await import("../../lib/plugins/code")).highlightPlugin;
+  mermaidPlugin = (await import("../../lib/plugins/mermaid")).mermaidPlugin;
 });
 
 function html(md, plugins) {

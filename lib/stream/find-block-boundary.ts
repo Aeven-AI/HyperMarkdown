@@ -46,6 +46,25 @@ export function findBlockBoundary(
   const fencedCodeRegex = patterns.fencedCloseRegex;
   const indentedCodeRegex = patterns.indentedCodeRegex;
 
+  // Blank lines, rules and fences inside reasoning are its own content, so the
+  // only thing that ends the block is the closing tag.
+  if (blockType === "reasoning") {
+    const closing = patterns.reasoningCloseRegex.exec(mdBuffer);
+
+    if (!closing) {
+      return { close: false, md: mdBuffer, mdClose: "", mdNext: "" };
+    }
+
+    const end = closing.index + closing[0].length;
+
+    return {
+      close: true,
+      md: mdBuffer.slice(0, end),
+      mdClose: closing[0],
+      mdNext: mdBuffer.slice(end).replace(/^\r?\n/, ""),
+    };
+  }
+
   if (blockType === "text") {
     mdBuffer = mapNotes(mdBuffer, blockType);
 
@@ -524,4 +543,52 @@ export function findBlockBoundary(
       mdNext: mdBuffer.substring(mdCloseEndIndex),
     };
   }
+}
+
+/** One piece of a document: either reasoning, or everything between it. */
+export interface DocumentPart {
+  md: string;
+  reasoning: boolean;
+}
+
+/**
+ * Split a finished document on its reasoning blocks.
+ *
+ * The streaming path gets this for free from block detection; a document
+ * handed over whole has to be cut up the same way so both render alike.
+ */
+export function splitReasoning(md: string): DocumentPart[] {
+  const parts: DocumentPart[] = [];
+
+  let rest = md;
+
+  for (;;) {
+    const open = patterns.reasoningOpenAnywhereRegex.exec(rest);
+
+    if (!open) {
+      break;
+    }
+
+    const after = rest.slice(open.index + open[0].length);
+    const closing = patterns.reasoningCloseRegex.exec(after);
+
+    if (!closing) {
+      break;
+    }
+
+    const before = rest.slice(0, open.index);
+
+    if (before.trim() !== "") {
+      parts.push({ md: before, reasoning: false });
+    }
+
+    parts.push({ md: after.slice(0, closing.index), reasoning: true });
+    rest = after.slice(closing.index + closing[0].length);
+  }
+
+  if (rest.trim() !== "") {
+    parts.push({ md: rest, reasoning: false });
+  }
+
+  return parts.length > 0 ? parts : [{ md, reasoning: false }];
 }

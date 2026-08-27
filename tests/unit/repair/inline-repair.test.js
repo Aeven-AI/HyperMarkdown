@@ -22,7 +22,11 @@ import {
   hasDefinition,
 } from "../../../lib/repair/links";
 import { fixPartialMarker } from "../../../lib/repair/list-markers";
-import { findInlineClose, findOpenMath, fixMath } from "../../../lib/repair/math";
+import {
+  findInlineClose,
+  findOpenMath,
+  fixMath,
+} from "../../../lib/repair/math";
 import { processInlineSyntax } from "../../../lib/repair/process-inline-syntax";
 import { fixSetext } from "../../../lib/repair/setext";
 import { fixTasklist } from "../../../lib/repair/task-lists";
@@ -36,11 +40,7 @@ describe.each([
   ["open code span", "use `code", "use `code`"],
   ["partial entity", "symbols &cop", "symbols "],
   ["partial link", "before [docs](https://exa", "before "],
-  [
-    "partial math",
-    "before $x +",
-    'before <span class="math-pending"></span>',
-  ],
+  ["partial math", "before $x +", 'before <span class="math-pending"></span>'],
   ["nested marker", "- item\n-   -", "- item\n"],
   ["temporary table", "before | unfinished", "before "],
   [
@@ -73,9 +73,7 @@ describe("small repair primitives", () => {
 
   it("withholds only unresolved trailing link syntax", () => {
     expect(fixLinkRefs("", true)).toBe("");
-    expect(fixLinkRefs("[docs](https://exa", false)).toBe(
-      "[docs](https://exa",
-    );
+    expect(fixLinkRefs("[docs](https://exa", false)).toBe("[docs](https://exa");
     expect(fixLinkRefs("before [docs](https://exa", true)).toBe("before ");
     expect(fixLinkRefs("[docs](https://example.com)", true)).toBe(
       "[docs](https://example.com)",
@@ -207,10 +205,9 @@ describe("emphasis delimiter primitives", () => {
   it("matches single and double-width closers", () => {
     expect(fixEmphasis("*text* tail").pending).toEqual([]);
     expect(fixEmphasis("**text** tail").pending).toEqual([]);
-    expect(fixEmphasis("*one **two").pending.map((item) => item.token)).toEqual([
-      "*",
-      "**",
-    ]);
+    expect(fixEmphasis("*one **two").pending.map((item) => item.token)).toEqual(
+      ["*", "**"],
+    );
     expect(fixEmphasis("*one _two* tail").pending).toEqual([]);
     expect(emphasisRuns("(*?)")).toHaveLength(1);
   });
@@ -249,11 +246,7 @@ describe("inline token primitives", () => {
       "~~done~~\n",
     );
     expect(
-      processInlineSyntax(
-        "~~This text is deleted.~~\n~~**",
-        "text",
-        true,
-      ),
+      processInlineSyntax("~~This text is deleted.~~\n~~**", "text", true),
     ).toBe("~~This text is deleted.~~\n");
   });
 });

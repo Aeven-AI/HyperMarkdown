@@ -32,6 +32,7 @@ export default defineConfig({
         "plugins/math": resolve(__dirname, "lib/plugins/math.ts"),
         "plugins/code": resolve(__dirname, "lib/plugins/code.ts"),
         "plugins/mermaid": resolve(__dirname, "lib/plugins/mermaid.ts"),
+        "plugins/cjk": resolve(__dirname, "lib/plugins/cjk.ts"),
       },
       name: "HyperMarkdown",
       formats: ["es"],

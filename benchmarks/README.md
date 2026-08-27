@@ -12,7 +12,10 @@ node run.js --only=HyperMarkdown,Streamdown  # a subset
 node run.js --fixture=table                  # one fixture
 ```
 
-Results land in `results/latest.md` and `results/latest.json`.
+Results land in `results/latest.md` and `results/latest.json` — but **only a
+complete sweep writes those**. A run narrowed with `--fixture` or `--only`
+writes `results/partial-*.md` instead and leaves `latest.*` alone, so a quick
+spot-check cannot destroy a full measured report.
 The Markdown report records the median and measured range; the JSON retains
 every raw measured sample plus the runtime and machine environment.
 
