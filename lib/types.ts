@@ -84,11 +84,7 @@ export interface RendererOptions extends UiOptions {
    * one. Returning null renders it in place, so the callback can be handed a
    * ref that is not populated on the first pass.
    */
-  reasoningTarget?:
-    | HTMLElement
-    | null
-    | (() => HTMLElement | null)
-    | undefined;
+  reasoningTarget?: HTMLElement | null | (() => HTMLElement | null) | undefined;
   /**
    * Class for a wrapping element. Supplying one introduces a `<div>` around
    * the rendered blocks; without it they are rendered into a fragment and sit

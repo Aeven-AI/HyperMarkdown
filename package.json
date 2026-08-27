@@ -36,6 +36,12 @@
   "sideEffects": [
     "*.css"
   ],
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "@swc/core@1.16.1": true,
+    "esbuild@0.28.2": true,
+    "fsevents@2.3.3": true
+  },
   "scripts": {
     "build": "tsc -b && vite build && npm run build:css",
     "typecheck": "tsc -b",
@@ -84,9 +90,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.4.0",
-    "jsdom": "^27.0.0",
+    "jsdom": "^26.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "remark-cjk-friendly": "^2.3.1",
     "sass": "^1.103.1",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.44.0",

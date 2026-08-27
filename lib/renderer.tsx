@@ -607,16 +607,14 @@ class Renderer {
     );
 
     const processedData =
-      vm.ui.controls.reasoning === false ? (
-        rendered
-      ) : (
-        vm.placeReasoning(
-          <Reasoning stream={closed !== true} ui={vm.ui} renderer={vm}>
-            {rendered}
-          </Reasoning>,
-          blockId,
-        )
-      );
+      vm.ui.controls.reasoning === false
+        ? rendered
+        : vm.placeReasoning(
+            <Reasoning stream={closed !== true} ui={vm.ui} renderer={vm}>
+              {rendered}
+            </Reasoning>,
+            blockId,
+          );
 
     const block = vm.streamDataMap.get(blockId);
 
@@ -848,6 +846,8 @@ class Renderer {
 
     const vm = this;
     const timeNow = runtime.timeNow();
+
+    vm.warmDiagramEngine(mdBuffer);
 
     if (mdBuffer.trimStart().startsWith("```mermaid")) {
       mdBuffer = mdBuffer.trimStart();
@@ -1259,6 +1259,31 @@ class Renderer {
 
       return processor.processSync(file).result;
     }
+  }
+
+  /**
+   * Start fetching the diagram engine as soon as a diagram fence opens.
+   *
+   * The engine is megabytes and the diagram cannot render until its fence
+   * closes, which is whole seconds away at streaming speed. Asking for it now
+   * uses that time for the download instead of stalling on it afterwards — and
+   * a document with no diagrams still never asks.
+   */
+  private warmDiagramEngine(mdBuffer: string): void {
+    const diagram = this.plugins.diagram;
+
+    if (!diagram || diagram.loaded()) {
+      return;
+    }
+
+    if (!mdBuffer.trimStart().startsWith("```" + diagram.language)) {
+      return;
+    }
+
+    // Nothing waits on this: it is a head start, not a dependency. A failure
+    // here is not this block's problem — the render path asks again and
+    // reports properly if it is still broken then.
+    void diagram.load().catch(() => {});
   }
 
   /** Feed a still-arriving block to the cache that knows how to render it. */

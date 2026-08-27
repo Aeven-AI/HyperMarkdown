@@ -48,6 +48,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    setupFiles: ["./tests/setup/jsdom-storage.ts"],
     coverage: {
       provider: "v8",
       all: true,

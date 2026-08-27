@@ -34,6 +34,19 @@ export interface HyperMarkdownProps {
    * mermaid fence renders as a code block.
    */
   plugins?: PluginConfig | undefined;
+  /**
+   * Fetch the heavy plugin engines in the background on mount, rather than
+   * waiting for content that needs them.
+   *
+   * Mermaid is megabytes, and a diagram that arrives cold stalls on the
+   * download. This starts that download on mount so it is already in hand.
+   *
+   * Off by default, so nothing pulls a large dependency without being asked.
+   * Leaving it off is not the same as being slow: the renderer starts fetching
+   * the engine the moment a diagram fence opens, which buys most of the same
+   * head start and costs nothing when no diagram ever comes.
+   */
+  preload?: boolean | undefined;
   /** Class for a wrapping div. Without one, blocks render into a fragment. */
   className?: string | undefined;
   /**
@@ -50,11 +63,7 @@ export interface HyperMarkdownProps {
    * returning one. Reasoning renders in place when this is absent or returns
    * null, so a ref that is empty on the first pass is fine.
    */
-  reasoningTarget?:
-    | HTMLElement
-    | null
-    | (() => HTMLElement | null)
-    | undefined;
+  reasoningTarget?: HTMLElement | null | (() => HTMLElement | null) | undefined;
   /** Override any of the strings the toolbars show. */
   translations?: Partial<Translations> | undefined;
   /** Override any of the toolbar icons, as inline `<svg>` markup. */
@@ -135,6 +144,8 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
       streaming,
       animation,
       scrollDown,
+      plugins,
+      preload,
       onFullscreenChange,
       onAlert,
     } = props;
@@ -201,6 +212,17 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
       }),
       [store],
     );
+
+    // Straight away on mount, exactly as an app doing this by hand would: the
+    // import is async, so it downloads in the background while everything else
+    // carries on. Nothing waits on it.
+    useEffect(() => {
+      if (preload !== true) {
+        return;
+      }
+
+      void plugins?.diagram?.load().catch(() => {});
+    }, [preload, plugins]);
 
     // Blocks announce these on this renderer's own bus, because they sit deep
     // inside rendered markdown where threading callbacks down is impractical.
@@ -277,6 +299,13 @@ export type {
   DiagramEngine,
   DiagramResult,
 } from "./lib/plugin-types";
+
+/**
+ * Normalise the notations models emit for maths onto the "$"/"$$" remark-math
+ * understands. Exported for hosts that run their own pipeline over the same
+ * model output and want it to agree with what this component renders.
+ */
+export { convertMath } from "./lib/math-notation";
 
 export { HyperMarkdown };
 export default HyperMarkdown;

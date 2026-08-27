@@ -48,6 +48,7 @@ renderer.current?.write("", true); // finalize
 | `onFullscreenChange` | `(fullscreen: boolean) => void` | A code block, table or diagram entered or left fullscreen. Hide your own navigation and input chrome here, or the block ends up fullscreen underneath it. |
 | `onAlert` | `(alert: { header, content, buttonText }) => void` | A block wants to tell the reader something. Without a handler the message is dropped, since the component has no dialog of its own. |
 | `plugins` | `PluginConfig` | Maths, syntax highlighting and diagrams. See below — none is bundled. |
+| `preload` | `boolean` | Start fetching the diagram engine on mount rather than when a diagram appears. |
 | `sanitize` | `boolean` | Turn sanitization off. Only for content you produced yourself. Default `true`. |
 | `allowedTags` | `Record<string, string[]>` | Extra tags and attributes to let through sanitization. |
 | `linkSafety` | `LinkSafetyConfig` | Which URL schemes and prefixes links and images may use. |
@@ -99,8 +100,22 @@ Each slot degrades rather than breaks when left empty:
 | `diagram` | a ```` ```mermaid ```` fence renders as an ordinary code block |
 | `cjk` | `**日本語（説明）**続き` keeps its asterisks — CommonMark's flanking rules do not fit CJK |
 
-Mermaid is imported dynamically on the first diagram, so nothing before that
-point pays for it. Write your own plugin against `MathPlugin`,
+Mermaid is imported dynamically, so a document with no diagrams never pays for
+it. When one does appear, the fetch starts as soon as its opening fence is
+seen — seconds before the diagram can render — so the download overlaps the
+rest of the stream instead of stalling it. Pass `preload` to start that fetch
+on mount instead, which is worth it for a view that usually shows diagrams.
+
+Mermaid configuration goes to the plugin, not the host:
+
+```tsx
+mermaidPlugin({ theme: "neutral", fontFamily: "Inter" });
+```
+
+`startOnLoad` and `suppressErrorRendering` are fixed: the first would have
+mermaid scan the page behind the component's back, and the second stops a
+half-written diagram — which is every diagram, mid-stream — from painting an
+error graphic. Write your own plugin against `MathPlugin`,
 `CodeHighlighterPlugin` or `DiagramPlugin` to swap in a different engine.
 
 ## Reasoning
