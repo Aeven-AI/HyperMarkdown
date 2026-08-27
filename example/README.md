@@ -40,6 +40,22 @@ so its theme and font are passed to `mermaidPlugin()`.
 drawn to match it, which is why they are here rather than the app's Suisse
 Int'l: near enough in feel, and free to redistribute.
 
+Both are the **variable** cuts — one `wght`-axis woff2 per family covering
+100-900, so every weight the page uses costs one request between them, and
+intermediate values render as real instances rather than synthesised ones. The
+page's default text weight is **450** (book), set on `body` in `example.css`,
+which also lifts the package's three mono rules (`code`, code-block `code`, the
+line-number gutter) from 400 to 450 so code matches the prose. The package's own
+rules still decide the rest — 600 for headings, for instance. Blockquote
+paragraphs, which the package pins to 400, are lifted to 450 here too, so all
+prose on the page sits at book weight.
+
+Tracking is **normal** throughout. The package's three tracking variables
+(`--hm-tracking` 0.2px, `--hm-title-tracking` -0.2px, `--hm-code-tracking`
+-0.5px) are reset on `.hypermarkdown`, `body` drops its own 0.2px, and the mono
+override clears the -0.1px the package hard-codes on inline `code`. The files are woff2-only, which every browser that
+can run this page's ESM imports supports.
+
 The app itself still uses Suisse, so glyph metrics differ slightly between this
 page and `/chat-test` — everything driven by CSS matches, but anything measured
 in `ch` (the list indent) will not. That is expected and is the only difference

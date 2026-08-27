@@ -34,8 +34,8 @@ describe("example font preloader", () => {
     });
 
     return preloadFonts().then(() => {
-      expect(load).toHaveBeenCalledTimes(8);
-      expect(load).toHaveBeenCalledWith('400 16px "Geist"');
+      expect(load).toHaveBeenCalledTimes(7);
+      expect(load).toHaveBeenCalledWith('450 16px "Geist"');
       expect(load).toHaveBeenCalledWith('400 20.5px "KaTeX_Main"');
     });
   });

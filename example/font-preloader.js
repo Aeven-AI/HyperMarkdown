@@ -5,9 +5,9 @@
  */
 const FONT_TIMEOUT = 3000;
 const FONT_FACES = [
-  '400 16px "Geist"',
-  '600 16px "Geist"',
-  '400 16px "Geist Mono"',
+  // One entry per family covers every weight: both Geist cuts are variable.
+  '450 16px "Geist"',
+  '450 16px "Geist Mono"',
   '400 20.5px "KaTeX_Main"',
   'italic 400 20.5px "KaTeX_Math"',
   '400 20.5px "KaTeX_Size1"',

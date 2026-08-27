@@ -1,54 +1,22 @@
 /*
  * Geist and Geist Mono (SIL OFL 1.1) — a Swiss neo-grotesque with a mono cut
- * drawn to match it. The package names no typeface of its own: it reads
- * --hm-font and --hm-font-mono, which are set below.
+ * drawn to match it. Both are the variable cuts: one file per family carries
+ * the 100-900 weight axis, so the page's 450 book default is a real instance
+ * rather than a synthesised one. The package names no typeface of its own: it
+ * reads --hm-font and --hm-font-mono, which are set below.
  */
 @font-face {
   font-family: "Geist";
-  src:
-    url("./assets/fonts/geist-sans-latin-300-normal.woff2") format("woff2"),
-    url("./assets/fonts/geist-sans-latin-300-normal.woff") format("woff");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist";
-  src:
-    url("./assets/fonts/geist-sans-latin-400-normal.woff2") format("woff2"),
-    url("./assets/fonts/geist-sans-latin-400-normal.woff") format("woff");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist";
-  src:
-    url("./assets/fonts/geist-sans-latin-500-normal.woff2") format("woff2"),
-    url("./assets/fonts/geist-sans-latin-500-normal.woff") format("woff");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist";
-  src:
-    url("./assets/fonts/geist-sans-latin-600-normal.woff2") format("woff2"),
-    url("./assets/fonts/geist-sans-latin-600-normal.woff") format("woff");
-  font-weight: 600;
+  src: url("./assets/fonts/geist-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
   font-family: "Geist Mono";
-  src:
-    url("./assets/fonts/geist-mono-latin-400-normal.woff2") format("woff2"),
-    url("./assets/fonts/geist-mono-latin-400-normal.woff") format("woff");
-  font-weight: 400;
+  src: url("./assets/fonts/geist-mono-latin-wght-normal.woff2") format("woff2");
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
@@ -99,16 +67,61 @@ body {
 
   font-family: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 16px;
+  /* Book: 450 is the page's default text weight, not 400. The variable sans
+     renders it as a real instance, and everything in the transcript inherits
+     it except the weights the package sets itself. */
+  font-weight: 450;
   line-height: 30px;
-  letter-spacing: 0.2px;
+  letter-spacing: normal;
 }
 
-/* Hand the component the same stacks this page uses. */
+/*
+ * Hand the component the same stacks this page uses, and the same tracking:
+ * the package ships 0.2px on body text, -0.2px on titles and -0.5px in code,
+ * all three exposed as variables, so normal is a one-line change here.
+ */
 .hypermarkdown {
   --hm-font: "Geist", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --hm-font-mono:
     "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
+
+  --hm-tracking: normal;
+  --hm-title-tracking: normal;
+  --hm-code-tracking: normal;
+}
+
+/*
+ * The package sets blockquote paragraphs to 400 and 0px of tracking, which
+ * would leave quoted prose a step lighter than the body around it.
+ */
+.hypermarkdown blockquote p {
+  font-weight: 450;
+  letter-spacing: normal;
+}
+
+/*
+ * Book weight for the mono too. The package pins its three mono rules to 400;
+ * Geist Mono is variable, so 450 is a real instance there as well and code sits
+ * at the same weight as the prose around it. The same rules hard-code -0.1px of
+ * tracking on inline code, which the variables above cannot reach.
+ */
+.hypermarkdown code,
+.hypermarkdown
+  .codeblock-wrapper
+  .code-container
+  .codeblock-pre-code-content
+  pre
+  .line-numbers,
+.hypermarkdown
+  .codeblock-wrapper
+  .code-container
+  .codeblock-pre-code-content
+  pre
+  .code-content
+  code {
+  font-weight: 450;
+  letter-spacing: normal;
 }
 
 .chat {
