@@ -55,7 +55,14 @@ export function repairTableSyntax(
       if (isInsideFenced(matchIndex, fencedRanges)) {
         result += match[0];
       } else {
-        trimmed = match[0].trim();
+        // Same cleaning as the streaming path, so a whole document renders
+        // the table a stream would have rendered.
+        const cleaned = match[0]
+          .split("\n")
+          .map(dropTrailingComment)
+          .join("\n");
+
+        trimmed = cleaned.trim();
         lines = trimmed.split("\n");
 
         /* v8 ignore next -- the renderer table regex guarantees two lines */
@@ -63,11 +70,11 @@ export function repairTableSyntax(
         headed = checkHeaded(delimiterLine);
 
         if (headed !== true) {
-          replacement = convertTableHeadless(match[0], lines);
+          replacement = convertTableHeadless(cleaned, lines);
           replacement = replacement + "\n";
           result += replacement;
         } else {
-          result += match[0];
+          result += cleaned;
         }
       }
 
@@ -95,6 +102,10 @@ export function convertTable(mdBuffer: string, pending: boolean): string {
   let headerLine;
   let delimiterLine;
 
+  // Cleaned on the buffer, not just on the split copy: what leaves this
+  // function is the buffer, and the parser downstream sees that.
+  mdBuffer = mdBuffer.split("\n").map(dropTrailingComment).join("\n");
+
   const trimmed = mdBuffer.trim();
 
   if (!patterns.closeRegex.test(trimmed)) {
@@ -117,6 +128,34 @@ export function convertTable(mdBuffer: string, pending: boolean): string {
       return mdBuffer;
     }
   }
+}
+
+/**
+ * Drop an HTML comment sitting after a row's last pipe.
+ *
+ * GFM counts everything after the final pipe as one more cell, so a header
+ * annotated with `| | | | | <!-- note -->` has five cells against the
+ * delimiter's four, the counts disagree and the whole thing stops being a
+ * table — it renders as literal pipes instead. The comment is invisible
+ * either way, so removing it costs nothing and keeps the table.
+ */
+function dropTrailingComment(line: string): string {
+  const trimmed = line.trimEnd();
+
+  if (!trimmed.endsWith("-->")) {
+    return line;
+  }
+
+  const start = trimmed.lastIndexOf("<!--");
+
+  if (start === -1) {
+    return line;
+  }
+
+  const before = trimmed.slice(0, start);
+
+  // Only when the comment really is trailing, after the row's own last pipe.
+  return before.trimEnd().endsWith("|") ? before.trimEnd() : line;
 }
 
 export function checkHeaded(delimiterLine: string): boolean {

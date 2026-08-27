@@ -38,7 +38,108 @@
   --hm-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --hm-ease-linear: linear;
 
+  --hm-math-color: rgb(102, 102, 102);
+  --hm-math-size: 20.5px;
+
+  --hm-leading: 30px;
+  --hm-tracking: 0.2px;
+  --hm-size: 16px;
+
+  /*
+   * Set here rather than inherited. The content used to sit inside an app that
+   * had already established these on <body>; a package cannot assume that, and
+   * without them the same markdown renders at a different rhythm.
+   */
+  font-family: var(--hm-font);
+  font-size: var(--hm-size);
+  line-height: var(--hm-leading);
+  letter-spacing: var(--hm-tracking);
+  color: var(--hm-color);
+
   word-wrap: break-word;
+
+  /*
+   * Resets for the handful of elements whose user-agent defaults fight the
+   * layout: paragraph margins are set per-block below, and <pre>/<code> would
+   * otherwise drop to the browser's 13px monospace.
+   */
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin-block-start: 0;
+  }
+
+  blockquote,
+  figure {
+    margin: 0 0 1rem;
+  }
+
+  dl,
+  ol,
+  ul,
+  pre {
+    margin-top: 0;
+  }
+
+  ol ol,
+  ol ul,
+  ul ol,
+  ul ul {
+    margin-bottom: 0;
+  }
+
+  code,
+  kbd,
+  pre,
+  samp {
+    font-family: monospace, monospace;
+    font-size: 1em;
+  }
+
+  /*
+   * The toolbar buttons are <button>, and a bare one arrives with the user
+   * agent's grey background, its own font and its own padding. Without this
+   * the copy and fullscreen controls come out looking like form buttons.
+   */
+  button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+
+    cursor: pointer;
+  }
+
+  button:focus {
+    outline: none;
+  }
+
+  button:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  /*
+   * KaTeX's own stylesheet sizes formulas relative to their surroundings and
+   * inherits the text colour. Both are wrong beside body copy at this size, so
+   * maths gets a fixed size of its own and a slightly receded colour. KaTeX's
+   * stylesheet is still the host's to load — this only adjusts it.
+   */
+  .katex {
+    font-size: var(--hm-math-size);
+    line-height: 1.2;
+    color: var(--hm-math-color);
+  }
 
   word-wrap: break-word;
 
@@ -335,7 +436,7 @@
     will-change: opacity;
     opacity: 0;
 
-    animation: word-fade-in 1s var(--hm-ease-linear) forwards;
+    animation: hm-word-fade-in 1s var(--hm-ease-linear) forwards;
   }
 
   span.math-pending {
@@ -349,7 +450,7 @@
 
     background-color: rgb(235, 235, 235);
 
-    animation: math-pending-pulse 1.2s var(--hm-ease-linear) infinite;
+    animation: hm-math-pending-pulse 1.2s var(--hm-ease-linear) infinite;
   }
 
   .table-wrapper {
@@ -1878,5 +1979,120 @@
     .reasoning-title {
       opacity: 0.75;
     }
+  }
+
+  /*
+   * The syntax theme. Bundled rather than left to the host: a code plugin is
+   * opt-in, but if you have added one you want its output coloured, and
+   * highlight.js ships no theme of its own that matches the rest of this.
+   */
+  .hljs {
+    color: var(--hm-code-color);
+  }
+
+  .hljs-comment,
+  .hljs-quote {
+    color: rgb(170, 170, 170);
+    font-style: italic;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-section,
+  .hljs-title {
+    color: rgb(170, 100, 130);
+    font-weight: normal;
+  }
+
+  .hljs-string,
+  .hljs-symbol,
+  .hljs-bullet {
+    color: rgb(170, 170, 170);
+  }
+
+  .hljs-addition {
+    color: rgb(130, 160, 130);
+  }
+
+  .hljs-number,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-attribute {
+    color: rgb(170, 170, 170);
+  }
+
+  .hljs-meta {
+    color: var(--hm-code-color);
+  }
+
+  .hljs-doctag {
+    font-weight: normal;
+  }
+
+  .hljs-type,
+  .hljs-class .hljs-title {
+    color: rgb(170, 100, 130);
+    font-weight: normal;
+  }
+
+  .hljs-tag,
+  .hljs-name,
+  .hljs-selector-id,
+  .hljs-selector-class {
+    color: rgb(130, 130, 130);
+    font-weight: normal;
+  }
+
+  .hljs-subst {
+    color: rgb(130, 130, 130);
+  }
+
+  .hljs-built_in,
+  .hljs-builtin-name {
+    color: rgb(170, 170, 170);
+  }
+
+  .hljs-deletion {
+    color: rgb(185, 130, 130);
+  }
+
+  .hljs-formula {
+    background: rgb(150, 150, 150);
+    font-style: italic;
+  }
+
+  .hljs-emphasis {
+    font-style: italic;
+  }
+
+  .hljs-strong {
+    font-weight: normal;
+  }
+}
+
+/*
+ * Keyframes cannot be nested inside a selector, so these sit outside the
+ * `.hypermarkdown` block. The names are prefixed because they share a global
+ * namespace with whatever else the page defines.
+ */
+@keyframes hm-word-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hm-math-pending-pulse {
+  0% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
   }
 }
