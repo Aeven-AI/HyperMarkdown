@@ -18,12 +18,24 @@ export class CodeCache {
   language: string | null = null;
 
   /**
-   * Committed lines, i.e. those that arrived with their newline. This is the
-   * number the gutter needs, and counting here is free: the alternative is
-   * reading `textContent` off the rendered block, which re-serialises the
-   * whole fence on every chunk and makes streaming a long block quadratic.
+   * How many lines the gutter should number: the committed ones plus the line
+   * still being typed, which is rendered as soon as it has any text. Counting
+   * only committed lines leaves the line in progress without a number until
+   * its newline arrives, so the gutter trails the code by one line.
+   *
+   * Counting here is free; the alternative is reading `textContent` off the
+   * rendered block, which re-serialises the whole fence on every chunk and
+   * makes streaming a long block quadratic.
    */
-  lineCount = 0;
+  get lineCount(): number {
+    return this.committed + (this.pending ? 1 : 0);
+  }
+
+  /** Lines that arrived with their newline. */
+  private committed = 0;
+
+  /** Whether the tail of the buffer is currently rendered as a line. */
+  private pending = false;
 
   private buffer = "";
   private consumed = 0;
@@ -34,7 +46,8 @@ export class CodeCache {
   reset(): void {
     this.data = [];
     this.language = null;
-    this.lineCount = 0;
+    this.committed = 0;
+    this.pending = false;
     this.buffer = "";
     this.consumed = 0;
     this.nextKey = 0;
@@ -87,7 +100,7 @@ export class CodeCache {
           animation,
         )
       ) {
-        this.lineCount++;
+        this.committed++;
       }
 
       this.nextKey++;
@@ -97,8 +110,10 @@ export class CodeCache {
     // A shorter run of the opening marker on the last line is most likely the
     // closing fence arriving; showing it would expose a partial fence. A line
     // that really contains that marker appears once its newline is committed.
+    this.pending = false;
+
     if (this.buffer.length > 0 && this.pendingFence(this.buffer) !== true) {
-      this.render(this.nextKey, this.buffer, animation);
+      this.pending = this.render(this.nextKey, this.buffer, animation);
     }
   }
 

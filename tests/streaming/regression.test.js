@@ -1361,6 +1361,13 @@ describe("HyperMarkdown finishes what the document renderer produces", () => {
 
         const asText = (markup) => {
           dom = new JSDOM("<body>" + markup + "</body>");
+
+          // The gutter is chrome, and the two paths count it differently
+          // under a static render: drop it, as bodyText above does.
+          dom.window.document
+            .querySelectorAll(".line-numbers")
+            .forEach((node) => node.remove());
+
           return (dom.window.document.body.textContent || "").replace(
             /\s+/g,
             "",

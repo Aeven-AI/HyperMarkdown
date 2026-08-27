@@ -63,3 +63,20 @@ export function visibleText(markup) {
 export function compactText(markup) {
   return visibleText(markup).replace(/\s+/g, "");
 }
+
+/**
+ * Visible text with the code gutter removed.
+ *
+ * Line numbers are component chrome rather than document text, and the two
+ * render paths cannot agree on them under renderToStaticMarkup: a settled
+ * block measures its line count off the DOM, which a static render never
+ * provides, while a streaming block is handed the count as a prop. Comparing
+ * the two compares chrome, so it is dropped before the text is read.
+ */
+export function documentText(markup) {
+  const document = parseMarkup(markup);
+
+  document.querySelectorAll(".line-numbers").forEach((node) => node.remove());
+
+  return (document.body.textContent ?? "").replace(/\s+/g, "");
+}

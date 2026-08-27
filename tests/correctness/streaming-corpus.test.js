@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   compactText,
+  documentText,
   parseMarkup,
   renderPending,
   renderStatic,
@@ -30,8 +31,8 @@ describe.each(equivalenceCases)(
     it.each([1, 3, 11])(
       "matches final visible text at chunk size %i",
       (size) => {
-        expect(compactText(renderStreamed(source, size))).toBe(
-          compactText(renderStatic(source)),
+        expect(documentText(renderStreamed(source, size))).toBe(
+          documentText(renderStatic(source)),
         );
       },
     );

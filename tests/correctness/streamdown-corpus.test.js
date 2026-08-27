@@ -4,6 +4,7 @@ import { cjkPlugin } from "../../lib/plugins/cjk";
 import { katexPlugin } from "../../lib/plugins/math";
 import {
   compactText,
+  documentText,
   parseMarkup,
   renderStatic,
   renderStreamed,
@@ -23,8 +24,8 @@ describe("Streamdown-derived fence correctness", () => {
     const document = parseMarkup(renderStreamed(source, 2));
 
     expect(document.querySelector("pre code")?.textContent).toContain(expected);
-    expect(compactText(document.body.innerHTML)).toBe(
-      compactText(renderStatic(source)),
+    expect(documentText(document.body.innerHTML)).toBe(
+      documentText(renderStatic(source)),
     );
   });
 

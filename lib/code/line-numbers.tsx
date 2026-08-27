@@ -62,6 +62,24 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
     vm.lineNumberCount();
   }
 
+  /**
+   * How many entries the gutter shows.
+   *
+   * The cache's tally is read straight off the props, not mirrored into state:
+   * state only catches up in componentDidUpdate, which would render the gutter
+   * from the previous count and leave every line number one pass behind the
+   * line it belongs to.
+   */
+  private total(): number {
+    const vm = this;
+
+    if (typeof vm.props.lineCount === "number") {
+      return vm.props.lineCount;
+    }
+
+    return vm.state.lineNumberTotal;
+  }
+
   lineNumberCount() {
     let lineCount;
     let textContent;
@@ -69,13 +87,9 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
     const vm = this;
     const props = vm.props;
 
-    // The streaming cache counts lines as it commits them, so take its total
-    // when it is there and leave the DOM alone.
+    // Nothing to measure while the cache is counting: render() takes that
+    // total from the props directly.
     if (typeof props.lineCount === "number") {
-      if (vm.state.lineNumberTotal !== props.lineCount) {
-        vm.setState({ lineNumberTotal: props.lineCount });
-      }
-
       return;
     }
 
@@ -174,7 +188,7 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
     const vm = this;
     const props = vm.props;
 
-    const lineNumberTotal = vm.state.lineNumberTotal;
+    const lineNumberTotal = vm.total();
 
     if (lineNumberTotal <= 0) {
       return (
