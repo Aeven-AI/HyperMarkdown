@@ -32,27 +32,12 @@ export function convertMath(
   }
 
   function transformUnsafe(text: string): string {
-    // TeX display "\[ … \]", only when the delimiters sit on their own lines
-    text = text.replace(
-      /(?<!\\)\\\[\s*\r?\n([\s\S]*?)\r?\n\s*\\\](?!\])/g,
-      (_m, body) => `\n$$\n${body.trim()}\n$$\n`,
-    );
-
-    // TeX display "\[ … \]" written on one line, which is how models most
-    // often emit it. Only when the line holds nothing else and the body reads
-    // as maths: "\[" is also markdown's escape for a literal bracket, so
-    // "\[see notes\]" has to stay text.
-    text = text.replace(
-      /^[ \t]*(?<!\\)\\\[[ \t]*([^\r\n]*?)[ \t]*\\\][ \t]*$/gm,
-      (match, body) =>
-        looksLikeBracketMath(body) ? `\n$$\n${body.trim()}\n$$\n` : match,
-    );
-
-    // TeX inline "\( … \)" → "$ … $"
-    text = text.replace(
-      /(?<!\\)\\\(([\s\S]*?)\\\)/g,
-      (_m, body) => `$${body.trim()}$`,
-    );
+    // The TeX delimiters themselves are not rewritten here. `\(…\)`, `\[…\]`
+    // and a same-line `$$…$$` are recognised while parsing, by the math
+    // plugin's micromark extension, which can tell an escape from a delimiter
+    // and knows whether it is inside a table cell or interrupting a paragraph.
+    // What stays below is the part no tokenizer covers: notations that are not
+    // TeX at all, and the dollars that must be kept away from maths.
 
     // Bracketed block "[\n … \n]" → "$$ … $$"
     text = text.replace(

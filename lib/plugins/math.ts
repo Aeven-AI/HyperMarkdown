@@ -1,6 +1,7 @@
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 
+import { remarkMathCompatibility } from "../remark/math-compatibility";
 import type { MathPlugin } from "../plugin-types";
 
 /**
@@ -11,6 +12,7 @@ export function katexPlugin(options: Record<string, unknown> = {}): MathPlugin {
   return {
     type: "math",
     name: "katex",
+    remarkPluginsBefore: [remarkMathCompatibility],
     remarkPlugin: remarkMath,
     rehypePlugin: [rehypeKatex, options],
   };

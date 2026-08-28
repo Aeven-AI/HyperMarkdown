@@ -197,6 +197,9 @@ export function createProcessor(
   }
 
   if (plugins.math) {
+    if (plugins.math.remarkPluginsBefore) {
+      beforeRehype.push(...plugins.math.remarkPluginsBefore);
+    }
     beforeRehype.push(plugins.math.remarkPlugin);
   }
 

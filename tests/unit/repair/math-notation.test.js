@@ -1,3 +1,10 @@
+// `convertMath` no longer rewrites the TeX delimiters themselves: `\(…\)`,
+// `\[…\]` and a same-line `$$…$$` are recognised while parsing, by the math
+// plugin's micromark extension, and are covered by
+// tests/correctness/tex-delimiters.test.js. What is asserted here is the part
+// that stays a source transform — notations that are not TeX, and the dollars
+// that must be kept away from maths.
+
 import { describe, expect, it } from "vitest";
 
 import { convertMath } from "../../../lib/math-notation";
@@ -5,7 +12,6 @@ import { convertMath } from "../../../lib/math-notation";
 describe.each([
   ["null", null, undefined, null],
   ["undefined", undefined, undefined, undefined],
-  ["inline TeX", "Solve \\( x + 1 \\) now", undefined, "Solve $x + 1$ now"],
   [
     "double parentheses",
     "Solve (( x + 1 )) now",
@@ -79,12 +85,6 @@ describe.each([
 });
 
 describe("convertMath block notation", () => {
-  it("converts TeX display delimiters on their own lines", () => {
-    expect(convertMath("Before\n\\[\nx + y\n\\]\nAfter")).toBe(
-      "Before\n\n$$\nx + y\n$$\n\nAfter",
-    );
-  });
-
   it("converts bracketed multiline blocks", () => {
     expect(convertMath("[\nx + y\n]")).toBe("\n$$\nx + y\n$$\n");
   });
@@ -93,34 +93,6 @@ describe("convertMath block notation", () => {
     expect(convertMath("[\ne^x = \\frac{x^2}{2}\n\\]")).toBe(
       "\n$$\ne^x = \\frac{x^2}{2}\n$$\n",
     );
-  });
-
-  it("converts TeX display delimiters written on one line", () => {
-    // The form models emit most often. remark-math needs the fences on their
-    // own lines, so the body is lifted onto one.
-    expect(convertMath("Before\n\\[x^2 + y^2 = z^2\\]\nAfter")).toBe(
-      "Before\n\n$$\nx^2 + y^2 = z^2\n$$\n\nAfter",
-    );
-    expect(convertMath("\\[E = mc^2\\]")).toBe("\n$$\nE = mc^2\n$$\n");
-    expect(convertMath("  \\[ a^2 \\]  ")).toBe("\n$$\na^2\n$$\n");
-  });
-
-  it("leaves an escaped bracket that is not maths as written", () => {
-    // "\\[" is markdown's escape for a literal bracket; only a body that reads
-    // as maths is converted.
-    expect(convertMath("\\[see notes\\]")).toBe("\\[see notes\\]");
-    expect(convertMath("\\[TODO\\]")).toBe("\\[TODO\\]");
-    expect(convertMath('\\[{ "a": 1 }\\]')).toBe('\\[{ "a": 1 }\\]');
-  });
-
-  it("leaves a one-line display fence alone inside a code block", () => {
-    expect(convertMath("\\[x^2\\]", "code")).toBe("\\[x^2\\]");
-  });
-
-  it("does not convert a display fence sharing its line with prose", () => {
-    // Mid-sentence it is far more likely to be an escaped bracket, and
-    // remark-math would not read it as display maths there anyway.
-    expect(convertMath("text \\[x^2\\] more")).toBe("text \\[x^2\\] more");
   });
 
   it("leaves non-math bracket blocks unchanged", () => {

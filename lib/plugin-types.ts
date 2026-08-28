@@ -30,6 +30,12 @@ export interface MathPlugin {
   name: string;
   /** Parses the `$` delimiters into math nodes. */
   remarkPlugin: Pluggable;
+  /**
+   * Extra syntax registered on the same parse, before {@link remarkPlugin}.
+   * The TeX delimiters live here: they emit the same tokens `remarkPlugin`
+   * compiles, so they have to be on the parse it runs.
+   */
+  remarkPluginsBefore?: Pluggable[] | undefined;
   /** Turns those nodes into rendered markup. */
   rehypePlugin: Pluggable;
 }

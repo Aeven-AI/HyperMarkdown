@@ -1,6 +1,6 @@
 {
   "name": "@aeven-ai/hypermarkdown",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Streaming-aware markdown renderer for React. Renders token-by-token model output without showing raw markup.",
   "author": "Aeven",
   "repository": {
