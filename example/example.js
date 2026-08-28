@@ -16,11 +16,11 @@ import {
 } from "react";
 import { createRoot } from "react-dom/client";
 
-import { HyperMarkdown } from "hypermarkdown";
-import { katexPlugin } from "hypermarkdown/plugins/math";
-import { highlightPlugin } from "hypermarkdown/plugins/code";
-import { mermaidPlugin } from "hypermarkdown/plugins/mermaid";
-import { cjkPlugin } from "hypermarkdown/plugins/cjk";
+import { HyperMarkdown } from "@aeven/hypermarkdown";
+import { katexPlugin } from "@aeven/hypermarkdown/plugins/math";
+import { highlightPlugin } from "@aeven/hypermarkdown/plugins/code";
+import { mermaidPlugin } from "@aeven/hypermarkdown/plugins/mermaid";
+import { cjkPlugin } from "@aeven/hypermarkdown/plugins/cjk";
 
 import { preloadFonts } from "./font-preloader.js";
 

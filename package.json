@@ -1,9 +1,21 @@
 {
-  "name": "hypermarkdown",
+  "name": "@aeven/hypermarkdown",
   "version": "0.1.0",
   "description": "Streaming-aware markdown renderer for React. Renders token-by-token model output without showing raw markup.",
+  "author": "Aeven",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aeven-AI/HyperMarkdown.git"
+  },
+  "homepage": "https://github.com/Aeven-AI/HyperMarkdown#readme",
+  "bugs": {
+    "url": "https://github.com/Aeven-AI/HyperMarkdown/issues"
+  },
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
     "styles"
@@ -62,7 +74,8 @@
     "build:css": "sass --no-source-map --style=compressed styles/hypermarkdown.scss dist/hypermarkdown.css",
     "bundle-analyzer": "vite-bundle-visualizer",
     "bundle-analyzer-network": "vite-bundle-visualizer -t network",
-    "bundle-analyzer-sunburst": "vite-bundle-visualizer -t sunburst"
+    "bundle-analyzer-sunburst": "vite-bundle-visualizer -t sunburst",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "katex": "^0.16.25",
@@ -84,8 +97,7 @@
     "remark-rehype": "^11.1.2",
     "tippy.js": "^6.3.1",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0",
-    "vite-bundle-visualizer": "^1.2.1"
+    "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
@@ -116,6 +128,7 @@
     "typescript-eslint": "^8.44.0",
     "vfile": "^6.0.3",
     "vite": "^7.1.7",
+    "vite-bundle-visualizer": "^1.2.1",
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.1.8"
   },
