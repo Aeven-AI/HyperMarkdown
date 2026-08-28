@@ -391,20 +391,18 @@ class Renderer {
         blockType = "text";
       }
 
-      vm.streamProcess(blockType, mdState, streaming, animation, finalize);
-
-      if (finalize !== true) {
-        return;
-      }
+      // The detected type is handed to the drain through `blockType`, which
+      // also carries the fence upgrade decided above.
+      vm.blockType = blockType;
     }
 
     vm.drainMd(mdState, streaming, animation, finalize);
   }
 
-  // Closing a block consumes only the first one in the buffer and parks the
-  // remainder in mdBuffer, relying on the next chunk to drive it. At finalize
-  // there is no next chunk, so anything left has to be drained here or it is
-  // silently dropped.
+  // A delta may contain several complete blocks. Consume each boundary from
+  // the current buffer, then render an open tail once and leave it for the
+  // next delta. Finalization instead settles pending syntax and closes the
+  // remaining tail.
   private drainMd(
     mdState: string[],
     streaming: boolean,
@@ -412,14 +410,11 @@ class Renderer {
     finalize: boolean,
   ): void {
     let guard;
+    let closes;
     let blockType: BlockType;
     let previousBuffer;
 
     const vm = this;
-
-    if (finalize !== true) {
-      return;
-    }
 
     guard = 0;
 
@@ -429,10 +424,41 @@ class Renderer {
       blockType = vm.blockType || detectBlockType(vm.mdBuffer, finalize);
 
       if (blockType === "pending") {
+        if (finalize !== true) {
+          return;
+        }
+
         blockType = "text";
       }
 
-      vm.streamProcess(blockType, mdState, streaming, animation, true);
+      // Whether this block ends inside the buffer decides if the loop may go
+      // round again. An open block still renders — that is how a partial
+      // fence shows its content while it streams — but it renders once per
+      // delta: re-processing it would re-commit the same unfinished block,
+      // and an unfinished block renders differently from the settled one it
+      // becomes. Finalization has no next delta, so it drains what is left.
+      closes =
+        finalize === true ||
+        findBlockBoundary(vm.mdBuffer, blockType, {
+          footnotes: vm.footnotes,
+          mdExtra: vm.mdExtra,
+        })?.close === true;
+
+      // An open block renders at most once per delta, and only from a delta
+      // that consumed nothing before it. Rendering a tail after a boundary has
+      // already been consumed commits an unfinished block that the settle pass
+      // then fails to replace, which is how an indented code block loses the
+      // chrome the finished document gives it. Left in the buffer, the tail
+      // renders on the next delta exactly as it always has.
+      if (!closes && guard > 0) {
+        return;
+      }
+
+      vm.streamProcess(blockType, mdState, streaming, animation, finalize);
+
+      if (!closes) {
+        return;
+      }
 
       if (vm.mdBuffer === previousBuffer) {
         return;

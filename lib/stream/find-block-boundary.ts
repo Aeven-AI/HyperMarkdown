@@ -29,6 +29,55 @@ export interface FootnoteRefs {
  * because a definition can arrive long after the block that refers to it.
  */
 
+/**
+ * Where the fenced region containing `index` begins, or -1 when `index` is not
+ * inside one.
+ *
+ * A fence closes only on a marker of the same character that is at least as
+ * long as the one that opened it, which is what lets a ````markdown block hold
+ * a ```js block inside it. A region that never closes runs to the end of the
+ * buffer, so a still-open fence counts as containing everything after it.
+ * @param mdBuffer - the buffer being examined.
+ * @param index - offset of a candidate block boundary.
+ * @returns offset where the containing region's opening marker starts, or -1.
+ */
+function fenceStartCovering(mdBuffer: string, index: number): number {
+  let offset = 0;
+  let openIndex = -1;
+  let openChar = "";
+  let openLength = 0;
+
+  for (const line of mdBuffer.split("\n")) {
+    const fence = /^[ \t]*(`{3,}|~{3,})/.exec(line);
+    const lineEnd = offset + line.length + 1;
+
+    if (fence) {
+      const marker = fence[1] ?? "";
+      const char = marker.charAt(0);
+
+      if (openIndex === -1) {
+        openIndex = offset;
+        openChar = char;
+        openLength = marker.length;
+      } else if (char === openChar && marker.length >= openLength) {
+        // The boundary sits between this region's markers, so it is content.
+        if (index > openIndex && index < lineEnd) {
+          return openIndex;
+        }
+
+        openIndex = -1;
+        openChar = "";
+        openLength = 0;
+      }
+    }
+
+    offset = lineEnd;
+  }
+
+  // An unclosed region runs to the end of the buffer.
+  return openIndex !== -1 && index > openIndex ? openIndex : -1;
+}
+
 export function findBlockBoundary(
   mdBuffer: string,
   blockType: BlockType,
@@ -68,22 +117,51 @@ export function findBlockBoundary(
   if (blockType === "text") {
     mdBuffer = mapNotes(mdBuffer);
 
-    refClose = getRefClose(mdBuffer);
+    // Blank lines, rules and headings separate prose and are content inside a
+    // fence. A boundary taken from within one consumes the opening marker into
+    // the text block, which leaves the closing marker to be read as an opener
+    // and renders the rest of the document as code.
+    const beforeFence = <T extends BlockBoundary | undefined | null>(close: T): T | BlockBoundary => {
+      if (close === undefined || close === null || close.close !== true) {
+        return close;
+      }
+
+      const fenceAt = fenceStartCovering(mdBuffer, close.md.length);
+
+      if (fenceAt === -1) {
+        return close;
+      }
+
+      // The fence opens this buffer, so there is no prose to close first: the
+      // whole buffer belongs to the block the fence starts.
+      if (fenceAt === 0) {
+        return { close: false, md: mdBuffer, mdClose: "", mdNext: "" };
+      }
+
+      return {
+        close: true,
+        md: mdBuffer.substring(0, fenceAt),
+        mdClose: "",
+        mdNext: mdBuffer.substring(fenceAt),
+      };
+    };
+
+    refClose = beforeFence(getRefClose(mdBuffer));
     if (refClose) {
       return refClose;
     }
 
-    lineClose = getLineClose(mdBuffer, blockType);
+    lineClose = beforeFence(getLineClose(mdBuffer, blockType));
     if (lineClose) {
       return lineClose;
     }
 
-    hrRuleClose = getHrRuleClose(mdBuffer, blockType, hrRegex);
+    hrRuleClose = beforeFence(getHrRuleClose(mdBuffer, blockType, hrRegex));
     if (hrRuleClose) {
       return hrRuleClose;
     }
 
-    doubleLineClose = getDoubleLineClose(mdBuffer, blockType, doubleLine);
+    doubleLineClose = beforeFence(getDoubleLineClose(mdBuffer, blockType, doubleLine));
     if (doubleLineClose) {
       return doubleLineClose;
     }
@@ -92,7 +170,7 @@ export function findBlockBoundary(
       fencedCodeRegex,
       indentedCodeRegex,
     });
-    return codeBlockClose;
+    return beforeFence(codeBlockClose) ?? codeBlockClose;
   }
 
   if (blockType === "code") {

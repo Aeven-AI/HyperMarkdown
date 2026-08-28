@@ -103,6 +103,9 @@ function MarkdownTableComponent(props: MarkdownTableProps) {
     "table-wrapper" +
     (stream === true ? " stream-active" : "") +
     (fullscreen === true ? " fullscreen" : "");
+  const scrollClass =
+    "table-scroll no-scrollbar" +
+    (shapeRef.current.headerColumns >= 4 ? " md-table-wide" : "");
 
   return (
     <div
@@ -125,7 +128,7 @@ function MarkdownTableComponent(props: MarkdownTableProps) {
           onToggleFullScreen={onToggleFullScreen}
         />
         <div className="table-content">
-          <div className="table-scroll no-scrollbar">
+          <div className={scrollClass}>
             <table
               {...tableProps}
               ref={tableRef}

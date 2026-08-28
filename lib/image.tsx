@@ -17,7 +17,21 @@ function MarkdownImage(props: ImageProps) {
       <span className="markdown-image">
         <span className="image-error" />
         <span className="image-loader" />
-        <img className="image" src={src} alt={alt ?? ""} title={title} />
+        {/*
+          Defaults for images a document author does not control: deferred and
+          off-thread decoding keep a long answer's images from blocking the
+          render, and no referrer is sent, so the page a reader is on is not
+          disclosed to whatever host the markdown pointed at.
+        */}
+        <img
+          className="image"
+          src={src}
+          alt={alt ?? ""}
+          title={title}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
       </span>
     </span>
   );
