@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -15,11 +14,6 @@ import type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
 import type { ControlsConfig, IconMap, Translations } from "./lib/config";
 import type { HtmlMode, RendererComponents } from "./lib/processors";
 import { guid } from "./lib/runtime";
-
-// Layout effects warn during server rendering, where there is no DOM to
-// measure and nothing to scroll.
-const useCommitEffect =
-  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 export interface HyperMarkdownProps {
   /** Markdown to render in one go. Ignored while `streaming` is true. */
@@ -283,7 +277,12 @@ const HyperMarkdown = forwardRef<HyperMarkdownHandle, HyperMarkdownProps>(
 
     // Runs after every commit, so scrollDown() and friends measure the DOM
     // they were queued for rather than the one before it.
-    useCommitEffect(() => {
+    // A normal effect is intentional: server rendering can run in an
+    // environment that defines `window` (jsdom and some edge runtimes), where
+    // choosing useLayoutEffect from a browser check produces React's SSR
+    // warning. Effects still run after the DOM commit, which is the only
+    // ordering flush() requires.
+    useEffect(() => {
       store.flush();
     });
 
@@ -300,7 +299,11 @@ export { default as MarkdownStream } from "./lib/renderer";
 /** @deprecated Internal engine options retained for API compatibility. */
 export type { RendererOptions as MarkdownStreamOptions } from "./lib/types";
 export type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
-export type { HtmlMode, RendererComponents } from "./lib/processors";
+export type {
+  CodeComponentProps,
+  HtmlMode,
+  RendererComponents,
+} from "./lib/processors";
 export type {
   ControlsConfig,
   BlockControls,

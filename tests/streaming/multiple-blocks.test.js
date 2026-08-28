@@ -59,11 +59,10 @@ describe("multiple blocks in one streaming delta", () => {
 
     renderer.streamMd(source, true, false, false);
 
-    // Both closed fences come out of the one delta. The unfinished third is
-    // retained rather than rendered here: an open block committed after a
-    // boundary has already been consumed is not replaced by the settle pass,
-    // so it renders on the next delta instead.
-    expect(codeContents(renderer)).toEqual(["first\n", "second\n"]);
+    // Both closed fences come out of the one delta, and the unfinished third
+    // renders too: what a delta shows must not depend on where its boundaries
+    // happened to fall.
+    expect(codeContents(renderer)).toEqual(["first\n", "second\n", "open tail"]);
     expect(renderer.mdBuffer).toBe("```text\nopen tail");
 
     renderer.streamMd("\n```\n", true, false, false);

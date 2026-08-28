@@ -70,6 +70,18 @@ function hydrate(ui: React.ReactElement) {
 const source = "# Title\n\nSome **bold** text.\n\n```js\nconst a = 1;\n```\n";
 
 describe("server rendering", () => {
+  it("does not register a layout effect while rendering on the server", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    renderToString(<HyperMarkdown md={source} />);
+
+    expect(
+      error.mock.calls.some((args) =>
+        args.some((value) => String(value).includes("useLayoutEffect")),
+      ),
+    ).toBe(false);
+  });
+
   it("renders the component to markup without a DOM", () => {
     const html = renderToString(<HyperMarkdown md={source} />);
 

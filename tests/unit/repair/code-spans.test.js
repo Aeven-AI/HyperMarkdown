@@ -86,4 +86,10 @@ describe("insideCodeSpan", () => {
   it("treats text after an unclosed run as code", () => {
     expect(insideCodeSpan("a ``unfinished", 8)).toBe(true);
   });
+
+  it("skips runs whose width does not match the opener", () => {
+    const text = "a `open `` wider";
+
+    expect(insideCodeSpan(text, text.length - 1)).toBe(true);
+  });
 });

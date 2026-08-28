@@ -83,7 +83,7 @@ function codeSpans(text: string): TextRange[] {
     for (let j = i + 1; j < runs.length; j++) {
       const candidate = runs[j];
 
-      if (candidate && candidate.length === opener.length) {
+      if (candidate!.length === opener.length) {
         closer = j;
         break;
       }

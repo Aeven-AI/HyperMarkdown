@@ -35,6 +35,15 @@ describe("collectReferences", () => {
     expect(result?.replace(/\n{2,}/g, "\n").trim()).toBe("[^a]\n[^a]: Note A.");
   });
 
+  it("ignores definitions that belong to another reference", () => {
+    const footnotes = new Map();
+
+    collectReferences("first[^a] second[^b]\n\n[^a]: Note A.", footnotes);
+
+    expect(footnotes.has("[^a]")).toBe(true);
+    expect(footnotes.has("[^b]")).toBe(false);
+  });
+
   it("preserves prior definitions when a later reference is processed", () => {
     const footnotes = new Map([["[^a]", "[^a]: Note A."]]);
     const result = collectReferences("second[^b]\n\n[^b]: Note B.", footnotes);

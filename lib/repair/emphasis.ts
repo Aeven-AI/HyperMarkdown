@@ -111,13 +111,13 @@ export function fixEmphasis(text: string): EmphasisResult {
   for (i = 0; i < stack.length; i++) {
     opener = stack[i]!;
 
-    if (opener.remaining > 0) {
-      pending.push({
-        close: true,
-        index: opener.index,
-        token: opener.char.repeat(opener.remaining),
-      });
-    }
+    // Openers are removed from the stack as soon as their remainder reaches
+    // zero, so every entry left here necessarily needs a closer.
+    pending.push({
+      close: true,
+      index: opener.index,
+      token: opener.char.repeat(opener.remaining),
+    });
   }
 
   return { text: text, pending: pending };

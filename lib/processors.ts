@@ -1,5 +1,5 @@
 import React from "react";
-import type { ElementType } from "react";
+import type { ElementType, ReactNode } from "react";
 
 import { unified } from "unified";
 import type { PluggableList } from "unified";
@@ -14,7 +14,9 @@ import rehypeSanitize from "rehype-sanitize";
 import rehypeReact from "rehype-react";
 
 import { remarkFootnotes } from "./remark/footnotes";
+import { rehypeCodeContext } from "./rehype/code-context";
 import { rehypeData } from "./rehype/element-data";
+import { rehypeMathPending } from "./rehype/math-pending";
 import { rehypeMermaid } from "./rehype/mermaid";
 import { rehypeAnimation } from "./rehype/animate-words";
 import { rehypeLinkSafety } from "./rehype/link-safety";
@@ -33,6 +35,31 @@ import type { Text as HastText } from "hast";
  * between pipelines — which remounts it.
  */
 export type RendererComponents = Record<string, ElementType>;
+
+/**
+ * Props a replaced `code` component receives.
+ *
+ * The discriminant is what makes the three kinds of `<code>` tellable apart:
+ * inline code, a fence with a language, and a fence without one. Narrowing on
+ * `inline` is required before reading `className`, so treating a language-less
+ * fence as inline code is a type error rather than a wrong answer at runtime.
+ */
+export type CodeComponentProps =
+  | {
+      /** Inline code: a `<code>` no `<pre>` encloses. */
+      inline: true;
+      /** Whether an `<a>` encloses it, so a host does not nest a control in a link. */
+      insideLink: boolean;
+      children?: ReactNode;
+    }
+  | {
+      /** Fenced or indented code: the `<code>` inside a `<pre>`. */
+      inline: false;
+      /** `language-*` when the fence named one, absent otherwise. */
+      className?: string | undefined;
+      insideLink: boolean;
+      children?: ReactNode;
+    };
 
 /** What each pipeline needs on top of the steps every one of them shares. */
 interface PipelineShape {
@@ -226,6 +253,16 @@ export function createProcessor(
 
   if (plugins.math) {
     afterRehype.push(plugins.math.rehypePlugin);
+  }
+
+  // After sanitization, and in every HTML mode: the marker is renderer chrome
+  // that the repair pass leaves in the text, not author markup.
+  afterRehype.push(rehypeMathPending);
+
+  // After sanitization, which would drop unknown properties, and only when the
+  // host replaced `code`: on the built-in element these become DOM attributes.
+  if (shape.react && components["code"] !== undefined) {
+    afterRehype.push(rehypeCodeContext);
   }
 
   if (shape.data) {

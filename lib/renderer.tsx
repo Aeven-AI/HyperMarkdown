@@ -371,14 +371,19 @@ class Renderer {
       } else {
         blockType = vm.blockType;
 
-        // A block typed from its first characters can still turn out to open a
-        // fence — "`" alone reads as text until the other two backticks land.
-        if (
-          blockType === "text" &&
-          patterns.fencedCodeRegex.test(vm.mdBuffer)
-        ) {
-          blockType = "code";
-          vm.blockType = "code";
+        // A block typed from its first characters can still turn out to be
+        // code: "`" alone reads as text until the other two backticks land,
+        // and an indented block reads as text until enough of its first line
+        // has arrived to show the indent. Re-typing the whole buffer is what
+        // keeps a block that was rendered while open from being stuck as the
+        // kind it first looked like.
+        if (blockType === "text") {
+          const retyped = detectBlockType(vm.mdBuffer, finalize);
+
+          if (retyped === "code") {
+            blockType = "code";
+            vm.blockType = "code";
+          }
         }
       }
 
@@ -450,10 +455,6 @@ class Renderer {
       // then fails to replace, which is how an indented code block loses the
       // chrome the finished document gives it. Left in the buffer, the tail
       // renders on the next delta exactly as it always has.
-      if (!closes && guard > 0) {
-        return;
-      }
-
       vm.streamProcess(blockType, mdState, streaming, animation, finalize);
 
       if (!closes) {

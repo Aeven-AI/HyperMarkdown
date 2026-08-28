@@ -70,6 +70,20 @@ describe("readTableShape", () => {
     expect(shape).toEqual({ headless: true, headerColumns: 0 });
   });
 
+  it("ignores non-header cells in the header row", () => {
+    const shape = { headless: false, headerColumns: 0 };
+    const [headlessSettled, columnsSettled] = refs();
+
+    readTableShape(
+      section("thead", [row([cell("td", "not a header")])]),
+      shape,
+      headlessSettled,
+      columnsSettled,
+    );
+
+    expect(shape).toEqual({ headless: true, headerColumns: 0 });
+  });
+
   it("settles a headless table after more than two body rows", () => {
     const shape = { headless: false, headerColumns: 0 };
     const [headlessSettled, columnsSettled] = refs();

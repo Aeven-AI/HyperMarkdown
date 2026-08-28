@@ -95,11 +95,9 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
 
     if (props?.codeRef?.current) {
       textContent = props.codeRef.current.textContent || "";
-      lineCount = textContent.split("\n").length;
-
-      if (lineCount > 0) {
-        lineCount = lineCount - 1;
-      }
+      // split() always returns at least one entry, including for an empty
+      // string, so the previous guard could never be false.
+      lineCount = textContent.split("\n").length - 1;
 
       if (vm.state.lineNumberTotal !== lineCount) {
         vm.setState({ lineNumberTotal: lineCount });

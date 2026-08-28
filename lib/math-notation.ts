@@ -70,9 +70,7 @@ export function convertMath(
   }
 
   function convertInlineOutsideMath(text: string): string {
-    if (mathSplitter) {
-      mathSplitter.lastIndex = 0;
-    }
+    mathSplitter.lastIndex = 0;
 
     return text
       .split(mathSplitter)

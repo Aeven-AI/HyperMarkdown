@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { patterns } from "../../../lib/patterns";
+
 import { fixPartialEntity } from "../../../lib/repair/entities";
 import { fixTrailingEscape } from "../../../lib/repair/escapes";
 import {
@@ -40,7 +42,11 @@ describe.each([
   ["open code span", "use `code", "use `code`"],
   ["partial entity", "symbols &cop", "symbols "],
   ["partial link", "before [docs](https://exa", "before "],
-  ["partial math", "before $x +", 'before <span class="math-pending"></span>'],
+  // The repair pass leaves a marker where the withheld formula will go;
+  // `rehypeMathPending` is what turns it into the placeholder element, so that
+  // it is chrome rather than markup in the source. See
+  // tests/streaming/math-pending-marker.test.js.
+  ["partial math", "before $x +", `before ${patterns.mathPendingMarker}`],
   ["nested marker", "- item\n-   -", "- item\n"],
   ["temporary table", "before | unfinished", "before "],
   [
@@ -87,12 +93,12 @@ describe("small repair primitives", () => {
     expect(fixMath("", true)).toBe("");
     expect(fixMath("before $x", false)).toBe("before $x");
     expect(fixMath("before \\(x", true)).toBe(
-      'before <span class="math-pending"></span>',
+      `before ${patterns.mathPendingMarker}`,
     );
     expect(fixMath("before \\(x\\)", true)).toBe("before \\(x\\)");
     expect(fixMath("before $ x", true)).toBe("before $ x");
     expect(fixMath("`$protected` then $open", true)).toBe(
-      '`$protected` then <span class="math-pending"></span>',
+      `\`$protected\` then ${patterns.mathPendingMarker}`,
     );
   });
 

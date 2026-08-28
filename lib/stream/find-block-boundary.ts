@@ -435,12 +435,12 @@ export function findBlockBoundary(
   ): BlockBoundary;
   function getCodeBlockClose(
     mdBuffer: string,
-    blockType: BlockType,
+    blockType: "code",
     codeRegexConfig: CodeRegexConfig,
   ): BlockBoundary | undefined;
   function getCodeBlockClose(
     mdBuffer: string,
-    blockType: BlockType,
+    blockType: "text" | "code",
     codeRegexConfig: CodeRegexConfig,
   ): BlockBoundary | undefined {
     let match;
@@ -487,64 +487,63 @@ export function findBlockBoundary(
       };
     }
 
-    if (blockType === "code") {
-      match = mdBuffer.match(fencedCodeRegex);
-      if (match) {
-        matchCount = match.length;
-        if (matchCount === 1) {
+    // The text case returned above, and this helper is only called for text or
+    // code blocks, so the remaining path is necessarily code.
+    match = mdBuffer.match(fencedCodeRegex);
+    if (match) {
+      matchCount = match.length;
+      if (matchCount === 1) {
+        return {
+          close: false,
+          md: mdBuffer,
+          mdClose: "",
+          mdNext: "",
+        };
+      } else {
+        matchStart = match.index ?? 0;
+        matchFinal = matchStart + match[0].length;
+
+        const remainder = mdBuffer.substring(matchFinal);
+
+        if (remainder.startsWith("\n")) {
+          const mdCloseEndIndex = matchFinal + 1;
           return {
-            close: false,
-            md: mdBuffer,
-            mdClose: "",
-            mdNext: "",
-          };
-        } else {
-          matchStart = match.index ?? 0;
-          matchFinal = matchStart + match[0].length;
-
-          const remainder = mdBuffer.substring(matchFinal);
-
-          if (remainder.startsWith("\n")) {
-            const mdCloseEndIndex = matchFinal + 1;
-            return {
-              close: true,
-              md: mdBuffer.substring(0, mdCloseEndIndex),
-              mdNext: mdBuffer.substring(mdCloseEndIndex),
-              mdClose: "\n",
-            };
-          }
-
-          return {
-            close: false,
-            md: mdBuffer,
-            mdClose: "",
-            mdNext: "",
+            close: true,
+            md: mdBuffer.substring(0, mdCloseEndIndex),
+            mdNext: mdBuffer.substring(mdCloseEndIndex),
+            mdClose: "\n",
           };
         }
+
+        return {
+          close: false,
+          md: mdBuffer,
+          mdClose: "",
+          mdNext: "",
+        };
+      }
+    }
+
+    match = mdBuffer.match(indentedCodeRegex);
+    if (match) {
+      matchIndex = mdBuffer.indexOf(doubleLine);
+      if (matchIndex !== -1) {
+        return {
+          close: true,
+          md: mdBuffer.substring(0, matchIndex),
+          mdNext: mdBuffer.substring(matchIndex),
+          mdClose: mdBuffer.substring(matchIndex),
+        };
       }
 
-      match = mdBuffer.match(indentedCodeRegex);
-      if (match) {
-        matchCount = match.length;
-        matchIndex = mdBuffer.indexOf(doubleLine);
-        if (matchIndex !== -1) {
-          return {
-            close: true,
-            md: mdBuffer.substring(0, matchIndex),
-            mdNext: mdBuffer.substring(matchIndex),
-            mdClose: mdBuffer.substring(matchIndex),
-          };
-        }
-
-        ended = indentedCodeBlockEnd(mdBuffer);
-        if (ended.close) {
-          return {
-            close: true,
-            md: ended.md,
-            mdClose: ended.mdClose,
-            mdNext: ended.mdNext,
-          };
-        }
+      ended = indentedCodeBlockEnd(mdBuffer);
+      if (ended.close) {
+        return {
+          close: true,
+          md: ended.md,
+          mdClose: ended.mdClose,
+          mdNext: ended.mdNext,
+        };
       }
     }
 

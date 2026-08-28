@@ -108,15 +108,17 @@ export class TableCache {
       }
 
       bodyLines.forEach((row) => {
-        if (this.rowText[lineIndex] !== row) {
-          this.rowText[lineIndex] = row;
-          this.data[lineIndex] = this.renderRow(
-            lineIndex,
-            row,
-            processor,
-            components,
-          );
-        }
+        // On the append path lineIndex starts after every committed row; on
+        // the rebuild path both arrays were cleared above. Either way this is
+        // necessarily a new row, so comparing against the empty slot only
+        // adds an unreachable branch.
+        this.rowText[lineIndex] = row;
+        this.data[lineIndex] = this.renderRow(
+          lineIndex,
+          row,
+          processor,
+          components,
+        );
 
         lineIndex++;
       });

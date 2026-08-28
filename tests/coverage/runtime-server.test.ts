@@ -24,7 +24,7 @@ describe("runtime SSR adapters", () => {
     expect(render).toHaveBeenCalledWith(expect.any(String), "graph", undefined);
   });
 
-  it("selects the browser commit effect in a fresh module realm", async () => {
+  it("loads in a fresh browser-like module realm", async () => {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
 
     Object.defineProperty(globalThis, "window", {

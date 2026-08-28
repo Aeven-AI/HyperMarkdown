@@ -51,7 +51,7 @@ function ReasoningComponent(props: ReasoningProps) {
     }
 
     const timer = setInterval(() => {
-      setSeconds(Math.round((Date.now() - (startedAt.current ?? 0)) / 1000));
+      setSeconds(Math.round((Date.now() - startedAt.current!) / 1000));
     }, 1000);
 
     return () => {
@@ -62,7 +62,7 @@ function ReasoningComponent(props: ReasoningProps) {
   useEffect(() => {
     if (stream !== true && touched.current === false) {
       setOpen(false);
-      setSeconds(Math.round((Date.now() - (startedAt.current ?? 0)) / 1000));
+      setSeconds(Math.round((Date.now() - startedAt.current!) / 1000));
     }
   }, [stream]);
 

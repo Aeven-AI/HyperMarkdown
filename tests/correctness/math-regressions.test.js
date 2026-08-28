@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { katexPlugin } from "../../lib/plugins/math";
 import {
@@ -69,10 +69,13 @@ describe("Markstream-derived math correctness", () => {
     const source =
       "- Value: $c=0.75\\times10^3\\ \\text{J/(kg·℃)}$ and $m=1.1\\ \\text{kg}$\n" +
       "- Result: $Q_1=3.3\\times 10^{4}\\ \\text{J}$";
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     const document = parseMarkup(renderStatic(source, options));
 
     expect(document.querySelectorAll("li")).toHaveLength(2);
     expect(document.querySelectorAll(".katex")).toHaveLength(3);
+    expect(document.querySelector(".katex-error")).toBeNull();
+    expect(warning).not.toHaveBeenCalled();
   });
 
   it.each([1, 3, 11])(

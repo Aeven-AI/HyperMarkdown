@@ -160,9 +160,9 @@ export function fixInlineToken(
     inlineTokenEdgeRegexCache.set(token, edgeRegex);
   }
 
-  if (regex.global) {
-    regex.lastIndex = 0;
-  }
+  // Token expressions created above are global. Reset the shared expression
+  // before every scan so a cached lastIndex never leaks between chunks.
+  regex.lastIndex = 0;
 
   tokenCount = 0;
   lastIndex = -1;

@@ -40,7 +40,7 @@ export function fixMath(text: string, pending: boolean): string {
     return text;
   }
 
-  return text.substring(0, openIndex) + patterns.mathPendingTag;
+  return text.substring(0, openIndex) + patterns.mathPendingMarker;
 }
 
 export function findOpenMath(chunk: string): number {

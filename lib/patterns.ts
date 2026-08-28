@@ -73,7 +73,12 @@ export const patterns = {
   mathLooksLeftRegex: /[\\](?:left|bigl|Bigl|biggl|Biggl)\s*$/,
   mathLooksRightRegex: /^\s*[\\](?:right|bigr|Bigr|biggr|Biggr)/,
   mathSpaceRegex: /\s/,
-  mathPendingTag: '<span class="math-pending"></span>',
+  /**
+   * Where a withheld formula will appear. A Private Use Area code point, so it
+   * travels as ordinary text through every HTML mode and cannot collide with
+   * content; `rehypeMathPending` builds the element from it after sanitization.
+   */
+  mathPendingMarker: "\uE000",
 
   // "*" and "_" are handled by fixEmphasis, which matches them as runs.
   inlineTokens: ["~~", "~", "`"],

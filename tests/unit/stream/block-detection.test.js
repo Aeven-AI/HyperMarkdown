@@ -21,6 +21,7 @@ const cases = [
   ["table row", "| left | right |", false, "table"],
   ["table row without outer pipes", "left | middle | right", false, "table"],
   ["table row at newline", "left | middle | right\n", false, "table"],
+  ["single trailing table edge", "value|\n", false, "pending"],
 ];
 
 describe.each(cases)(
