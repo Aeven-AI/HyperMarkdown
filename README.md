@@ -7,14 +7,14 @@ is not re-parsed on every chunk.
 ## Install
 
 ```bash
-pnpm add @aeven/hypermarkdown
+pnpm add @aeven-ai/hypermarkdown
 ```
 
 React 18 or 19 is a peer dependency. Maths, syntax highlighting and diagrams
 are not installed — see [Plugins](#plugins).
 
 ```tsx
-import { HyperMarkdown, type HyperMarkdownHandle } from "@aeven/hypermarkdown";
+import { HyperMarkdown, type HyperMarkdownHandle } from "@aeven-ai/hypermarkdown";
 ```
 
 ## Rendering a finished document
@@ -75,10 +75,10 @@ npm install remark-cjk-friendly              # CJK-friendly emphasis
 ```
 
 ```tsx
-import { katexPlugin } from "@aeven/hypermarkdown/plugins/math";
-import { highlightPlugin } from "@aeven/hypermarkdown/plugins/code";
-import { mermaidPlugin } from "@aeven/hypermarkdown/plugins/mermaid";
-import { cjkPlugin } from "@aeven/hypermarkdown/plugins/cjk";
+import { katexPlugin } from "@aeven-ai/hypermarkdown/plugins/math";
+import { highlightPlugin } from "@aeven-ai/hypermarkdown/plugins/code";
+import { mermaidPlugin } from "@aeven-ai/hypermarkdown/plugins/mermaid";
+import { cjkPlugin } from "@aeven-ai/hypermarkdown/plugins/cjk";
 
 // Build once: a new plugin object rebuilds every pipeline.
 const plugins = {
