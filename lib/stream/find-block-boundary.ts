@@ -48,11 +48,11 @@ function fenceStartCovering(mdBuffer: string, index: number): number {
   let openLength = 0;
 
   for (const line of mdBuffer.split("\n")) {
-    const fence = /^[ \t]*(`{3,}|~{3,})/.exec(line);
+    const fence = /^[ \t]*(?:`{3,}|~{3,})/.exec(line);
     const lineEnd = offset + line.length + 1;
 
     if (fence) {
-      const marker = fence[1] ?? "";
+      const marker = fence[0].trim();
       const char = marker.charAt(0);
 
       if (openIndex === -1) {
@@ -170,7 +170,7 @@ export function findBlockBoundary(
       fencedCodeRegex,
       indentedCodeRegex,
     });
-    return beforeFence(codeBlockClose) ?? codeBlockClose;
+    return beforeFence(codeBlockClose);
   }
 
   if (blockType === "code") {

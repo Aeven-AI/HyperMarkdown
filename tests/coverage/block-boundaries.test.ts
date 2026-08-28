@@ -95,6 +95,18 @@ describe("block-boundary edge cases", () => {
     });
   });
 
+  it("keeps a buffer that opens with a fence whole", () => {
+    // The blank line sits inside the fence, so there is no prose to close
+    // before it: the whole buffer belongs to the block the fence started.
+    const md = "```js\ncode\n\nmore\n```\n";
+    expect(findBlockBoundary(md, "text", refs())).toMatchObject({
+      close: false,
+      md,
+      mdClose: "",
+      mdNext: "",
+    });
+  });
+
   it("ends a loose list before an indented fence or following prose", () => {
     expect(findBlockBoundary("- one\n\n  ```js", "text", refs())).toMatchObject({
       close: true,
