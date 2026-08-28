@@ -38,6 +38,16 @@ export function convertMath(
       (_m, body) => `\n$$\n${body.trim()}\n$$\n`,
     );
 
+    // TeX display "\[ … \]" written on one line, which is how models most
+    // often emit it. Only when the line holds nothing else and the body reads
+    // as maths: "\[" is also markdown's escape for a literal bracket, so
+    // "\[see notes\]" has to stay text.
+    text = text.replace(
+      /^[ \t]*(?<!\\)\\\[[ \t]*([^\r\n]*?)[ \t]*\\\][ \t]*$/gm,
+      (match, body) =>
+        looksLikeBracketMath(body) ? `\n$$\n${body.trim()}\n$$\n` : match,
+    );
+
     // TeX inline "\( … \)" → "$ … $"
     text = text.replace(
       /(?<!\\)\\\(([\s\S]*?)\\\)/g,

@@ -105,6 +105,18 @@ describe("rehypeLinkSafety", () => {
     expect(tree.children).toEqual([{ type: "text", value: "diagram" }]);
   });
 
+  it("removes the source from a rejected image with no parent to replace", () => {
+    const image = element("img", {
+      src: "javascript:alert(1)",
+      alt: "diagram",
+    });
+
+    applyPolicy(image);
+
+    expect(image.properties).not.toHaveProperty("src");
+    expect(image.properties.alt).toBe("diagram");
+  });
+
   it("ignores unrelated elements and non-string URL properties", () => {
     const paragraph = element("p", { href: "javascript:ignored" });
     const link = element("a", { href: ["not", "a", "string"] });

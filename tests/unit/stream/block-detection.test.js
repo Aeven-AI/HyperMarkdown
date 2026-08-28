@@ -5,6 +5,8 @@ import { detectBlockType } from "../../../lib/stream/detect-block-type";
 const cases = [
   ["empty input", "", false, "text"],
   ["ordinary prose", "hello", false, "text"],
+  ["open reasoning block", "<think>", false, "reasoning"],
+  ["partial reasoning tag", "<thi", false, "pending"],
   ["leading newline", "\nhello", false, "text"],
   ["incomplete thematic break", "paragraph\n--", false, "pending"],
   ["trailing newline", "hello\n", false, "pending"],

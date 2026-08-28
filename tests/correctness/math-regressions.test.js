@@ -86,3 +86,34 @@ describe("Markstream-derived math correctness", () => {
     },
   );
 });
+
+describe("same-line display delimiters", () => {
+  it("renders \\[ … \\] written on one line", () => {
+    // The form models emit most often. remark-math wants the fences on their
+    // own lines, so convertMath lifts the body onto one.
+    const document = parseMarkup(
+      renderStatic("Before\n\n\\[x^2 + y^2 = z^2\\]\n\nAfter", options),
+    );
+
+    expect(document.querySelector(".katex")).not.toBeNull();
+  });
+
+  it("still renders the multi-line form", () => {
+    expect(
+      parseMarkup(renderStatic("\\[\nx^2\n\\]", options)).querySelector(".katex"),
+    ).not.toBeNull();
+  });
+
+  it("survives arriving one character at a time", () => {
+    expect(
+      parseMarkup(renderStreamed("\\[x^2 + y^2\\]", 1, options)).querySelector(".katex"),
+    ).not.toBeNull();
+  });
+
+  it("leaves an escaped bracket that is not maths as text", () => {
+    const document = parseMarkup(renderStatic("\\[see notes\\]", options));
+
+    expect(document.querySelector(".katex")).toBeNull();
+    expect(document.body.textContent).toContain("[see notes]");
+  });
+});

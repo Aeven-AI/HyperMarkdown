@@ -95,6 +95,34 @@ describe("convertMath block notation", () => {
     );
   });
 
+  it("converts TeX display delimiters written on one line", () => {
+    // The form models emit most often. remark-math needs the fences on their
+    // own lines, so the body is lifted onto one.
+    expect(convertMath("Before\n\\[x^2 + y^2 = z^2\\]\nAfter")).toBe(
+      "Before\n\n$$\nx^2 + y^2 = z^2\n$$\n\nAfter",
+    );
+    expect(convertMath("\\[E = mc^2\\]")).toBe("\n$$\nE = mc^2\n$$\n");
+    expect(convertMath("  \\[ a^2 \\]  ")).toBe("\n$$\na^2\n$$\n");
+  });
+
+  it("leaves an escaped bracket that is not maths as written", () => {
+    // "\\[" is markdown's escape for a literal bracket; only a body that reads
+    // as maths is converted.
+    expect(convertMath("\\[see notes\\]")).toBe("\\[see notes\\]");
+    expect(convertMath("\\[TODO\\]")).toBe("\\[TODO\\]");
+    expect(convertMath('\\[{ "a": 1 }\\]')).toBe('\\[{ "a": 1 }\\]');
+  });
+
+  it("leaves a one-line display fence alone inside a code block", () => {
+    expect(convertMath("\\[x^2\\]", "code")).toBe("\\[x^2\\]");
+  });
+
+  it("does not convert a display fence sharing its line with prose", () => {
+    // Mid-sentence it is far more likely to be an escaped bracket, and
+    // remark-math would not read it as display maths there anyway.
+    expect(convertMath("text \\[x^2\\] more")).toBe("text \\[x^2\\] more");
+  });
+
   it("leaves non-math bracket blocks unchanged", () => {
     expect(convertMath("[\nplain prose\n]")).toBe("[\nplain prose\n]");
     expect(convertMath('[\n{ "a": 1 }\n]')).toBe('[\n{ "a": 1 }\n]');
