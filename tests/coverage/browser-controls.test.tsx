@@ -2,7 +2,7 @@
 import React, { createRef } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi, type Mock } from "vitest";
 
 import HyperMarkdown, { type HyperMarkdownHandle } from "../../index";
 import CodeHeader from "../../lib/code/header";
@@ -604,12 +604,23 @@ describe("diagram controls and engine lifecycle", () => {
     act(() => diagramRef.current.toggleFullScreen(true));
     expect(wrapper.scrollTo).toHaveBeenCalled();
     act(() => wrapper.dispatchEvent(new Event("scroll")));
+    const scrolls = () => (wrapper.scrollTo as unknown as Mock).mock.calls.length;
+
+    // scrollTo is stubbed once on the prototype for the whole file, so counts
+    // accumulate across tests: measure this sequence's own calls.
+    // Scrolled away from the bottom: following the content would yank the
+    // reader back, so scrollDown() leaves them where they are.
+    const atTop = scrolls();
     diagramRef.current.scrollDown();
+    expect(scrolls() - atTop).toBe(0);
+
+    // Pinned to the bottom: it follows the diagram as it grows.
     wrapper.scrollTop = 450;
     act(() => wrapper.dispatchEvent(new Event("scroll")));
     Object.defineProperty(wrapper, "scrollHeight", { configurable: true, value: 600 });
+    const atBottom = scrolls();
     diagramRef.current.scrollDown();
-    expect(wrapper.scrollTo).toHaveBeenCalledTimes(2);
+    expect(scrolls() - atBottom).toBe(1);
     act(() => diagramRef.current.toggleFullScreen(false));
     act(() => root.unmount());
   });

@@ -1,0 +1,15 @@
+{
+  /* The bottom of this package's `react: >=18` peer range. Paired with
+     tsconfig.react19.json, these pin both ends explicitly rather than letting
+     whichever @types/react happens to be installed decide what gets checked.
+     The typings arrive under aliased devDependencies so both majors can sit
+     side by side. */
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.react18.tsbuildinfo",
+    "paths": {
+      "react": ["./node_modules/types-react-18"],
+      "react/jsx-runtime": ["./node_modules/types-react-18/jsx-runtime"]
+    }
+  }
+}

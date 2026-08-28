@@ -1,7 +1,6 @@
 import React, {
   type ReactElement,
   type ReactNode,
-  type RefObject,
 } from "react";
 
 export interface TableShape {
@@ -23,11 +22,22 @@ interface TableElementProps {
  * column count grows as cells appear. Each is latched once it can no longer
  * change, so the table never re-styles itself mid-stream.
  */
+/**
+ * A settled-latch ref cell.
+ *
+ * Written structurally rather than as React's `RefObject`: React 18 types
+ * that as a readonly `current`, React 19 as a mutable one, and both satisfy
+ * this. `useRef<boolean>(false)` is assignable under either.
+ */
+interface MutableLatch {
+  current: boolean;
+}
+
 export function readTableShape(
   children: ReactNode,
   shape: TableShape,
-  headlessSettled: RefObject<boolean>,
-  columnsSettled: RefObject<boolean>,
+  headlessSettled: MutableLatch,
+  columnsSettled: MutableLatch,
 ): void {
   if (headlessSettled.current === true && columnsSettled.current === true) {
     return;

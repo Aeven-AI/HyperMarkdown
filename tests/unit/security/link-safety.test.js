@@ -47,15 +47,26 @@ describe("rehypeLinkSafety", () => {
 
   it("enforces separate link and image prefix allowlists", () => {
     const link = element("a", { href: "https://docs.example/page" });
-    const image = element("img", { src: "https://cdn.example/image.png" });
+    const image = element("img", { src: "https://cdn.example/image.png", alt: "chart" });
+    const tree = root([link, image]);
 
-    applyPolicy(root([link, image]), {
+    applyPolicy(tree, {
       allowedLinkPrefixes: ["https://docs.example/"],
       allowedImagePrefixes: ["https://images.example/"],
     });
 
     expect(link.properties.href).toBe("https://docs.example/page");
-    expect(image.properties).not.toHaveProperty("src");
+    // A disallowed image becomes its alt text: an <img> with the src removed
+    // would render as a broken-image placeholder carrying nothing.
+    expect(tree.children[1]).toEqual({ type: "text", value: "chart" });
+  });
+
+  it("leaves empty text where a disallowed image had no alt", () => {
+    const tree = root([element("img", { src: "https://cdn.example/x.png" })]);
+
+    applyPolicy(tree, { allowedImagePrefixes: ["https://images.example/"] });
+
+    expect(tree.children).toEqual([{ type: "text", value: "" }]);
   });
 
   it("allows only image data URLs when explicitly enabled", () => {
@@ -73,14 +84,25 @@ describe("rehypeLinkSafety", () => {
   });
 
   it("rejects data images when disabled", () => {
-    const image = element("img", { src: "data:image/svg+xml;base64,AAAA" });
+    const image = element("img", { src: "data:image/svg+xml;base64,AAAA", alt: "logo" });
+    const tree = root([image]);
 
-    applyPolicy(root([image]), {
+    applyPolicy(tree, {
       allowDataImages: false,
       allowedProtocols: ["https"],
     });
 
-    expect(image.properties).not.toHaveProperty("src");
+    expect(tree.children).toEqual([{ type: "text", value: "logo" }]);
+  });
+
+  it("treats an image whose src sanitization already stripped as rejected", () => {
+    // hast-util-sanitize runs first and removes a disallowed scheme outright,
+    // so this stage sees an <img> with no src at all — the same verdict.
+    const tree = root([element("img", { alt: "diagram" })]);
+
+    applyPolicy(tree);
+
+    expect(tree.children).toEqual([{ type: "text", value: "diagram" }]);
   });
 
   it("ignores unrelated elements and non-string URL properties", () => {

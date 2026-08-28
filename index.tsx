@@ -13,6 +13,7 @@ import Renderer from "./lib/renderer";
 import type { PluginConfig } from "./lib/plugin-types";
 import type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
 import type { ControlsConfig, IconMap, Translations } from "./lib/config";
+import type { HtmlMode, RendererComponents } from "./lib/processors";
 import { guid } from "./lib/runtime";
 
 // Layout effects warn during server rendering, where there is no DOM to
@@ -50,8 +51,22 @@ export interface HyperMarkdownProps {
   /** Class for a wrapping div. Without one, blocks render into a fragment. */
   className?: string | undefined;
   /**
+   * How raw HTML written in the markdown is treated: `"sanitize"` (default)
+   * parses it and drops what the schema disallows, `"literal"` never parses it
+   * so the markup reads as visible text and no author-supplied element can
+   * reach the DOM, `"raw"` parses it and applies no schema.
+   */
+  /**
+   * Components to render chosen tags with, merged over the built-in map — the
+   * way to decorate inline `code`, or to replace the built-in link, image,
+   * code-block or table rendering. Pass stable references: rehype-react keys
+   * elements by component identity, so a function rebuilt per render remounts.
+   */
+  components?: RendererComponents | undefined;
+  html?: HtmlMode | undefined;
+  /**
    * Turn sanitization off. Raw HTML then reaches the DOM as written — only for
-   * content you produced yourself.
+   * content you produced yourself. Superseded by `html`.
    */
   sanitize?: boolean | undefined;
   /** Extra tags and attributes to let through sanitization. */
@@ -285,6 +300,7 @@ export { default as MarkdownStream } from "./lib/renderer";
 /** @deprecated Internal engine options retained for API compatibility. */
 export type { RendererOptions as MarkdownStreamOptions } from "./lib/types";
 export type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
+export type { HtmlMode, RendererComponents } from "./lib/processors";
 export type {
   ControlsConfig,
   BlockControls,

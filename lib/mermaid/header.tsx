@@ -192,6 +192,7 @@ class Header extends Component<HeaderProps> {
                 <button
                   type="button"
                   className="mermaid-icon-button first"
+                  aria-label={translations.fullScreen}
                   onClick={vm.toggleFullScreen}
                 >
                   <span className="button-content">
@@ -223,6 +224,7 @@ class Header extends Component<HeaderProps> {
                     <button
                       type="button"
                       className="mermaid-icon-button last"
+                      aria-label={translations.copy}
                       onClick={vm.copyContent}
                     >
                       <span className="button-content">

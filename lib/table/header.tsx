@@ -166,6 +166,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
               <button
                 type="button"
                 className="table-icon-button first"
+                aria-label={translations.fullScreen}
                 onClick={toggleFullScreen}
               >
                 <span className="button-content">
@@ -198,6 +199,7 @@ function TableHeaderComponent(props: TableHeaderProps) {
                   <button
                     type="button"
                     className="table-icon-button last"
+                    aria-label={translations.copy}
                     onClick={copyContent}
                   >
                     <span className="button-content">

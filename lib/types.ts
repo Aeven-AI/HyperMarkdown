@@ -3,6 +3,7 @@ import type { Data } from "vfile";
 
 import type { PluginConfig } from "./plugin-types";
 import type { AllowedTags, LinkSafetyConfig } from "./sanitize";
+import type { HtmlMode, RendererComponents } from "./processors";
 import type { UiOptions } from "./config";
 
 /** How a block of streamed markdown is classified while it is still arriving. */
@@ -70,6 +71,16 @@ export interface RendererOptions extends UiOptions {
    * Turn sanitization off. Raw HTML in the markdown then reaches the DOM as
    * written — only ever do this for content you produced yourself.
    */
+  /**
+   * Components to render chosen tags with, merged over the built-in map.
+   *
+   * The renderer already claims `a`, `img`, `pre`, `table` and `m`; anything
+   * here wins over those and can also claim tags it leaves alone, such as
+   * inline `code`. Pass stable references — rehype-react keys elements by
+   * component identity, so a function rebuilt per render remounts its element.
+   */
+  components?: RendererComponents | undefined;
+  html?: HtmlMode | undefined;
   sanitize?: boolean | undefined;
   /** Extra tags and attributes to let through sanitization. */
   allowedTags?: AllowedTags | undefined;

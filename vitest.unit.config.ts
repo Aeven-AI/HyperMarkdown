@@ -31,7 +31,6 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.{js,ts,tsx}"],
     coverage: {
       provider: "v8",
-      all: true,
       include: unitSources,
       reporter: ["text", "json-summary", "html"],
       reportsDirectory: "coverage/unit",

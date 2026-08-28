@@ -24,6 +24,7 @@ import { buildSchema, resolveLinkSafety } from "./sanitize";
 import type { PluginConfig } from "./plugin-types";
 import type { AllowedTags, LinkSafetyConfig } from "./sanitize";
 import type { ProcessorType } from "./types";
+import type { Text as HastText } from "hast";
 
 /**
  * The tags a renderer replaces with components of its own. rehype-react keys
@@ -120,14 +121,59 @@ const PIPELINES: Record<ProcessorType, PipelineShape> = {
  * unhighlighted code, no diagram plugin means a mermaid fence renders as the
  * code block it is written as.
  */
+/** What a pipeline does with raw HTML written in the markdown source. */
+export type HtmlMode = "sanitize" | "literal" | "raw";
+
 /** The safety settings a pipeline is built with. */
 export interface SafetyOptions {
-  /** Turn sanitization off. Only for content you produced yourself. */
+  /**
+   * How raw HTML in the source is treated.
+   *
+   * - `"sanitize"` (default) parses it and drops whatever the schema
+   *   disallows, so vetted markup reaches the DOM.
+   * - `"literal"` never parses it. The markup is rendered as visible text, so
+   *   no author-supplied element can enter the DOM under any schema gap. This
+   *   is the stronger guarantee for untrusted model output, and the weaker
+   *   feature: a deliberate `<br>` shows up as characters.
+   * - `"raw"` parses it and applies no schema at all. Only for content you
+   *   produced yourself.
+   *
+   * Left unset, `sanitize: false` still selects `"raw"`.
+   */
+  html?: HtmlMode | undefined;
+  /** Turn sanitization off. Superseded by `html`; kept for existing callers. */
   sanitize?: boolean | undefined;
   /** Extra tags and attributes to let through. */
   allowedTags?: AllowedTags | undefined;
   /** Where links and images may point. */
   linkSafety?: LinkSafetyConfig | undefined;
+}
+
+/**
+ * Resolve the effective HTML mode from the two settings that can express it.
+ * @param safety - The pipeline's safety settings.
+ * @returns The mode to build the pipeline with.
+ */
+function htmlMode(safety: SafetyOptions): HtmlMode {
+  if (safety.html !== undefined) {
+    return safety.html;
+  }
+
+  return safety.sanitize === false ? "raw" : "sanitize";
+}
+
+/**
+ * remark-rehype handler turning a raw HTML node into the text of its own
+ * markup.
+ *
+ * Without a handler, remark-rehype drops raw HTML rather than showing it, so
+ * `<b>hi</b>` would vanish instead of reading literally.
+ * @param _state - remark-rehype's transform state, unused.
+ * @param node - The mdast html node.
+ * @returns A hast text node carrying the markup verbatim.
+ */
+function literalHtml(_state: unknown, node: { value: string }): HastText {
+  return { type: "text", value: node.value };
 }
 
 export function createProcessor(
@@ -163,7 +209,9 @@ export function createProcessor(
   // Straight after rehype-raw and before anything this renderer generates
   // itself: maths, highlighting, diagram elements and animation spans are all
   // built from already-clean content, so none of them needs whitelisting.
-  if (safety.sanitize !== false) {
+  const mode = htmlMode(safety);
+
+  if (mode !== "raw") {
     const linkSafety = resolveLinkSafety(safety.linkSafety);
 
     afterRehype.push([
@@ -204,6 +252,19 @@ export function createProcessor(
         components,
       },
     ]);
+  }
+
+  if (mode === "literal") {
+    // No rehype-raw: the markup never becomes elements, so there is no schema
+    // for a gap to open in. It reaches the reader as the characters written.
+    return unified()
+      .use(remarkParse)
+      .use(beforeRehype)
+      .use(remarkRehype, {
+        handlers: { html: literalHtml },
+        footnoteLabel: "References",
+      })
+      .use(afterRehype);
   }
 
   return unified()

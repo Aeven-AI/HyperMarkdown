@@ -51,7 +51,6 @@ export default defineConfig({
     setupFiles: ["./tests/setup/jsdom-storage.ts"],
     coverage: {
       provider: "v8",
-      all: true,
       include: ["index.tsx", "lib/**/*.{ts,tsx}"],
       exclude: [
         "lib/**/*.d.ts",

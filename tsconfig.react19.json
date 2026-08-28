@@ -1,0 +1,18 @@
+{
+  /* A second pass over the same product source with React 19's type
+     definitions. This package declares `react: >=18` as a peer but pins 18 in
+     devDependencies, so the ordinary typecheck only ever exercises one side of
+     that range. Without this, a React-19-only idiom — a mutable
+     `RefObject.current`, an element whose props only resolve under 19's
+     `ReactElement` default — compiles clean here and breaks for a consumer on
+     19. The 19 typings arrive under aliased devDependencies so they can sit
+     beside the pinned 18 ones. */
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.react19.tsbuildinfo",
+    "paths": {
+      "react": ["./node_modules/types-react-19"],
+      "react/jsx-runtime": ["./node_modules/types-react-19/jsx-runtime"]
+    }
+  }
+}

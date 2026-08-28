@@ -208,6 +208,7 @@ class Header extends Component<HeaderProps> {
           <button
             type="button"
             className="codeblock-icon-button first"
+            aria-label={ui.translations.preview}
             onClick={(event) => {
               vm.openPreviewCode(event);
             }}
@@ -276,6 +277,7 @@ class Header extends Component<HeaderProps> {
                 <button
                   type="button"
                   className="codeblock-icon-button first"
+                  aria-label={translations.fullScreen}
                   onClick={(event) => {
                     vm.toggleFullScreen(event);
                   }}
@@ -309,6 +311,7 @@ class Header extends Component<HeaderProps> {
                     <button
                       type="button"
                       className="codeblock-icon-button last"
+                      aria-label={translations.copyCode}
                       onClick={vm.copyContent}
                     >
                       <span className="button-content">

@@ -8,13 +8,14 @@ import type { ResolvedLinkSafety } from "../sanitize";
  * Keep links and images pointing somewhere the host is willing to send people.
  *
  * Sanitization already removes scripting attributes; this is the separate
- * question of *where* a URL may point. A disallowed link keeps its text and
- * loses its destination rather than disappearing, so nothing silently vanishes
- * from what the reader was sent.
+ * question of *where* a URL may point. Nothing silently vanishes from what the
+ * reader was sent: a disallowed link keeps its text and loses its destination,
+ * and a disallowed image becomes its alt text — an `<img>` stripped of `src`
+ * would render as a broken-image placeholder carrying nothing at all.
  */
 export function rehypeLinkSafety(config: ResolvedLinkSafety) {
   return (tree: HastRoot) => {
-    visit(tree, "element", (node) => {
+    visit(tree, "element", (node, index, parent) => {
       if (node.tagName === "a") {
         const href = node.properties?.["href"];
 
@@ -25,11 +26,30 @@ export function rehypeLinkSafety(config: ResolvedLinkSafety) {
 
       if (node.tagName === "img") {
         const src = node.properties?.["src"];
+        // A non-string src means sanitization already removed a disallowed
+        // scheme upstream of this stage, which is the same verdict.
+        const rejected = typeof src === "string" ? !allowed(src, true) : true;
 
-        if (typeof src === "string" && !allowed(src, true)) {
-          delete node.properties["src"];
+        if (rejected) {
+          if (parent === undefined || index === undefined) {
+            // No parent to splice into (a root-level image is not something
+            // remark produces); dropping the destination is all that is left.
+            delete node.properties["src"];
+            return;
+          }
+
+          const alt = node.properties?.["alt"];
+
+          parent.children.splice(index, 1, {
+            type: "text",
+            value: typeof alt === "string" ? alt : "",
+          });
+
+          return index;
         }
       }
+
+      return undefined;
     });
   };
 

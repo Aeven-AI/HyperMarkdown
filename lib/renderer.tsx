@@ -7,6 +7,16 @@ import React, {
 
 import { createPortal } from "react-dom";
 
+/**
+ * What a rehype-react pipeline compiles to.
+ *
+ * unified types `processSync().result` through its `CompileResultMap`,
+ * which resolves differently across `@types/react` major versions. Naming
+ * the one shape this renderer relies on keeps the source compiling against
+ * React 18 and 19 alike, matching the package's `react: >=18` peer range.
+ */
+type CompiledElement = ReactElement<{ children?: ReactNode[] }>;
+
 import * as runtime from "./runtime";
 
 import MarkdownCode from "./code";
@@ -23,6 +33,7 @@ import type { UiConfig } from "./config";
 
 import type { PluginConfig } from "./plugin-types";
 import { cellComponents, createComponents } from "./components";
+import type { RendererComponents } from "./processors";
 import { collectReferences } from "./stream/references";
 import { CodeCache, type LineHighlighter } from "./cache/code";
 import { ListCache } from "./cache/list";
@@ -93,7 +104,9 @@ class Renderer {
   private codeCache = new CodeCache();
   private tableCache = new TableCache();
   private listCache = new ListCache();
-  private components!: ReturnType<typeof createComponents>;
+  private components!: ReturnType<typeof createComponents> & RendererComponents;
+  /** Host-supplied component overrides, applied to every component map. */
+  private componentOverrides!: RendererComponents;
   private processor!: ReturnType<typeof createProcessor>;
   private processorStream!: ReturnType<typeof createProcessor>;
   private processorAnimation!: ReturnType<typeof createProcessor>;
@@ -154,11 +167,13 @@ class Renderer {
     this.plugins = options.plugins ?? {};
     this.ui = resolveUi(options);
     this.safety = {
+      html: options.html,
       sanitize: options.sanitize,
       allowedTags: options.allowedTags,
       linkSafety: options.linkSafety,
     };
-    this.components = createComponents(this);
+    this.componentOverrides = options.components ?? {};
+    this.components = { ...createComponents(this), ...this.componentOverrides };
 
     const build = (type: ProcessorType) =>
       createProcessor(type, this.components, this.plugins, this.safety);
@@ -1274,7 +1289,7 @@ class Renderer {
         }
       }
 
-      return processor.processSync(file).result;
+      return processor.processSync(file).result as CompiledElement;
     }
   }
 
@@ -1362,12 +1377,18 @@ class Renderer {
         : vm.processorTableCacheAnimation();
 
     if (type === "table") {
-      vm.tableCache.append(md, processorCache, cellComponents(vm));
+      vm.tableCache.append(md, processorCache, {
+        ...cellComponents(vm),
+        ...vm.componentOverrides,
+      });
       return;
     }
 
     if (type === "list") {
-      vm.listCache.append(md, processorCache, cellComponents(vm));
+      vm.listCache.append(md, processorCache, {
+        ...cellComponents(vm),
+        ...vm.componentOverrides,
+      });
     }
   }
 
@@ -1418,7 +1439,7 @@ class Renderer {
 
     let processor;
 
-    let footnotes;
+    let footnotes: CompiledElement | undefined;
 
     const vm = this;
     const state = vm.state;
@@ -1435,7 +1456,8 @@ class Renderer {
           processor = vm.processorFootnoteAnimation();
         }
 
-        footnotes = processor.processSync(vm.footnoteBuffer).result;
+        footnotes = processor.processSync(vm.footnoteBuffer)
+          .result as CompiledElement;
 
         if (footnotes && footnotes.props.children) {
           for (
@@ -1443,8 +1465,12 @@ class Renderer {
             i < iCount;
             i++
           ) {
-            if (footnotes.props.children[i]?.type === "section") {
-              vm.cachedFootnotes = footnotes.props.children[i];
+            const child = footnotes.props.children[i];
+
+            // A compiled child may be a bare string or number, so narrow
+            // before reading `type` rather than casting the whole array.
+            if (React.isValidElement(child) && child.type === "section") {
+              vm.cachedFootnotes = child;
             }
           }
         }
