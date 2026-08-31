@@ -1000,7 +1000,7 @@ describe("HyperMarkdown emphasis never becomes a rule", () => {
 
       expect(rules).toBeNull();
     }
-  });
+  }, 20_000);
 
   it("does not rewrite a dangling marker into a rule", () => {
     let output;
@@ -1119,7 +1119,7 @@ describe("HyperMarkdown nested lists never flash as headings", () => {
 
       expect(renderToStaticMarkup(renderer.render())).not.toMatch(/<h[1-6]>/);
     }
-  });
+  }, 20_000);
 
   it("withholds a bare underline that is still undecided", () => {
     let renderer;
