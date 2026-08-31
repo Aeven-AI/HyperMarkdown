@@ -15,6 +15,7 @@ name: Publish
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -42,10 +43,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # Do not set registry-url. setup-node writes
+      # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} and a dummy token,
+      # which makes npm skip OIDC trusted publishing and fail with E404.
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
       # Trusted publishing needs npm >= 11.5.1. Node 22 may ship an older CLI.
@@ -53,6 +56,7 @@ jobs:
         run: npm install -g npm@^11.5.1
 
       - name: Match package version to release tag
+        if: github.event_name == 'release'
         run: |
           pkg=$(node -p "require('./package.json').version")
           tag="${GITHUB_REF_NAME#v}"
@@ -68,4 +72,12 @@ jobs:
         run: npm run build
 
       - name: Publish
-        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ""
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          if npm view "@aeven-ai/hypermarkdown@$pkg" version >/dev/null 2>&1; then
+            echo "@aeven-ai/hypermarkdown@$pkg is already on npm; skipping publish"
+            exit 0
+          fi
+          npm publish --access public
