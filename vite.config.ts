@@ -58,7 +58,7 @@ export default defineConfig({
         "lib/repair/types.ts",
         "lib/types.ts",
       ],
-      reporter: ["text", "json-summary", "html"],
+      reporter: ["text", "json-summary", "json", "html", "lcov"],
       reportsDirectory: "coverage/all",
       thresholds: {
         branches: 100,

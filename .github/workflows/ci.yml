@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Lint, typecheck, test, coverage, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit coverage
+        run: npm run test:coverage:unit -- --reporter=default --reporter=github-actions
+
+      - name: Full coverage
+        run: npm run test:coverage -- --reporter=default --reporter=github-actions
+
+      - name: Build
+        run: npm run build
+
+      - name: Pack
+        run: npm pack --dry-run
+
+      - name: Upload coverage reports
+        if: always() && hashFiles('coverage/**/coverage-summary.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+          retention-days: 14
+
+      - name: Report unit coverage
+        if: always() && hashFiles('coverage/unit/coverage-summary.json') != ''
+        continue-on-error: true
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: Unit
+          json-summary-path: coverage/unit/coverage-summary.json
+          json-final-path: coverage/unit/coverage-final.json
+          file-coverage-mode: changes
+
+      - name: Report full coverage
+        if: always() && hashFiles('coverage/all/coverage-summary.json') != ''
+        continue-on-error: true
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: All
+          json-summary-path: coverage/all/coverage-summary.json
+          json-final-path: coverage/all/coverage-final.json
+          file-coverage-mode: changes

@@ -107,13 +107,15 @@ class Renderer {
   private components!: ReturnType<typeof createComponents> & RendererComponents;
   /** Host-supplied component overrides, applied to every component map. */
   private componentOverrides!: RendererComponents;
-  private processor!: ReturnType<typeof createProcessor>;
-  private processorStream!: ReturnType<typeof createProcessor>;
-  private processorAnimation!: ReturnType<typeof createProcessor>;
-  private processorTableCache!: ReturnType<typeof createProcessor>;
-  private processorTableCacheAnimation!: ReturnType<typeof createProcessor>;
-  private processorFootnote!: ReturnType<typeof createProcessor>;
-  private processorFootnoteAnimation!: ReturnType<typeof createProcessor>;
+  /**
+   * Pipelines are expensive to freeze: unified calls every configured plugin
+   * attacher while doing it. Build each shape only when it is first needed,
+   * then process every later file through that same frozen processor.
+   */
+  private processors = new Map<
+    ProcessorType,
+    ReturnType<typeof createProcessor>
+  >();
 
   constructor(options: RendererOptions = {}) {
     const props = options;
@@ -174,19 +176,6 @@ class Renderer {
     };
     this.componentOverrides = options.components ?? {};
     this.components = { ...createComponents(this), ...this.componentOverrides };
-
-    const build = (type: ProcessorType) =>
-      createProcessor(type, this.components, this.plugins, this.safety);
-
-    this.processor = build("regular");
-    this.processorStream = build("regular-stream");
-    this.processorAnimation = build("regular-animation");
-
-    this.processorTableCache = build("cached-table");
-    this.processorTableCacheAnimation = build("cached-table-animation");
-
-    this.processorFootnote = build("footnote");
-    this.processorFootnoteAnimation = build("footnote-animation");
 
     this.cachedData = this.initializeCache(this.state);
   }
@@ -418,6 +407,7 @@ class Renderer {
     let closes;
     let blockType: BlockType;
     let previousBuffer;
+    let closeObject: BlockBoundary;
 
     const vm = this;
 
@@ -442,12 +432,11 @@ class Renderer {
       // delta: re-processing it would re-commit the same unfinished block,
       // and an unfinished block renders differently from the settled one it
       // becomes. Finalization has no next delta, so it drains what is left.
-      closes =
-        finalize === true ||
-        findBlockBoundary(vm.mdBuffer, blockType, {
-          footnotes: vm.footnotes,
-          mdExtra: vm.mdExtra,
-        })?.close === true;
+      closeObject = findBlockBoundary(vm.mdBuffer, blockType, {
+        footnotes: vm.footnotes,
+        mdExtra: vm.mdExtra,
+      });
+      closes = finalize === true || closeObject.close === true;
 
       // An open block renders at most once per delta, and only from a delta
       // that consumed nothing before it. Rendering a tail after a boundary has
@@ -455,7 +444,14 @@ class Renderer {
       // then fails to replace, which is how an indented code block loses the
       // chrome the finished document gives it. Left in the buffer, the tail
       // renders on the next delta exactly as it always has.
-      vm.streamProcess(blockType, mdState, streaming, animation, finalize);
+      vm.streamProcess(
+        blockType,
+        mdState,
+        streaming,
+        animation,
+        finalize,
+        closeObject,
+      );
 
       if (!closes) {
         return;
@@ -475,6 +471,7 @@ class Renderer {
     streaming: boolean,
     animation: boolean,
     finalize: boolean,
+    boundary?: BlockBoundary,
   ): void {
     let pending;
     let mdBuffer;
@@ -488,10 +485,12 @@ class Renderer {
     if (references !== null) {
       vm.footnoteBuffer = references;
     }
-    closeObject = findBlockBoundary(vm.mdBuffer, blockType, {
-      footnotes: vm.footnotes,
-      mdExtra: vm.mdExtra,
-    });
+    closeObject =
+      boundary ??
+      findBlockBoundary(vm.mdBuffer, blockType, {
+        footnotes: vm.footnotes,
+        mdExtra: vm.mdExtra,
+      });
 
     if (finalize === true && closeObject && closeObject.close !== true) {
       closeObject = {
@@ -1285,7 +1284,7 @@ class Renderer {
           value: md,
           data: data,
         };
-        processor = vm.processor();
+        processor = vm.processorFor("regular");
       } else {
         file = {
           value: md,
@@ -1310,14 +1309,35 @@ class Renderer {
         }
 
         if (animation !== true) {
-          processor = vm.processorStream();
+          processor = vm.processorFor("regular-stream");
         } else {
-          processor = vm.processorAnimation();
+          processor = vm.processorFor("regular-animation");
         }
       }
 
       return processor.processSync(file).result as CompiledElement;
     }
+  }
+
+  /** Return one lazily-created processor, reused after unified freezes it. */
+  private processorFor(
+    type: ProcessorType,
+  ): ReturnType<typeof createProcessor> {
+    const cached = this.processors.get(type);
+
+    if (cached) {
+      return cached;
+    }
+
+    const processor = createProcessor(
+      type,
+      this.components,
+      this.plugins,
+      this.safety,
+    );
+
+    this.processors.set(type, processor);
+    return processor;
   }
 
   /**
@@ -1400,8 +1420,8 @@ class Renderer {
 
     const processorCache =
       animation !== true
-        ? vm.processorTableCache()
-        : vm.processorTableCacheAnimation();
+        ? vm.processorFor("cached-table")
+        : vm.processorFor("cached-table-animation");
 
     if (type === "table") {
       vm.tableCache.append(md, processorCache, {
@@ -1478,9 +1498,9 @@ class Renderer {
         return vm.cachedFootnotes;
       } else {
         if (state.animation !== true) {
-          processor = vm.processorFootnote();
+          processor = vm.processorFor("footnote");
         } else {
-          processor = vm.processorFootnoteAnimation();
+          processor = vm.processorFor("footnote-animation");
         }
 
         footnotes = processor.processSync(vm.footnoteBuffer)

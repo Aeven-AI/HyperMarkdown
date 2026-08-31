@@ -32,7 +32,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: unitSources,
-      reporter: ["text", "json-summary", "html"],
+      reporter: ["text", "json-summary", "json", "html", "lcov"],
       reportsDirectory: "coverage/unit",
       thresholds: {
         branches: 100,

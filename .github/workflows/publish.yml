@@ -1,0 +1,71 @@
+# Publishes @aeven-ai/hypermarkdown to npm when a GitHub Release is published.
+#
+# One-time setup on npmjs.com → package → Settings → Trusted Publisher:
+#   Organization or user: Aeven-AI
+#   Repository:           HyperMarkdown
+#   Workflow filename:    publish.yml
+#   Environment name:     npm
+#   Allowed actions:      npm publish
+#
+# GitHub → Settings → Environments → create `npm` (optional approval reviewers).
+# No NPM_TOKEN is required. Provenance is generated automatically.
+
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  quality:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+
+  publish:
+    name: Publish to npm
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      # Trusted publishing needs npm >= 11.5.1. Node 22 may ship an older CLI.
+      - name: Use npm 11
+        run: npm install -g npm@^11.5.1
+
+      - name: Match package version to release tag
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$pkg" != "$tag" ]; then
+            echo "package.json version $pkg does not match release tag $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --access public

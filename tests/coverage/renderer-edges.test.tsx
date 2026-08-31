@@ -44,7 +44,19 @@ describe("renderer defensive and callback paths", () => {
     renderer.blockType = "pending";
     renderer.streamProcess = vi.fn();
     renderer.drainMd([], true, false, true);
-    expect(renderer.streamProcess).toHaveBeenCalledWith("text", [], true, false, true);
+    expect(renderer.streamProcess).toHaveBeenCalledWith(
+      "text",
+      [],
+      true,
+      false,
+      true,
+      {
+        close: false,
+        md: "stalled",
+        mdClose: "",
+        mdNext: "",
+      },
+    );
   });
 
   it("recognizes component roots and rejects unrelated React shapes", () => {
