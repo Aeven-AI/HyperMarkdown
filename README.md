@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/Aeven-AI/HyperMarkdown/actions/workflows/ci.yml/badge.svg)](https://github.com/Aeven-AI/HyperMarkdown/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@aeven-ai/hypermarkdown)](https://www.npmjs.com/package/@aeven-ai/hypermarkdown)
+[![site](https://img.shields.io/badge/site-aeven--ai.github.io-111113)](https://aeven-ai.github.io/HyperMarkdown/)
 
 ### Ridiculously fast Markdown for React and AI.
 
@@ -538,7 +539,13 @@ npm run typecheck
 npm run lint
 npm run build
 npm run benchmark
+npm run website:dev
 ```
+
+The documentation site and playground live in `website/` and deploy to
+[GitHub Pages](https://aeven-ai.github.io/HyperMarkdown/) from
+`.github/workflows/pages.yml`. Set the repository Pages source to **GitHub
+Actions**.
 
 Pull requests and pushes to `main` run lint, typecheck (React 18 and 19), unit
 and full coverage, and a production build. Both coverage gates are 100%
