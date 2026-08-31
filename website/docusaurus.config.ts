@@ -2,12 +2,43 @@ import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 
+const baseUrl = "/HyperMarkdown/";
+const geistSans = `${baseUrl}fonts/geist-latin-wght-normal.woff2`;
+const geistMono = `${baseUrl}fonts/geist-mono-latin-wght-normal.woff2`;
+
 const config: Config = {
   title: "HyperMarkdown",
   tagline: "Ridiculously fast Markdown for React and AI.",
   favicon: "img/favicon.svg",
   url: "https://aeven-ai.github.io",
-  baseUrl: "/HyperMarkdown/",
+  baseUrl,
+  headTags: [
+    {
+      tagName: "link",
+      attributes: {
+        rel: "preload",
+        href: geistSans,
+        as: "font",
+        type: "font/woff2",
+        crossorigin: "anonymous",
+      },
+    },
+    {
+      tagName: "link",
+      attributes: {
+        rel: "preload",
+        href: geistMono,
+        as: "font",
+        type: "font/woff2",
+        crossorigin: "anonymous",
+      },
+    },
+    {
+      tagName: "style",
+      attributes: { type: "text/css" },
+      innerHTML: `@font-face{font-family:Geist;src:url("${geistSans}") format("woff2");font-weight:100 900;font-style:normal;font-display:optional}@font-face{font-family:"Geist Mono";src:url("${geistMono}") format("woff2");font-weight:100 900;font-style:normal;font-display:optional}`,
+    },
+  ],
   organizationName: "Aeven-AI",
   projectName: "HyperMarkdown",
   onBrokenLinks: "throw",
@@ -58,6 +89,7 @@ const config: Config = {
       logo: {
         alt: "HyperMarkdown",
         src: "img/logo.svg",
+        srcDark: "img/logo-dark.svg",
       },
       items: [
         { type: "docSidebar", sidebarId: "docs", label: "Docs", position: "left" },
@@ -65,7 +97,7 @@ const config: Config = {
         { to: "/playground", label: "Playground", position: "left" },
         {
           href: "https://www.npmjs.com/package/@aeven-ai/hypermarkdown",
-          label: "npm",
+          label: "NPM",
           position: "right",
         },
         {
@@ -90,7 +122,7 @@ const config: Config = {
           title: "Install",
           items: [
             {
-              label: "npm",
+              label: "NPM",
               href: "https://www.npmjs.com/package/@aeven-ai/hypermarkdown",
             },
             {

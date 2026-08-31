@@ -63,7 +63,6 @@ export default function Home() {
       <div className="home">
         <header className="home-hero">
           <div className="home-wrap">
-            <p className="home-kicker">Streaming Markdown · React · AI</p>
             <h1>Ridiculously fast Markdown for React and AI.</h1>
             <p className="tagline">Parse the change. Not the conversation.</p>
             <div className="home-actions">
@@ -77,75 +76,77 @@ export default function Home() {
                 className="home-btn ghost"
                 href="https://www.npmjs.com/package/@aeven-ai/hypermarkdown"
               >
-                npm
+                NPM
               </a>
             </div>
             <InstallCommand />
 
-            <p className="home-kicker">Performance overview</p>
-            <div className="headline-compare" style={{ margin: "0.8rem 0 1.1rem" }}>
-              <div className="compare-pill">
-                <strong>1.6×–10.6×</strong>
-                <span>Faster than the nearest streaming renderer across the suite.</span>
-              </div>
-              <div className="compare-pill">
-                <strong>{formatMs(code.values.HyperMarkdown)}</strong>
-                <span>
-                  vs {formatMs(code.values["markstream-react"])} on a captured AI
-                  code stream.
-                </span>
-              </div>
-              <div className="compare-pill">
-                <strong>{formatMs(table.values.HyperMarkdown)}</strong>
-                <span>Captured AI table. Streamdown: {formatMs(table.values.streamdown)}.</span>
-              </div>
-            </div>
-            <article className="bench-card">
-              <header>
-                <div>
-                  <h2>Production streaming benchmark</h2>
-                  <p className="bench-meta">
-                    {benchmark.environment.cpu}, Node {benchmark.environment.node}.
-                    Chunk processing plus synchronous React commit. Same Markdown.
-                    Same stream.
-                  </p>
+            <section className="home-overview">
+              <p className="home-kicker">Performance overview</p>
+              <div className="headline-compare" style={{ margin: "0.8rem 0 1.1rem" }}>
+                <div className="compare-pill">
+                  <strong>1.6×–10.6×</strong>
+                  <span>Faster than the nearest streaming renderer across the suite.</span>
                 </div>
-                <Link className="bench-meta" to="/docs/benchmarks">
-                  Methodology →
-                </Link>
-              </header>
-              <div style={{ overflowX: "auto" }}>
-                <table className="bench-table">
-                  <thead>
-                    <tr>
-                      <th>Workload</th>
-                      {renderers.map(([key, label]) => (
-                        <th key={key}>{label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {benchmark.fixtures.map((fixture) => (
-                      <tr key={fixture.fixture}>
-                        <td>{fixture.label}</td>
-                        {renderers.map(([key]) => {
-                          const value = fixture.values[key];
-                          const best = Math.min(...Object.values(fixture.values));
-                          return (
-                            <td
-                              key={key}
-                              className={value === best ? "bench-best" : undefined}
-                            >
-                              {value === best ? <strong>{formatMs(value)}</strong> : formatMs(value)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="compare-pill">
+                  <strong>{formatMs(code.values.HyperMarkdown)}</strong>
+                  <span>
+                    vs {formatMs(code.values["markstream-react"])} on a captured AI
+                    code stream.
+                  </span>
+                </div>
+                <div className="compare-pill">
+                  <strong>{formatMs(table.values.HyperMarkdown)}</strong>
+                  <span>Captured AI table. Streamdown: {formatMs(table.values.streamdown)}.</span>
+                </div>
               </div>
-            </article>
+              <article className="bench-card">
+                <header>
+                  <div>
+                    <h2>Production streaming benchmark</h2>
+                    <p className="bench-meta">
+                      {benchmark.environment.cpu}, Node {benchmark.environment.node}.
+                      Chunk processing plus synchronous React commit. Same Markdown.
+                      Same stream.
+                    </p>
+                  </div>
+                  <Link className="bench-meta" to="/docs/benchmarks">
+                    Methodology →
+                  </Link>
+                </header>
+                <div style={{ overflowX: "auto" }}>
+                  <table className="bench-table">
+                    <thead>
+                      <tr>
+                        <th>Workload</th>
+                        {renderers.map(([key, label]) => (
+                          <th key={key}>{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {benchmark.fixtures.map((fixture) => (
+                        <tr key={fixture.fixture}>
+                          <td>{fixture.label}</td>
+                          {renderers.map(([key]) => {
+                            const value = fixture.values[key];
+                            const best = Math.min(...Object.values(fixture.values));
+                            return (
+                              <td
+                                key={key}
+                                className={value === best ? "bench-best" : undefined}
+                              >
+                                {value === best ? <strong>{formatMs(value)}</strong> : formatMs(value)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </section>
           </div>
         </header>
 

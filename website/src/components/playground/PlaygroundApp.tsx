@@ -6,11 +6,10 @@ import {
 import { pluginsFor } from "../markdown/sitePlugins";
 import {
   cjkDemo,
-  homepageDemo,
   mathDemo,
   mermaidDemo,
+  playgroundDemo,
   proseDemo,
-  reasoningDemo,
 } from "../../data/demoMarkdown";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import "@aeven-ai/hypermarkdown/styles.css";
@@ -27,7 +26,7 @@ interface Flags {
 }
 
 const examples: { id: string; label: string; load: (base: string) => Promise<string> }[] = [
-  { id: "demo", label: "Streaming demo", load: async () => homepageDemo },
+  { id: "demo", label: "Streaming demo", load: async () => playgroundDemo },
   { id: "prose", label: "Mixed prose", load: async () => proseDemo },
   {
     id: "code",
@@ -41,7 +40,6 @@ const examples: { id: string; label: string; load: (base: string) => Promise<str
   },
   { id: "math", label: "Math", load: async () => mathDemo },
   { id: "mermaid", label: "Mermaid", load: async () => mermaidDemo },
-  { id: "reasoning", label: "Reasoning", load: async () => reasoningDemo },
   { id: "cjk", label: "CJK", load: async () => cjkDemo },
 ];
 
@@ -54,10 +52,13 @@ function readState(search: string) {
     cjk: params.get("cjk") === "1",
   };
   return {
-    example: params.get("example") ?? "demo",
+    example: examples.some((item) => item.id === (params.get("example") ?? "demo"))
+      ? (params.get("example") ?? "demo")
+      : "demo",
     mode: (params.get("mode") === "static" ? "static" : "stream") as Mode,
     chunk: Number(params.get("chunk") || 16) || 16,
     delay: Number(params.get("delay") || 20) || 20,
+    animation: params.get("animation") !== "0",
     flags,
   };
 }
@@ -76,11 +77,12 @@ export default function PlaygroundApp() {
     [],
   );
   const renderer = useRef<HyperMarkdownHandle>(null);
-  const [source, setSource] = useState(homepageDemo);
+  const [source, setSource] = useState(playgroundDemo);
   const [example, setExample] = useState(initial.example);
   const [mode, setMode] = useState<Mode>(initial.mode);
   const [chunk, setChunk] = useState(initial.chunk);
   const [delay, setDelay] = useState(initial.delay);
+  const [animation, setAnimation] = useState(initial.animation);
   const [flags, setFlags] = useState<Flags>(initial.flags);
   const [playing, setPlaying] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -102,6 +104,7 @@ export default function PlaygroundApp() {
       mode,
       chunk: String(chunk),
       delay: String(delay),
+      animation: animation ? "1" : "0",
       math: flags.math ? "1" : "0",
       code: flags.code ? "1" : "0",
       mermaid: flags.mermaid ? "1" : "0",
@@ -109,7 +112,7 @@ export default function PlaygroundApp() {
     });
     const next = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState(null, "", next);
-  }, [example, mode, chunk, delay, flags]);
+  }, [example, mode, chunk, delay, animation, flags]);
 
   useEffect(() => {
     const spec = examples.find((item) => item.id === example) ?? examples[0]!;
@@ -123,7 +126,7 @@ export default function PlaygroundApp() {
         resetMetrics();
         renderer.current?.reset();
       })
-      .catch(() => setSource(homepageDemo));
+      .catch(() => setSource(playgroundDemo));
   }, [example, baseUrl]);
 
   const stopTimer = () => {
@@ -222,7 +225,7 @@ export default function PlaygroundApp() {
 ref.current?.write(delta${mode === "static" ? ", true" : ""});
 ${mode === "stream" ? `ref.current?.write("", true);` : ""}
 
-<HyperMarkdown ref={ref} ${mode === "stream" ? "streaming " : ""}plugins={plugins} />`;
+<HyperMarkdown ref={ref} ${mode === "stream" ? "streaming " : ""}${animation ? "animation " : ""}plugins={plugins} />`;
 
   return (
     <div className="playground">
@@ -265,6 +268,14 @@ ${mode === "stream" ? `ref.current?.write("", true);` : ""}
           />
         </label>
         <div className="toggles">
+          <label>
+            <input
+              type="checkbox"
+              checked={animation}
+              onChange={(event) => setAnimation(event.target.checked)}
+            />
+            animation
+          </label>
           {(["math", "code", "mermaid", "cjk"] as const).map((key) => (
             <label key={key}>
               <input
@@ -320,6 +331,7 @@ ${mode === "stream" ? `ref.current?.write("", true);` : ""}
           <HyperMarkdown
             ref={renderer}
             streaming={mode === "stream" || playing}
+            animation={animation}
             md={mode === "static" && !playing ? source : undefined}
             plugins={plugins}
             className="assistant-message"
