@@ -21,21 +21,19 @@ put the same thing on screen. A renderer that defers or skeletons a block
 is doing less work, and its time should be read that way rather than as a
 like-for-like win.
 
-**Partial refresh.** HyperMarkdown was re-measured just now; streamdown, markstream-react, deepseek-harness, react-markdown, markdown-it, librechat carry over unchanged from the run of 2026-08-31T09:38:33.945Z. Same machine, same settings, but the rows were not taken on the same day — regenerate the lot with `npm run bench` before quoting the ratios anywhere that matters.
-
 ## code-large.md
 
 57480 characters, 899 frames of 64 characters.
 
 | renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars | rendered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 216 ms | 206–225 ms | 1.0× | 0.16 ms | 0.36 ms | 37 ms | 1354 | 60101 | full |
-| markstream-react | streaming parser + per-node components | 701 ms | 674–826 ms | 3.3× | 0.72 ms | 1.22 ms | 4 ms | 54 | 61428 | full |
-| react-markdown | none — full reparse per chunk | 2110 ms | 2017–2240 ms | 9.8× | 2.15 ms | 4.28 ms | 10 ms | 4 | 55927 | **91%** |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 2213 ms | 2160–2279 ms | 10.3× | 2.21 ms | 4.07 ms | 7 ms | 5 | 55927 | **91%** |
-| streamdown | block-level memoization | 3072 ms | 3056–3083 ms | 14.3× | 2.51 ms | 5.37 ms | 14 ms | 2436 | 55707 | **91%** |
-| librechat | split into top-level blocks, memoize all but the last | 3934 ms | 3862–3983 ms | 18.2× | 4.27 ms | 8.06 ms | 19 ms | 4 | 55926 | **91%** |
-| deepseek-harness | freeze all but the trailing 2 blocks | 3974 ms | 3867–4076 ms | 18.4× | 4.24 ms | 7.99 ms | 23 ms | 4 | 55926 | **91%** |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 216 ms | 205–261 ms | 1.0× | 0.15 ms | 0.34 ms | 47 ms | 1354 | 60101 | full |
+| markstream-react | streaming parser + per-node components | 769 ms | 734–889 ms | 3.6× | 0.76 ms | 1.35 ms | 4 ms | 54 | 61428 | full |
+| react-markdown | none — full reparse per chunk | 2054 ms | 2030–2184 ms | 9.5× | 2.16 ms | 4.09 ms | 12 ms | 4 | 55927 | **91%** |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 2276 ms | 2237–2380 ms | 10.6× | 2.24 ms | 4.31 ms | 9 ms | 5 | 55927 | **91%** |
+| streamdown | block-level memoization | 3242 ms | 3127–3358 ms | 15.0× | 2.69 ms | 5.62 ms | 13 ms | 2436 | 55707 | **91%** |
+| librechat | split into top-level blocks, memoize all but the last | 3928 ms | 3906–3968 ms | 18.2× | 4.30 ms | 8.03 ms | 14 ms | 4 | 55926 | **91%** |
+| deepseek-harness | freeze all but the trailing 2 blocks | 4416 ms | 4160–4546 ms | 20.5× | 4.59 ms | 9.08 ms | 23 ms | 4 | 55926 | **91%** |
 
 ## prose-mixed.md
 
@@ -43,13 +41,13 @@ like-for-like win.
 
 | renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars | rendered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 158 ms | 154–176 ms | 1.0× | 0.46 ms | 0.84 ms | 2 ms | 781 | 15499 | full |
-| deepseek-harness | freeze all but the trailing 2 blocks | 256 ms | 243–272 ms | 1.6× | 0.79 ms | 1.20 ms | 2 ms | 780 | 15499 | full |
-| markstream-react | streaming parser + per-node components | 299 ms | 284–314 ms | 1.9× | 0.83 ms | 1.25 ms | 2 ms | 1425 | 3516 | **23%** |
-| streamdown | block-level memoization | 562 ms | 549–624 ms | 3.6× | 1.80 ms | 3.08 ms | 4 ms | 781 | 15499 | full |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 1718 ms | 1695–1771 ms | 10.9× | 5.29 ms | 10.70 ms | 16 ms | 781 | 15559 | full |
-| librechat | split into top-level blocks, memoize all but the last | 2295 ms | 2218–2360 ms | 14.5× | 7.37 ms | 14.25 ms | 25 ms | 780 | 15499 | full |
-| react-markdown | none — full reparse per chunk | 2594 ms | 2574–2679 ms | 16.4× | 8.36 ms | 16.49 ms | 36 ms | 780 | 15559 | full |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 153 ms | 144–176 ms | 1.0× | 0.45 ms | 0.78 ms | 1 ms | 781 | 15499 | full |
+| deepseek-harness | freeze all but the trailing 2 blocks | 249 ms | 236–289 ms | 1.6× | 0.78 ms | 1.21 ms | 2 ms | 780 | 15499 | full |
+| markstream-react | streaming parser + per-node components | 313 ms | 293–325 ms | 2.0× | 0.81 ms | 1.40 ms | 3 ms | 1425 | 3516 | **23%** |
+| streamdown | block-level memoization | 559 ms | 541–564 ms | 3.6× | 1.76 ms | 3.19 ms | 6 ms | 781 | 15499 | full |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 1659 ms | 1601–1713 ms | 10.8× | 5.30 ms | 10.31 ms | 15 ms | 781 | 15559 | full |
+| librechat | split into top-level blocks, memoize all but the last | 2226 ms | 2197–2310 ms | 14.5× | 7.28 ms | 13.92 ms | 32 ms | 780 | 15499 | full |
+| react-markdown | none — full reparse per chunk | 2629 ms | 2530–2801 ms | 17.2× | 8.49 ms | 16.69 ms | 31 ms | 780 | 15559 | full |
 
 ## real-code-os.md
 
@@ -57,13 +55,13 @@ like-for-like win.
 
 | renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars | rendered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 651 ms | 637–3704 ms | 1.0× | 0.11 ms | 0.27 ms | 24 ms | 929 | 25937 | full |
-| markstream-react | streaming parser + per-node components | 4262 ms | 4020–4697 ms | 6.5× | 0.99 ms | 1.63 ms | 5 ms | 384 | 26796 | full |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 4866 ms | 4829–4920 ms | 7.5× | 1.05 ms | 1.90 ms | 4 ms | 24 | 23433 | **87%** |
-| react-markdown | none — full reparse per chunk | 8141 ms | 8084–8198 ms | 12.5× | 1.86 ms | 3.26 ms | 11 ms | 23 | 23433 | **87%** |
-| streamdown | block-level memoization | 12344 ms | 12229–12708 ms | 19.0× | 2.16 ms | 4.31 ms | 20 ms | 1776 | 23428 | **87%** |
-| librechat | split into top-level blocks, memoize all but the last | 15115 ms | 14905–15288 ms | 23.2× | 3.53 ms | 6.14 ms | 14 ms | 23 | 23431 | **87%** |
-| deepseek-harness | freeze all but the trailing 2 blocks | 15118 ms | 15083–15273 ms | 23.2× | 3.52 ms | 6.24 ms | 12 ms | 23 | 23431 | **87%** |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 659 ms | 633–706 ms | 1.0× | 0.11 ms | 0.28 ms | 30 ms | 929 | 25937 | full |
+| markstream-react | streaming parser + per-node components | 4417 ms | 4283–4714 ms | 6.7× | 1.00 ms | 1.65 ms | 7 ms | 384 | 26796 | full |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 4640 ms | 4517–4734 ms | 7.0× | 0.99 ms | 1.80 ms | 5 ms | 24 | 23433 | **87%** |
+| react-markdown | none — full reparse per chunk | 8008 ms | 7737–8205 ms | 12.2× | 1.80 ms | 3.15 ms | 9 ms | 23 | 23433 | **87%** |
+| streamdown | block-level memoization | 12511 ms | 12312–13067 ms | 19.0× | 2.21 ms | 4.36 ms | 25 ms | 1776 | 23428 | **87%** |
+| librechat | split into top-level blocks, memoize all but the last | 14394 ms | 14260–14813 ms | 21.8× | 3.43 ms | 5.67 ms | 38 ms | 23 | 23431 | **87%** |
+| deepseek-harness | freeze all but the trailing 2 blocks | 14621 ms | 14258–14824 ms | 22.2× | 3.41 ms | 5.81 ms | 20 ms | 23 | 23431 | **87%** |
 
 ## real-table-head.md
 
@@ -71,13 +69,13 @@ like-for-like win.
 
 | renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars | rendered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 793 ms | 766–833 ms | 1.0× | 0.55 ms | 0.91 ms | 5 ms | 1054 | 7606 | **90%** |
-| markstream-react | streaming parser + per-node components | 5963 ms | 5832–6079 ms | 7.5× | 3.89 ms | 7.85 ms | 57 ms | 4605 | 7585 | **90%** |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 7453 ms | 7394–7520 ms | 9.4× | 5.29 ms | 11.19 ms | 20 ms | 1026 | 8419 | full |
-| react-markdown | none — full reparse per chunk | 10767 ms | 10622–10914 ms | 13.6× | 7.30 ms | 18.40 ms | 35 ms | 1025 | 7604 | **90%** |
-| streamdown | block-level memoization | 12060 ms | 11841–12337 ms | 15.2× | 7.90 ms | 19.76 ms | 39 ms | 1040 | 7602 | **90%** |
-| librechat | split into top-level blocks, memoize all but the last | 18755 ms | 18417–19055 ms | 23.6× | 12.70 ms | 32.64 ms | 56 ms | 1025 | 7601 | **90%** |
-| deepseek-harness | freeze all but the trailing 2 blocks | 20596 ms | 20386–20969 ms | 26.0× | 14.11 ms | 35.54 ms | 58 ms | 1025 | 7601 | **90%** |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 654 ms | 646–696 ms | 1.0× | 0.47 ms | 0.71 ms | 3 ms | 1054 | 7606 | **90%** |
+| markstream-react | streaming parser + per-node components | 4948 ms | 4730–5039 ms | 7.6× | 3.01 ms | 6.66 ms | 25 ms | 4605 | 7585 | **90%** |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 6783 ms | 6729–7275 ms | 10.4× | 4.84 ms | 10.20 ms | 18 ms | 1026 | 8419 | full |
+| react-markdown | none — full reparse per chunk | 10236 ms | 9980–10626 ms | 15.7× | 6.73 ms | 17.48 ms | 34 ms | 1025 | 7604 | **90%** |
+| streamdown | block-level memoization | 11621 ms | 11047–11677 ms | 17.8× | 7.50 ms | 18.63 ms | 55 ms | 1040 | 7602 | **90%** |
+| librechat | split into top-level blocks, memoize all but the last | 18330 ms | 17911–18833 ms | 28.0× | 12.32 ms | 32.59 ms | 56 ms | 1025 | 7601 | **90%** |
+| deepseek-harness | freeze all but the trailing 2 blocks | 19644 ms | 19390–19857 ms | 30.0× | 13.83 ms | 34.36 ms | 56 ms | 1025 | 7601 | **90%** |
 
 ## table-large.md
 
@@ -85,10 +83,10 @@ like-for-like win.
 
 | renderer | strategy | median total | measured range | vs best | p50 frame | p95 frame | worst frame | DOM nodes | text chars | rendered |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HyperMarkdown | sub-block cache (per code line / table row / list item) | 991 ms | 972–1014 ms | 1.0× | 1.54 ms | 2.45 ms | 5 ms | 4041 | 18012 | **88%** |
-| markstream-react | streaming parser + per-node components | 9777 ms | 9607–10041 ms | 9.9× | 12.48 ms | 29.55 ms | 48 ms | 11927 | 18007 | **88%** |
-| markdown-it | baseline — parse to HTML string, innerHTML, no components | 14569 ms | 14028–14818 ms | 14.7× | 22.45 ms | 45.37 ms | 62 ms | 4013 | 20414 | full |
-| react-markdown | none — full reparse per chunk | 28860 ms | 28517–30179 ms | 29.1× | 40.34 ms | 109.70 ms | 125 ms | 4012 | 18009 | **88%** |
-| streamdown | block-level memoization | 34820 ms | 34080–35114 ms | 35.2× | 49.73 ms | 128.65 ms | 144 ms | 4027 | 18008 | **88%** |
-| librechat | split into top-level blocks, memoize all but the last | 57144 ms | 56864–58649 ms | 57.7× | 81.10 ms | 212.55 ms | 251 ms | 4012 | 18007 | **88%** |
-| deepseek-harness | freeze all but the trailing 2 blocks | 57866 ms | 55153–58460 ms | 58.4× | 83.65 ms | 208.97 ms | 231 ms | 4012 | 18007 | **88%** |
+| HyperMarkdown | sub-block cache (per code line / table row / list item) | 874 ms | 860–984 ms | 1.0× | 1.34 ms | 2.16 ms | 5 ms | 4041 | 18012 | **88%** |
+| markstream-react | streaming parser + per-node components | 9276 ms | 8974–9399 ms | 10.6× | 12.66 ms | 28.18 ms | 43 ms | 11927 | 18007 | **88%** |
+| markdown-it | baseline — parse to HTML string, innerHTML, no components | 13513 ms | 13119–14090 ms | 15.5× | 20.20 ms | 42.33 ms | 62 ms | 4013 | 20414 | full |
+| react-markdown | none — full reparse per chunk | 29747 ms | 29163–30338 ms | 34.0× | 44.37 ms | 114.18 ms | 132 ms | 4012 | 18009 | **88%** |
+| streamdown | block-level memoization | 33142 ms | 33042–33833 ms | 37.9× | 46.76 ms | 122.92 ms | 136 ms | 4027 | 18008 | **88%** |
+| librechat | split into top-level blocks, memoize all but the last | 53999 ms | 53331–54852 ms | 61.8× | 74.08 ms | 203.64 ms | 227 ms | 4012 | 18007 | **88%** |
+| deepseek-harness | freeze all but the trailing 2 blocks | 55918 ms | 55478–56475 ms | 64.0× | 81.17 ms | 206.79 ms | 229 ms | 4012 | 18007 | **88%** |

@@ -14,28 +14,28 @@ finished.
 
 ## Performance
 
-**2×–9× faster than the nearest streaming renderer across our benchmark
+**1.6×–10.6× faster than the nearest streaming renderer across our benchmark
 suite.**
 
 | Workload | HyperMarkdown | Markstream | Streamdown | DeepSeek Harness | react-markdown |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Large code block | **190 ms** | 711 ms | 3,195 ms | 4,012 ms | 1,969 ms |
-| Mixed prose | **115 ms** | 280 ms | 530 ms | 231 ms | 2,510 ms |
-| Captured AI code stream (`real-code-os`) | **611 ms** | 4,227 ms | 11,755 ms | 13,993 ms | 7,521 ms |
-| Captured AI table stream (`real-table-head`) | **668 ms** | 4,956 ms | 11,424 ms | 20,975 ms | 10,441 ms |
-| Large table | **999 ms** | 9,119 ms | 34,009 ms | 57,729 ms | 81,004 ms |
+| Large code block | **216 ms** | 769 ms | 3,242 ms | 4,416 ms | 2,054 ms |
+| Mixed prose | **153 ms** | 313 ms | 559 ms | 249 ms | 2,629 ms |
+| Captured AI code stream (`real-code-os`) | **659 ms** | 4,417 ms | 12,511 ms | 14,621 ms | 8,008 ms |
+| Captured AI table stream (`real-table-head`) | **654 ms** | 4,948 ms | 11,621 ms | 19,644 ms | 10,236 ms |
+| Large table | **874 ms** | 9,276 ms | 33,142 ms | 55,918 ms | 29,747 ms |
 
 The captured model fixtures are not generated stress cases: their content is
 real AI output, replayed in controlled 8-character frames. HyperMarkdown
-renders the code stream in **611 ms** versus **4,227 ms** for the next closest
-streaming renderer, and the table stream in **668 ms** versus **4,956 ms**.
+renders the code stream in **659 ms** versus **4,417 ms** for the next closest
+streaming renderer, and the table stream in **654 ms** versus **4,948 ms**.
 
 On a large streaming table, HyperMarkdown completes the workload in **under
 one second**.
 
-- Streamdown: **34 seconds**
-- DeepSeek Harness strategy: **58 seconds**
-- react-markdown: **81 seconds**
+- Streamdown: **33 seconds**
+- DeepSeek Harness strategy: **56 seconds**
+- react-markdown: **30 seconds**
 
 Same Markdown. Same stream. Very different architecture.
 
