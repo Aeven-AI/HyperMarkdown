@@ -97,7 +97,7 @@ export default function LiveDemo() {
               </p>
             </div>
             <button
-              className="home-btn ghost"
+              className="demo-pause"
               type="button"
               onClick={() => setRunning((value) => !value)}
             >

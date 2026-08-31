@@ -92,8 +92,12 @@ const config: Config = {
         srcDark: "img/logo-dark.svg",
       },
       items: [
-        { type: "docSidebar", sidebarId: "docs", label: "Docs", position: "left" },
-        { to: "/docs/performance", label: "Performance", position: "left" },
+        {
+          type: "docSidebar",
+          sidebarId: "docs",
+          label: "Docs",
+          position: "left",
+        },
         { to: "/playground", label: "Playground", position: "left" },
         {
           href: "https://www.npmjs.com/package/@aeven-ai/hypermarkdown",
@@ -109,30 +113,7 @@ const config: Config = {
     },
     footer: {
       style: "light",
-      links: [
-        {
-          title: "Product",
-          items: [
-            { label: "Playground", to: "/playground" },
-            { label: "Documentation", to: "/docs/introduction" },
-            { label: "Performance", to: "/docs/performance" },
-          ],
-        },
-        {
-          title: "Install",
-          items: [
-            {
-              label: "NPM",
-              href: "https://www.npmjs.com/package/@aeven-ai/hypermarkdown",
-            },
-            {
-              label: "GitHub",
-              href: "https://github.com/Aeven-AI/HyperMarkdown",
-            },
-          ],
-        },
-      ],
-      copyright: `Parse the change. Not the conversation. MIT © Æven`,
+      copyright: `MIT © Æven`,
     },
     prism: {
       theme: prismThemes.github,

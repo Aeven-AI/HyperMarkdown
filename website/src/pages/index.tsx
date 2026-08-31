@@ -64,25 +64,26 @@ export default function Home() {
         <header className="home-hero">
           <div className="home-wrap">
             <h1>Ridiculously fast Markdown for React and AI.</h1>
-            <p className="tagline">Parse the change. Not the conversation.</p>
-            <div className="home-actions">
-              <Link className="home-btn primary" to="/playground">
-                Open playground
-              </Link>
-              <Link className="home-btn ghost" to="/docs/introduction">
-                Read the docs
-              </Link>
-              <a
-                className="home-btn ghost"
-                href="https://www.npmjs.com/package/@aeven-ai/hypermarkdown"
-              >
-                NPM
-              </a>
+
+            <div className="home-cta">
+              <div className="home-actions">
+                <Link className="home-btn primary" to="/playground">
+                  Open playground
+                </Link>
+                <Link className="home-btn ghost" to="/docs/introduction">
+                  Read the docs
+                </Link>
+                <a
+                  className="home-btn ghost"
+                  href="https://www.npmjs.com/package/@aeven-ai/hypermarkdown"
+                >
+                  NPM
+                </a>
+              </div>
+              <InstallCommand />
             </div>
-            <InstallCommand />
 
             <section className="home-overview">
-              <p className="home-kicker">Performance overview</p>
               <div className="headline-compare" style={{ margin: "0.8rem 0 1.1rem" }}>
                 <div className="compare-pill">
                   <strong>1.6×–10.6×</strong>
@@ -114,7 +115,7 @@ export default function Home() {
                     Methodology →
                   </Link>
                 </header>
-                <div style={{ overflowX: "auto" }}>
+                <div className="bench-table-wrap">
                   <table className="bench-table">
                     <thead>
                       <tr>
