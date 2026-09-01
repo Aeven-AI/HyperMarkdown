@@ -33,7 +33,17 @@ export function rehypeAnimation() {
     // Raw-text elements hold text and nothing else; React drops a <script>
     // whose child is an element, taking its content with it.
     if (isHastElement(node)) {
-      if (isKatex(node) || patterns.rawTextTags.indexOf(node.tagName) !== -1) {
+      if (isKatex(node)) {
+        // Fade the formula in as one unit: KaTeX lays out its own spans, so the
+        // root is the only place a fade can attach without breaking the math.
+        node.properties ||= {};
+        if (!("data-animate-word" in node.properties)) {
+          node.properties["data-animate-word"] = true;
+          node.properties["data-animate-key"] = `math-${index}`;
+        }
+        return SKIP;
+      }
+      if (patterns.rawTextTags.indexOf(node.tagName) !== -1) {
         return SKIP;
       }
       return;
