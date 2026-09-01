@@ -152,6 +152,7 @@ class Header extends Component<HeaderProps> {
     let title;
     let tippyCopyTxt;
     let iconFullScreen;
+    let labelFullScreen;
 
     const vm = this;
     const props = vm.props;
@@ -167,10 +168,14 @@ class Header extends Component<HeaderProps> {
       tippyCopyTxt = translations.codePartiallyCopied;
     }
 
+    // The one button reads as two states: the icon and its name change
+    // together, so the tooltip never says "Full screen" over a minimize icon.
     if (props.fullscreen === true) {
       iconFullScreen = icons.minimize;
+      labelFullScreen = translations.exitFullScreen;
     } else {
       iconFullScreen = icons.maximize;
+      labelFullScreen = translations.fullScreen;
     }
 
     return (
@@ -181,49 +186,24 @@ class Header extends Component<HeaderProps> {
           </span>
           <span className="mermaid-spacer" />
           <span className="mermaid-button-container">
-            {controls.fullscreen === false ? null : (
-              <Tooltip
-                ref={vm.tippyFullScreenRef}
-                placement={"top"}
-                touch={false}
-                trigger={"mouseenter"}
-                content={translations.fullScreen}
-              >
-                <button
-                  type="button"
-                  className="mermaid-icon-button first"
-                  aria-label={translations.fullScreen}
-                  onClick={vm.toggleFullScreen}
-                >
-                  <span className="button-content">
-                    <span
-                      className="button-icon"
-                      dangerouslySetInnerHTML={{
-                        __html: iconFullScreen,
-                      }}
-                    ></span>
-                  </span>
-                </button>
-              </Tooltip>
-            )}
             {controls.copy === false ? null : (
               <Tooltip
                 ref={vm.tippyCopyContentRef}
                 arrow={false}
                 trigger={"manual"}
-                placement={"top-end"}
+                placement={"top"}
                 content={tippyCopyTxt}
               >
                 <span className="tippy-button">
                   <Tooltip
-                    placement={"top-end"}
+                    placement={"top"}
                     content={translations.copy}
                     touch={false}
                     trigger={"mouseenter"}
                   >
                     <button
                       type="button"
-                      className="mermaid-icon-button last"
+                      className="mermaid-icon-button first"
                       aria-label={translations.copy}
                       onClick={vm.copyContent}
                     >
@@ -238,6 +218,31 @@ class Header extends Component<HeaderProps> {
                     </button>
                   </Tooltip>
                 </span>
+              </Tooltip>
+            )}
+            {controls.fullscreen === false ? null : (
+              <Tooltip
+                ref={vm.tippyFullScreenRef}
+                placement={"top-end"}
+                touch={false}
+                trigger={"mouseenter"}
+                content={labelFullScreen}
+              >
+                <button
+                  type="button"
+                  className="mermaid-icon-button last"
+                  aria-label={labelFullScreen}
+                  onClick={vm.toggleFullScreen}
+                >
+                  <span className="button-content">
+                    <span
+                      className="button-icon"
+                      dangerouslySetInnerHTML={{
+                        __html: iconFullScreen,
+                      }}
+                    ></span>
+                  </span>
+                </button>
               </Tooltip>
             )}
           </span>

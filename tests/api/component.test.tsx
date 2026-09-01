@@ -131,7 +131,7 @@ describe("HyperMarkdown component", () => {
       <HyperMarkdown md={"```javascript\nconsole.log('hello');\n```\n"} />
     );
 
-    button = host.querySelector(".codeblock-icon-button.first");
+    button = host.querySelector(".codeblock-icon-button.last");
     wrapper = host.querySelector(".codeblock-wrapper");
 
     expect(button).toBeTruthy();
@@ -152,7 +152,7 @@ describe("HyperMarkdown component", () => {
       <HyperMarkdown md={"| A | B |\n| - | - |\n| 1 | 2 |\n"} />
     );
 
-    button = host.querySelector(".table-icon-button.first");
+    button = host.querySelector(".table-icon-button.last");
     wrapper = host.querySelector(".table-wrapper");
 
     expect(button).toBeTruthy();

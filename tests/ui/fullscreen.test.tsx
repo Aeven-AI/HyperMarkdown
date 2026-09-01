@@ -39,7 +39,7 @@ describe("fullscreen survives a block closing", () => {
     const wrapper = host.querySelector(".codeblock-wrapper");
     expect(wrapper).toBeTruthy();
 
-    const btn = wrapper!.querySelector(".codeblock-icon-button.first") as HTMLElement;
+    const btn = wrapper!.querySelector(".codeblock-icon-button.last") as HTMLElement;
     act(() => { btn.click(); });
 
     act(() => { for (let i = 0; i < close.length; i += 5) ref.current!.write(close.slice(i, i + 5)); });
@@ -47,6 +47,28 @@ describe("fullscreen survives a block closing", () => {
 
     const after = host.querySelector(".codeblock-wrapper")!;
     expect(after.className).toContain("fullscreen");
+  });
+
+  it("renames the fullscreen button once the block is expanded", () => {
+    const ref = createRef<HyperMarkdownHandle>();
+    const { host } = mount(<HyperMarkdown ref={ref} streaming />);
+
+    act(() => { ref.current!.write("| A | B |\n|---|---|\n| 1 | 2 |\n"); });
+
+    const button = host.querySelector(".table-icon-button.last") as HTMLElement;
+    expect(button.getAttribute("aria-label")).toBe("Full screen");
+
+    act(() => { button.click(); });
+
+    // The same button, now offering the way back out.
+    const expanded = host.querySelector(".table-icon-button.last") as HTMLElement;
+    expect(expanded.getAttribute("aria-label")).toBe("Exit full screen");
+
+    act(() => { expanded.click(); });
+
+    expect(
+      host.querySelector(".table-icon-button.last")!.getAttribute("aria-label"),
+    ).toBe("Full screen");
   });
 
   it("table closed by finalize", () => {
@@ -57,7 +79,7 @@ describe("fullscreen survives a block closing", () => {
     act(() => { for (let i = 0; i < open.length; i += 5) ref.current!.write(open.slice(i, i + 5)); });
 
     const wrapper = host.querySelector(".table-wrapper");
-    const btn = wrapper!.querySelector(".table-icon-button.first") as HTMLElement;
+    const btn = wrapper!.querySelector(".table-icon-button.last") as HTMLElement;
     act(() => { btn.click(); });
 
     act(() => { ref.current!.write("", true); });
@@ -73,7 +95,7 @@ describe("fullscreen survives a block closing", () => {
     act(() => { for (let i = 0; i < open.length; i += 5) ref.current!.write(open.slice(i, i + 5)); });
 
     const wrapper = host.querySelector(".codeblock-wrapper");
-    const btn = wrapper!.querySelector(".codeblock-icon-button.first") as HTMLElement;
+    const btn = wrapper!.querySelector(".codeblock-icon-button.last") as HTMLElement;
     act(() => { btn.click(); });
     act(() => { ref.current!.write("", true); });
     const after = host.querySelector(".codeblock-wrapper")!;
@@ -91,7 +113,7 @@ describe("fullscreen survives a block closing", () => {
 
     const wrapper = host.querySelector(".table-wrapper");
     expect(wrapper).toBeTruthy();
-    const btn = wrapper!.querySelector(".table-icon-button.first") as HTMLElement;
+    const btn = wrapper!.querySelector(".table-icon-button.last") as HTMLElement;
     act(() => { btn.click(); });
 
     act(() => { for (let i = 0; i < close.length; i += 5) ref.current!.write(close.slice(i, i + 5)); });

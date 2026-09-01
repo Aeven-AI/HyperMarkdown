@@ -58,8 +58,8 @@ describe("controls", () => {
   it("hides a single button", () => {
     const out = html(table, { controls: { table: { copy: false } } });
 
-    expect(out).toContain("table-icon-button first");
-    expect(out).not.toContain("table-icon-button last");
+    expect(out).toContain("table-icon-button last");
+    expect(out).not.toContain("table-icon-button first");
   });
 
   it("hides every button for a block kind", () => {

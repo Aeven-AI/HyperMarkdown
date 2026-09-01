@@ -148,6 +148,11 @@ function TableHeaderComponent(props: TableHeaderProps) {
       ? translations.tablePartiallyCopied
       : translations.tableCopied;
 
+  // The one button reads as two states: the icon and its name change together,
+  // so the tooltip never says "Full screen" over a minimize icon.
+  const fullScreenLabel =
+    fullscreen === true ? translations.exitFullScreen : translations.fullScreen;
+
   return (
     <div ref={headerRef} className="table-header">
       <div className="table-header-content">
@@ -156,49 +161,24 @@ function TableHeaderComponent(props: TableHeaderProps) {
         </span>
         <span className="table-spacer" />
         <span className="table-button-container">
-          {controls.fullscreen === false ? null : (
-            <Tooltip
-              placement={"top"}
-              touch={false}
-              trigger={"mouseenter"}
-              content={translations.fullScreen}
-            >
-              <button
-                type="button"
-                className="table-icon-button first"
-                aria-label={translations.fullScreen}
-                onClick={toggleFullScreen}
-              >
-                <span className="button-content">
-                  <span
-                    className="button-icon"
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        fullscreen === true ? icons.minimize : icons.maximize,
-                    }}
-                  ></span>
-                </span>
-              </button>
-            </Tooltip>
-          )}
           {controls.copy === false ? null : (
             <Tooltip
               ref={tippyCopyRef}
               arrow={false}
               trigger={"manual"}
-              placement={"top-end"}
+              placement={"top"}
               content={copyLabel}
             >
               <span className="tippy-button">
                 <Tooltip
-                  placement={"top-end"}
+                  placement={"top"}
                   content={translations.copy}
                   touch={false}
                   trigger={"mouseenter"}
                 >
                   <button
                     type="button"
-                    className="table-icon-button last"
+                    className="table-icon-button first"
                     aria-label={translations.copy}
                     onClick={copyContent}
                   >
@@ -211,6 +191,31 @@ function TableHeaderComponent(props: TableHeaderProps) {
                   </button>
                 </Tooltip>
               </span>
+            </Tooltip>
+          )}
+          {controls.fullscreen === false ? null : (
+            <Tooltip
+              placement={"top-end"}
+              touch={false}
+              trigger={"mouseenter"}
+              content={fullScreenLabel}
+            >
+              <button
+                type="button"
+                className="table-icon-button last"
+                aria-label={fullScreenLabel}
+                onClick={toggleFullScreen}
+              >
+                <span className="button-content">
+                  <span
+                    className="button-icon"
+                    dangerouslySetInnerHTML={{
+                      __html:
+                        fullscreen === true ? icons.minimize : icons.maximize,
+                    }}
+                  ></span>
+                </span>
+              </button>
             </Tooltip>
           )}
         </span>

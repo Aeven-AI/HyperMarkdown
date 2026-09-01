@@ -24,6 +24,8 @@ export interface Translations {
   copy: string;
   copyCode: string;
   fullScreen: string;
+  /** The same button once the block is expanded. */
+  exitFullScreen: string;
   preview: string;
 
   tableCopied: string;
@@ -49,6 +51,7 @@ export const defaultTranslations: Translations = {
   copy: "Copy",
   copyCode: "Copy code",
   fullScreen: "Full screen",
+  exitFullScreen: "Exit full screen",
   preview: "Preview",
 
   tableCopied: "Table copied",

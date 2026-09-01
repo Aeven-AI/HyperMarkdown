@@ -79,7 +79,7 @@ describe("toolbar controls", () => {
 
     const buttons = host.querySelectorAll<HTMLButtonElement>(".codeblock-icon-button");
     expect(buttons).toHaveLength(3);
-    await act(async () => buttons[2]!.click());
+    await act(async () => buttons[1]!.click());
     act(() => vi.advanceTimersByTime(600));
     expect(clipboard.writeText).toHaveBeenCalledWith("<strong>preview</strong>\n");
     act(() => buttons[0]!.click());
@@ -170,7 +170,7 @@ describe("toolbar controls", () => {
     }));
 
     code.textContent = "copy me";
-    await act(async () => buttons[2]!.click());
+    await act(async () => buttons[1]!.click());
     expect(consoleError).toHaveBeenCalledWith("Failed to copy code: ", clipboardError);
     Object.defineProperty(wrapper, "getBoundingClientRect", {
       configurable: true,
@@ -213,11 +213,11 @@ describe("toolbar controls", () => {
       />,
     );
     const buttons = host.querySelectorAll<HTMLButtonElement>("button");
-    act(() => buttons[0]!.click());
+    act(() => buttons[1]!.click());
     expect(fullscreen).toHaveBeenCalledWith(true);
-    await act(async () => buttons[1]!.click());
+    await act(async () => buttons[0]!.click());
     act(() => vi.advanceTimersByTime(600));
-    await act(async () => buttons[1]!.click());
+    await act(async () => buttons[0]!.click());
     expect(writeText).toHaveBeenCalledWith("A\tB\n1\t2");
     expect(consoleLog).toHaveBeenCalled();
 
@@ -247,7 +247,7 @@ describe("toolbar controls", () => {
       />,
     ));
     flushFrames();
-    act(() => host.querySelectorAll<HTMLButtonElement>("button")[1]!.click());
+    act(() => host.querySelectorAll<HTMLButtonElement>("button")[0]!.click());
     act(() => root.unmount());
   });
 
@@ -383,7 +383,7 @@ describe("toolbar controls", () => {
       clientHeight: { configurable: true, value: 100 },
       scrollTop: { configurable: true, writable: true, value: 0 },
     });
-    act(() => host.querySelector<HTMLButtonElement>(".table-icon-button.first")!.click());
+    act(() => host.querySelector<HTMLButtonElement>(".table-icon-button.last")!.click());
     expect(wrapper.scrollTo).toHaveBeenCalled();
     act(() => wrapper.dispatchEvent(new Event("scroll")));
     wrapper.scrollTop = 450;
@@ -456,10 +456,10 @@ describe("diagram controls and engine lifecycle", () => {
     expect(document.querySelector(".mermaid-render-sandbox")).toBeNull();
 
     const buttons = host.querySelectorAll<HTMLButtonElement>("button");
-    act(() => buttons[0]!.click());
+    act(() => buttons[1]!.click());
     expect(host.querySelector(".mermaid-wrapper")?.className).toContain("fullscreen");
     expect(fullscreen).toHaveBeenCalledWith(true);
-    await act(async () => buttons[1]!.click());
+    await act(async () => buttons[0]!.click());
     act(() => vi.advanceTimersByTime(600));
 
     act(() => root.render(
@@ -571,7 +571,7 @@ describe("diagram controls and engine lifecycle", () => {
         toggleFullScreen={vi.fn()}
       />,
     );
-    await act(async () => host.querySelectorAll<HTMLButtonElement>("button")[1]!.click());
+    await act(async () => host.querySelectorAll<HTMLButtonElement>("button")[0]!.click());
     expect(logged).toHaveBeenCalledWith(error);
     act(() => root.render(
       <MermaidHeader
