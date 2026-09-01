@@ -34,4 +34,6 @@ React elements are keyed partly by component identity. Recreating an override fu
 
 ## Does it work on GitHub Pages or other static hosts?
 
-Yes. HyperMarkdown is a client-side React library and has no server requirement. This documentation site and playground are themselves a static build.
+Yes. HyperMarkdown has no backend requirement. It supports SSR and hydration,
+and this documentation site and playground are also a static build. See
+[SSR, hydration, and Next.js](/docs/ssr) for framework guidance.

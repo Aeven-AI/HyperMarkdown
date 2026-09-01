@@ -1,4 +1,5 @@
 // This file deliberately uses the node environment to cover the SSR adapters.
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 import { currentPath, onViewportScroll } from "../../lib/runtime";
@@ -6,6 +7,11 @@ import MermaidDiagram from "../../lib/mermaid";
 import "../../index";
 
 describe("runtime SSR adapters", () => {
+  it("marks the public component entry as a Next.js client boundary", () => {
+    const entry = readFileSync(new URL("../../index.tsx", import.meta.url), "utf8");
+    expect(entry.startsWith('"use client";')).toBe(true);
+  });
+
   it("returns inert browser integrations when there is no window", () => {
     expect(currentPath()).toBe("");
     const handler = vi.fn();

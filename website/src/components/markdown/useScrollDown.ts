@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef } from "react";
 
-// Same threshold as ChatTest: the reader may drift this far from the bottom
-// before following stops, and following resumes once they are back inside it.
+// Same threshold as ChatTest. Following stops once the reader is this far
+// from the bottom, and it only resumes after they scroll back into it.
 const SCROLL_MARGIN = 100;
 
 export function useScrollDown(container: { current: HTMLElement | null }) {
   const userScroll = useRef(false);
   const currentScrollHeight = useRef(0);
+  const lastScrollTop = useRef(0);
+  const programmatic = useRef(false);
 
   const scrollDown = useCallback(() => {
     const el = container.current;
@@ -19,16 +21,30 @@ export function useScrollDown(container: { current: HTMLElement | null }) {
       return;
     }
 
-    // Instant, not smooth: the pane uses CSS scroll-behavior: smooth for the
-    // reader, and a queued animation would be invalidated by the next chunk.
-    el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
-    currentScrollHeight.current = el.scrollHeight;
+    programmatic.current = true;
+    try {
+      if (userScroll.current === true) {
+        return;
+      }
+      el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
+      currentScrollHeight.current = el.scrollHeight;
+      lastScrollTop.current = el.scrollTop;
+    } finally {
+      programmatic.current = false;
+    }
   }, [container]);
 
   const resetScroll = useCallback(() => {
+    const el = container.current;
     userScroll.current = false;
     currentScrollHeight.current = 0;
-    container.current?.scrollTo({ top: 0, behavior: "instant" });
+    programmatic.current = true;
+    try {
+      el?.scrollTo({ top: 0, behavior: "instant" });
+      lastScrollTop.current = el?.scrollTop ?? 0;
+    } finally {
+      programmatic.current = false;
+    }
   }, [container]);
 
   useEffect(() => {
@@ -37,21 +53,38 @@ export function useScrollDown(container: { current: HTMLElement | null }) {
       return;
     }
 
-    const scrollDownListener = () => {
-      const { scrollTop, clientHeight, scrollHeight } = el;
+    lastScrollTop.current = el.scrollTop;
 
-      if (scrollTop + clientHeight <= scrollHeight - SCROLL_MARGIN) {
+    const atBottom = () =>
+      el.scrollTop + el.clientHeight > el.scrollHeight - SCROLL_MARGIN;
+
+    const scrollDownListener = () => {
+      const scrollTop = el.scrollTop;
+
+      if (programmatic.current) {
+        lastScrollTop.current = scrollTop;
+        return;
+      }
+
+      const goingUp = scrollTop < lastScrollTop.current - 1;
+      const goingDown = scrollTop > lastScrollTop.current + 1;
+      lastScrollTop.current = scrollTop;
+
+      // Interrupt on any user movement away from the end. Resume only after
+      // the reader scrolls back down into the bottom margin — a small nudge
+      // that is still "near" the end must not re-arm follow.
+      if (goingUp || !atBottom()) {
         userScroll.current = true;
-      } else {
+      } else if (goingDown && atBottom()) {
         userScroll.current = false;
       }
     };
 
-    // Wheel/touch mark intent immediately so a fast stream cannot yank the
-    // viewport back before the 100px threshold is crossed.
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY < 0) {
         userScroll.current = true;
+      } else if (event.deltaY > 0 && atBottom()) {
+        userScroll.current = false;
       }
     };
 
@@ -63,6 +96,8 @@ export function useScrollDown(container: { current: HTMLElement | null }) {
       const y = event.touches[0]?.clientY ?? touchY;
       if (y > touchY + 1) {
         userScroll.current = true;
+      } else if (y < touchY - 1 && atBottom()) {
+        userScroll.current = false;
       }
       touchY = y;
     };

@@ -407,7 +407,6 @@ html {
   height: 560px;
   overflow: auto;
   overflow-anchor: none;
-  scroll-behavior: smooth;
   overscroll-behavior: contain;
   padding: 1rem clamp(2rem, 5vw, 4.5rem) 3.5rem;
   background: var(--home-card);
@@ -789,7 +788,6 @@ html {
   padding: 1.35rem 1.45rem;
   overflow: auto;
   overflow-anchor: none;
-  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }

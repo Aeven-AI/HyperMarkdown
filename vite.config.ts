@@ -41,6 +41,13 @@ export default defineConfig({
       external: (id) =>
         external.some((dep) => id === dep || id.startsWith(dep + "/")),
       output: {
+        // Next.js discovers third-party Client Components from this directive.
+        // Vite/Rollup can discard a source-level directive while bundling, so
+        // restore it on the public component entry (but not the plugin entries).
+        banner: (chunk) =>
+          chunk.isEntry && chunk.name === "hypermarkdown"
+            ? '"use client";'
+            : "",
         exports: "named",
         globals: { react: "React", "react-dom": "ReactDOM" },
       },

@@ -93,6 +93,7 @@ time another token arrives.
 - Syntax highlighting
 - Raw HTML with sanitization
 - React 18 and React 19
+- SSR and hydration, including a Next.js App Router client boundary
 - Lightweight core with heavy features loaded as optional plugins
 - Production integration with DeepSeek Harness / DSH architecture
 

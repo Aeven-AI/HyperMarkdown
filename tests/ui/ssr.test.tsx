@@ -69,6 +69,11 @@ function hydrate(ui: React.ReactElement) {
 
 const source = "# Title\n\nSome **bold** text.\n\n```js\nconst a = 1;\n```\n";
 
+/** Mirrors an App Router Client Component receiving serializable server props. */
+function NextMarkdown({ markdown }: { markdown: string }) {
+  return <HyperMarkdown md={markdown} />;
+}
+
 describe("server rendering", () => {
   it("does not register a layout effect while rendering on the server", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -180,6 +185,42 @@ describe("server rendering", () => {
     });
 
     expect(host.textContent).toContain("Hello world");
+
+    act(() => root.unmount());
+  });
+
+  it("hydrates markdown passed through a Next.js client boundary", () => {
+    // React Server Components serialize props before they cross into the
+    // client graph. Exercise the same constraint instead of sharing the
+    // original object between the server and client renders.
+    const serverProps = { markdown: source };
+    const clientProps = JSON.parse(JSON.stringify(serverProps));
+    const { host, recoverable, errors, root } = hydrate(
+      <NextMarkdown {...clientProps} />,
+    );
+
+    expect(host.querySelector("h1")?.textContent).toBe("Title");
+    expect(recoverable).toEqual([]);
+    expect(errors.filter((error) => /hydrat/i.test(error))).toEqual([]);
+
+    act(() => root.unmount());
+  });
+
+  it("updates settled markdown after hydration without remounting", () => {
+    const { host, root } = hydrate(
+      <NextMarkdown markdown={"# First route\n\nServer content."} />,
+    );
+    const adoptedRoot = host.firstChild;
+
+    act(() => {
+      root.render(
+        <NextMarkdown markdown={"# Second route\n\nClient navigation."} />,
+      );
+    });
+
+    expect(host.firstChild).toBe(adoptedRoot);
+    expect(host.querySelector("h1")?.textContent).toBe("Second route");
+    expect(host.textContent).toContain("Client navigation.");
 
     act(() => root.unmount());
   });
