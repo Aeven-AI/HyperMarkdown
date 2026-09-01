@@ -76,6 +76,27 @@ html {
   height: 100dvh;
 }
 
+.navbar-sidebar .menu__link {
+  background: transparent;
+  font-size: 16px;
+  padding-left: 0;
+}
+
+.navbar-sidebar .menu__link:hover {
+  background: transparent;
+  color: var(--home-ink);
+}
+
+.navbar-sidebar .menu__link--active {
+  background: transparent;
+  color: var(--home-ink);
+}
+
+.navbar-sidebar .docs-sidebar-primary .menu__link,
+.theme-doc-sidebar-container .docs-sidebar-primary .menu__link {
+  font-weight: 600;
+}
+
 .navbar__inner {
   width: 100%;
   max-width: var(--content-width);
@@ -982,6 +1003,8 @@ html {
 }
 
 .theme-doc-sidebar-container .menu__link {
+  font-size: 16px;
+  line-height: 1.35;
   padding-left: 0;
 }
 
@@ -1016,6 +1039,30 @@ html {
   padding: 0.42rem 0;
 }
 
+.theme-doc-sidebar-container .theme-doc-sidebar-item-link-level-1 .menu__link {
+  border-radius: 0;
+  color: var(--home-muted);
+  margin: 0.06rem 0;
+  padding: 0.29rem 0;
+}
+
+.theme-doc-sidebar-container
+  .theme-doc-sidebar-item-link-level-1
+  .menu__link--active {
+  background: transparent;
+  color: var(--home-ink);
+}
+
+.theme-doc-sidebar-container .docs-sidebar-section {
+  color: var(--home-muted);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 1.35rem 0 0.35rem;
+  padding: 0;
+  text-transform: none;
+}
+
 .theme-doc-sidebar-container .menu__link:hover {
   background: transparent;
   color: var(--home-ink);
@@ -1026,6 +1073,16 @@ html {
   border: 0;
   box-shadow: none;
   color: var(--home-ink);
+}
+
+.navbar-sidebar .menu__link--active,
+.theme-doc-sidebar-container .menu__link--active {
+  font-weight: 400;
+}
+
+.navbar-sidebar .docs-sidebar-primary .menu__link,
+.theme-doc-sidebar-container .docs-sidebar-primary .menu__link {
+  font-weight: 600;
 }
 
 .theme-doc-sidebar-container .menu__list-item-collapsible:hover {
@@ -1040,9 +1097,15 @@ html {
 }
 
 .theme-doc-toc-desktop,
-.theme-doc-toc-mobile,
 .docs-doc-page .col.col--3:has(.theme-doc-toc-desktop) {
   display: none !important;
+}
+
+.theme-doc-toc-mobile {
+  background: var(--home-card);
+  border-radius: 12px;
+  margin: 0 0 2rem;
+  padding: 0.15rem 0.85rem;
 }
 
 @media (min-width: 997px) {
@@ -1063,7 +1126,7 @@ html {
   }
 
   .docs-doc-page .theme-doc-sidebar-container .menu {
-    border-right: 1px solid var(--home-hairline);
+    border-right: 0;
     flex-grow: 0;
     max-height: calc(100vh - var(--ifm-navbar-height) - 3.5rem);
     padding: 0 2rem 4rem 0 !important;
@@ -1102,7 +1165,7 @@ html {
 }
 
 .docs-doc-page .breadcrumbs {
-  margin-bottom: 2rem;
+  display: none;
 }
 
 .docs-doc-page .markdown > h1:first-child {
@@ -1122,6 +1185,172 @@ html {
 .docs-doc-page .markdown > ol,
 .docs-doc-page .markdown > blockquote {
   margin-bottom: 1.35rem;
+}
+
+.docs-doc-page .markdown > p,
+.docs-doc-page .markdown > ul,
+.docs-doc-page .markdown > ol {
+  max-width: 78ch;
+}
+
+.docs-doc-page .markdown > h1:first-child {
+  font-size: clamp(2.15rem, 4vw, 2.75rem);
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  max-width: 22ch;
+}
+
+.docs-doc-page .markdown > h2 {
+  font-size: clamp(1.55rem, 2.4vw, 2rem);
+  letter-spacing: -0.035em;
+}
+
+.docs-doc-page .markdown > h3 {
+  letter-spacing: -0.025em;
+}
+
+.docs-doc-page .markdown > p:first-of-type {
+  color: var(--home-muted);
+  font-size: 1.08rem;
+  line-height: 1.7;
+  max-width: 70ch;
+}
+
+.docs-doc-page .markdown a:not(.docs-path-card) {
+  text-decoration-color: var(--home-line);
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+.docs-doc-page .markdown a:not(.docs-path-card):hover {
+  text-decoration-color: currentColor;
+}
+
+.docs-quickstart {
+  align-items: center;
+  background: var(--home-card);
+  border-radius: 14px;
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin: 2.25rem 0 3rem;
+  padding: 0.85rem 1rem;
+}
+
+.docs-quickstart > span {
+  color: var(--home-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.docs-quickstart code {
+  background: transparent;
+  font-size: 0.86rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docs-quickstart a {
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.docs-path-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1.5rem 0 3rem;
+}
+
+.docs-path-card {
+  background: var(--home-card);
+  border-radius: 16px;
+  color: var(--home-ink);
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  padding: 1.25rem;
+  text-decoration: none;
+  transition: transform 160ms ease;
+}
+
+.docs-path-card:hover {
+  color: var(--home-ink);
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+
+.docs-path-card > span {
+  color: var(--home-muted);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.docs-path-card strong {
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.docs-path-card p {
+  color: var(--home-muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  margin: 0.6rem 0 1.5rem;
+}
+
+.docs-path-card b {
+  font-size: 0.82rem;
+  margin-top: auto;
+}
+
+.docs-doc-page .theme-admonition {
+  border: 0;
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.docs-doc-page .theme-admonition [class*="admonitionHeading"] {
+  letter-spacing: -0.01em;
+}
+
+.docs-doc-page .markdown > table {
+  background: var(--home-card);
+  border-radius: 14px;
+  display: table;
+  overflow: hidden;
+}
+
+.docs-doc-page .markdown > table th,
+.docs-doc-page .markdown > table td {
+  padding: 0.85rem 1rem;
+}
+
+.docs-doc-page .markdown table th {
+  text-align: left;
+}
+
+.docs-doc-page .markdown th[align="center"],
+.docs-doc-page .markdown td[align="center"] {
+  text-align: center;
+}
+
+.docs-doc-page .markdown th[align="right"],
+.docs-doc-page .markdown td[align="right"] {
+  text-align: right;
+}
+
+.docs-doc-page .markdown > table tbody tr + tr td {
+  border-top: 1px solid var(--home-hairline) !important;
+}
+
+.docs-doc-page [class*="docItemContainer"] > article > footer {
+  margin-top: 4rem;
 }
 
 .table-of-contents__left-border {
@@ -1247,6 +1476,18 @@ table td {
   .install-card pre {
     font-size: 0.78rem;
   }
+
+  .docs-path-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-path-card {
+    min-height: 0;
+  }
+
+  .docs-path-card > span {
+    margin-bottom: 1.2rem;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1278,6 +1519,17 @@ table td {
 
   .playground {
     margin-top: 2rem;
+  }
+
+  .docs-quickstart {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .docs-quickstart code {
+    font-size: 0.76rem;
+    white-space: normal;
+    word-break: break-all;
   }
 }
 

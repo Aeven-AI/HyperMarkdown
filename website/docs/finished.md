@@ -1,6 +1,7 @@
 ---
 sidebar_position: 3
 title: Finished Markdown
+sidebar_label: Basic usage
 ---
 
 # Finished Markdown

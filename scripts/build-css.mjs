@@ -18,3 +18,7 @@ const result = await compileAsync(input, {
 
 await mkdir(dirname(output), { recursive: true });
 await writeFile(output, result.css);
+
+if (!result.css.includes(".tippy-box")) {
+  throw new Error("built stylesheet is missing tippy.js rules");
+}

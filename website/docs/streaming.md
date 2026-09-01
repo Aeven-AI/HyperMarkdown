@@ -1,6 +1,7 @@
 ---
 sidebar_position: 4
 title: Streaming and delta rendering
+sidebar_label: Streaming
 ---
 
 # Streaming and delta rendering

@@ -58,6 +58,8 @@ const Tooltip = forwardRef<TooltipHandle, TooltipProps>(
         touch: touch ?? true,
         arrow: arrow ?? true,
         trigger: manual ? "manual" : (trigger ?? "mouseenter"),
+        appendTo: () => document.body,
+        zIndex: 99999,
       });
       instanceRef.current = instance;
 

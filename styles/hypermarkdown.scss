@@ -1,4 +1,66 @@
 /*
+ * Tippy renders its popper beside the application root, not inside the
+ * `.hypermarkdown` wrapper. Its positioning, content, transition, and arrow
+ * rules therefore have to remain global. The theme-neutral base stylesheet is
+ * bundled here so every renderer toolbar works from the single documented
+ * `@aeven-ai/hypermarkdown/styles.css` import.
+ */
+@use "../node_modules/tippy.js/dist/tippy.css";
+
+/*
+ * Toolbar copy/fullscreen tips match the Aeven client Tippy skin. Tippy mounts
+ * on the document, so these rules stay unscoped.
+ */
+.tippy-button {
+  outline: none !important;
+}
+
+[data-tippy-root] {
+  z-index: 99999;
+}
+
+.tippy-box {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1.4;
+  color: #fff;
+  background-color: rgb(10, 10, 10);
+  white-space: normal;
+  outline: none;
+
+  .tippy-content {
+    position: relative;
+    padding: 10px 14px;
+    z-index: 1;
+    font-weight: 500;
+  }
+
+  .tippy-arrow {
+    width: 16px;
+    height: 16px;
+    color: rgb(10, 10, 10);
+  }
+}
+
+.tippy-box[data-placement^="top"] > .tippy-arrow:before {
+  bottom: -4px;
+}
+
+.tippy-box[data-placement^="bottom"] > .tippy-arrow:before {
+  top: -4px;
+}
+
+.tippy-box[data-placement^="left"] > .tippy-arrow:before {
+  right: -4px;
+}
+
+.tippy-box[data-placement^="right"] > .tippy-arrow:before {
+  left: -4px;
+}
+
+/*
  * HyperMarkdown's default stylesheet.
  *
  * Everything is scoped under `.hypermarkdown`, the class the component puts on
