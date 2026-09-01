@@ -1,3 +1,4 @@
+import { indexLines, terminated, type Line } from "../line-index";
 import { patterns } from "../patterns";
 
 import type { BlockType } from "../types";
@@ -20,7 +21,6 @@ export function repairTableSyntax(
     let lines;
     let headed;
 
-    let match;
     let matchIndex;
 
     let result;
@@ -34,30 +34,29 @@ export function repairTableSyntax(
 
     let delimiterLine;
 
-    const tableRegex = patterns.tableRendererInitRegex;
-
     result = "";
 
     pointer = 0;
-    tableRegex.lastIndex = 0;
 
     bufferLength = mdBuffer.length;
 
     fencedRanges = collectFencedRanges(mdBuffer);
 
-    while ((match = tableRegex.exec(mdBuffer))) {
-      matchIndex = match.index;
+    for (const run of findTableRuns(mdBuffer)) {
+      matchIndex = run.start;
+
+      const runText = mdBuffer.slice(run.start, run.end);
 
       if (pointer < matchIndex) {
         result += mdBuffer.slice(pointer, matchIndex);
       }
 
       if (isInsideFenced(matchIndex, fencedRanges)) {
-        result += match[0];
+        result += runText;
       } else {
         // Same cleaning as the streaming path, so a whole document renders
         // the table a stream would have rendered.
-        const cleaned = match[0]
+        const cleaned = runText
           .split("\n")
           .map(dropTrailingComment)
           .join("\n");
@@ -77,14 +76,12 @@ export function repairTableSyntax(
         }
       }
 
-      pointer = matchIndex + match[0].length;
+      pointer = run.end;
     }
 
     if (pointer < bufferLength) {
       result += mdBuffer.slice(pointer, bufferLength);
     }
-
-    tableRegex.lastIndex = 0;
 
     mdBuffer = result;
 
@@ -234,23 +231,165 @@ export function convertTableHeadless(
   }
 }
 
+/**
+ * The run of two or more pipe-carrying lines a table repair starts from.
+ *
+ * This is what `(?:[^\n]*\|[^\n]*\n)+` used to find, minus its cost: every
+ * pipe on a line was another way for the engine to split that line, so a
+ * pipe-dense row whose run came up short — the ordinary shape of a table only
+ * half-arrived — was re-read once per pipe, and a pair of such rows once per
+ * pair of pipes. Counting pipes per line instead reads each line once.
+ */
+function findTableRuns(text: string): TextRange[] {
+  const runs: TextRange[] = [];
+  const lines = indexLines(text);
+
+  let runStart = -1;
+  let runLength = 0;
+
+  const close = (end: number) => {
+    // The pattern needed one line for the leading `+` and one for the
+    // alternation that follows it, whichever branch matched.
+    if (runLength >= 2) {
+      runs.push({ start: runStart, end });
+    }
+
+    runStart = -1;
+    runLength = 0;
+  };
+
+  for (const line of lines) {
+    // An unterminated line cannot be part of a run: every row in the pattern
+    // carried its own "\n". It also ends the run it would have extended.
+    if (!terminated(line) || !line.text.includes("|")) {
+      close(line.start);
+      continue;
+    }
+
+    if (runStart === -1) {
+      runStart = line.start;
+    }
+
+    runLength++;
+  }
+
+  close(text.length);
+
+  return runs;
+}
+
+/** How far a line is indented, counting only the spaces and tabs "[ \t]*" did. */
+function indentWidth(text: string): number {
+  let width = 0;
+
+  while (text.charAt(width) === " " || text.charAt(width) === "\t") {
+    width++;
+  }
+
+  return width;
+}
+
+/** A line that opens a fence: indentation, then "```" or "~~~", then anything. */
+function fenceOpen(line: Line): string | null {
+  const indent = indentWidth(line.text);
+  const marker = line.text.slice(indent, indent + 3);
+
+  if (marker !== "```" && marker !== "~~~") {
+    return null;
+  }
+
+  // The pattern closed on a back-reference to both, so they are the identity
+  // of the fence: an opener is only closed by its own indent and marker.
+  return line.text.slice(0, indent) + "\u0000" + marker;
+}
+
+/** A line that closes one: the opener's exact indent and marker, nothing after. */
+function fenceClose(line: Line): string | null {
+  const key = fenceOpen(line);
+
+  if (key === null) {
+    return null;
+  }
+
+  const rest = line.text.slice(key.indexOf("\u0000") + 3);
+
+  return indentWidth(rest) === rest.length ? key : null;
+}
+
 export function collectFencedRanges(text: string): TextRange[] {
-  let ranges: TextRange[];
-  let fenceMatch;
-  let rangeStart;
-  let rangeEnd;
-  const fencedBlockRegex =
-    /(?:^|\n)([ \t]*)(```|~~~)[^\n]*\n[\s\S]*?(?:\n\1\2[ \t]*(?=\n|$))/g;
+  const ranges: TextRange[] = [];
+  const lines = indexLines(text);
 
-  ranges = [];
+  // Where each opener's closing line can be, gathered up front. The lazy
+  // `[\s\S]*?` this replaces rescanned the whole tail for every fence that
+  // never closed, so a buffer of unterminated fences cost one full pass each.
+  const closers = new Map<string, number[]>();
 
-  while ((fenceMatch = fencedBlockRegex.exec(text))) {
-    rangeStart = fenceMatch.index;
-    rangeEnd = rangeStart + fenceMatch[0].length;
+  lines.forEach((line, index) => {
+    // "[ \t]*(?=\n|$)" would not step over a carriage return, so a CRLF line
+    // never closed a fence.
+    const key = text.charAt(line.end) === "\r" ? null : fenceClose(line);
+
+    if (key !== null) {
+      const found = closers.get(key);
+
+      if (found) {
+        found.push(index);
+      } else {
+        closers.set(key, [index]);
+      }
+    }
+  });
+
+  // Openers are visited in order, so each key's list is only ever read
+  // forward: the cursors together cost one pass over the closing lines.
+  const cursors = new Map<string, number>();
+
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index]!;
+    const key = terminated(line) ? fenceOpen(line) : null;
+
+    if (key === null) {
+      index++;
+      continue;
+    }
+
+    const candidates = closers.get(key);
+
+    if (!candidates) {
+      index++;
+      continue;
+    }
+
+    let cursor = cursors.get(key) ?? 0;
+
+    // The opening line took its own newline with it and the closing line needs
+    // one of its own in front, so the two are never adjacent: under the old
+    // pattern an empty fence did not match at all, and the line below an
+    // opener is read as content even when it looks like a closer.
+    while (cursor < candidates.length && candidates[cursor]! <= index + 1) {
+      cursor++;
+    }
+
+    cursors.set(key, cursor);
+
+    if (cursor === candidates.length) {
+      index++;
+      continue;
+    }
+
+    const closing = candidates[cursor]!;
+
     ranges.push({
-      start: rangeStart,
-      end: rangeEnd,
+      // The pattern opened on "(?:^|\n)", so a fence below the first line
+      // takes the newline above it with it.
+      start: line.start === 0 ? 0 : line.start - 1,
+      end: lines[closing]!.end,
     });
+
+    index = closing + 1;
   }
 
   return ranges;

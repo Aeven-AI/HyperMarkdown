@@ -45,14 +45,11 @@ export const patterns = {
   // finished arriving. Rendered as text it would flash markup at the reader.
   reasoningPartialRegex:
     /^[ \t]*<\/?(?:t(?:h(?:i(?:n(?:k(?:i(?:n(?:g)?)?)?)?)?)?)?|r(?:e(?:a(?:s(?:o(?:n(?:i(?:n(?:g)?)?)?)?)?)?)?)?)?$/i,
-  reasoningOpenAnywhereRegex: /<(think|thinking|reasoning)(?:\s[^>]*)?>/i,
   reasoningCloseRegex: /<\/(think|thinking|reasoning)[ \t]*>/i,
 
   codeCachedInitRegex:
     /^(?:[ ]{0,3}((?:`{3,}|~{3,}))(\w*)[^\r\n]*(?:\r\n|\n)|(?: {4}|\t{4}))/,
   incompleteFenceRegex: /^([ \t]*\n)*[ \t]*(?:```|~~~)[^\r\n]*$/,
-  tableRendererInitRegex:
-    /^((?:[^\n]*\|[^\n]*\n)+(?:[ \t]*\|[ \t]*-+[ \t]*(?::[ \t]*-+[ \t]*)*[ \t]*\|[^\n]*\n(?:[^\n]*\|[^\n]*\n)+|(?:[^\n]*\|[^\n]*\n)+))/gm,
   inlineLinkCloseRegex: /(?:^|\s)(!?\[[^\]]+\]\([^)]+?\))$/,
 
   mathProtectedRegex: new RegExp(

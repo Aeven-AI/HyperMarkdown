@@ -1,3 +1,4 @@
+import { indexLines, terminated } from "./line-index";
 import { patterns } from "./patterns";
 
 /**
@@ -40,11 +41,7 @@ export function convertMath(
     // TeX at all, and the dollars that must be kept away from maths.
 
     // Bracketed block "[\n … \n]" → "$$ … $$"
-    text = text.replace(
-      /^[ \t]*\[\s*\r?\n([\s\S]*?)\r?\n[ \t]*(?:\\\]|\])[ \t]*$/gm,
-      (match, body) =>
-        looksLikeBracketMath(body) ? `\n$$\n${body.trim()}\n$$\n` : match,
-    );
+    text = convertBracketBlocks(text);
 
     text = protectNonMathDollars(text);
 
@@ -107,6 +104,73 @@ export function convertMath(
         return seg;
       })
       .join("");
+  }
+
+  /**
+   * Rewrite each "[" / "]" pair that sits alone on its own line.
+   *
+   * The pattern this replaces led with "\\[\\s*\\r?\\n" — an ambiguous split,
+   * since "\\s*" and "\\r?\\n" both match a newline — and then hunted for the
+   * closing line with a lazy "[\\s\\S]*?". A run of blank lines under an
+   * unclosed bracket was therefore re-read once per line. Walking the lines
+   * settles both: the whitespace run is skipped once, and once no closing line
+   * is left, no later bracket can find one either, so the scan is over.
+   */
+  function convertBracketBlocks(source: string): string {
+    const lines = indexLines(source);
+
+    let result = "";
+    let pointer = 0;
+    let index = 0;
+
+    while (index < lines.length) {
+      const open = lines[index]!;
+
+      if (!terminated(open) || !opensBracket(open.text)) {
+        index++;
+        continue;
+      }
+
+      // "\\s*" ran to the last newline of the whitespace after "[", so the
+      // body starts at the first line that carries something.
+      let bodyStart = index + 1;
+
+      while (bodyStart < lines.length && lines[bodyStart]!.text.trim() === "") {
+        bodyStart++;
+      }
+
+      let closing = bodyStart + 1;
+
+      while (closing < lines.length && !closesBracket(lines[closing]!.text)) {
+        closing++;
+      }
+
+      if (closing >= lines.length) {
+        break;
+      }
+
+      const body = source.slice(lines[bodyStart]!.start, lines[closing - 1]!.end);
+
+      result += source.slice(pointer, open.start);
+      result += looksLikeBracketMath(body)
+        ? `\n$$\n${body.trim()}\n$$\n`
+        : source.slice(open.start, lines[closing]!.end);
+
+      pointer = lines[closing]!.end;
+      index = closing + 1;
+    }
+
+    return result + source.slice(pointer);
+  }
+
+  /** "[" alone on its line, with only spaces or tabs around it. */
+  function opensBracket(line: string): boolean {
+    return /^[ \t]*\[[ \t]*$/.test(line);
+  }
+
+  /** The matching "]" or "\\]", likewise alone. */
+  function closesBracket(line: string): boolean {
+    return /^[ \t]*\\?\][ \t]*$/.test(line);
   }
 
   function looksLikeBracketMath(body: string): boolean {

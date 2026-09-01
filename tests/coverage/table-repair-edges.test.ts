@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { patterns } from "../../lib/patterns";
-
 import {
   checkHeaded,
   collectFencedRanges,
@@ -51,15 +49,8 @@ describe("table repair edge cases", () => {
   });
 
   it("covers absent regex metadata and split entries defensively", () => {
-    const match = ["row"] as unknown as RegExpExecArray;
-    match.index = 0;
-    match.input = "row";
-    const exec = vi
-      .spyOn(patterns.tableRendererInitRegex, "exec")
-      .mockReturnValueOnce(match)
-      .mockReturnValueOnce(null);
-    expect(repairTableSyntax("row", "renderer", false)).toContain("row");
-    exec.mockRestore();
+    // A line the table scanner finds nothing in is handed back untouched.
+    expect(repairTableSyntax("row", "renderer", false)).toBe("row");
 
     const nativeSplit = String.prototype.split;
     let splitCount = 0;
@@ -89,5 +80,25 @@ describe("table repair edge cases", () => {
     (headed as any).match = () => null;
     expect(convertTableWithHeader(true, headed, "| A |", ["| A |"]))
       .toContain("| :--- |");
+  });
+
+  it("handles missing delimiter metadata in a renderer table run", () => {
+    const nativeSplit = String.prototype.split;
+    const split = vi
+      .spyOn(String.prototype, "split")
+      .mockImplementation(function (
+        this: string,
+        separator?: string | RegExp,
+        limit?: number,
+      ) {
+        if (String(this) === "|\n|" && separator === "\n") {
+          return ["|"];
+        }
+
+        return nativeSplit.call(this, separator, limit);
+      });
+
+    expect(() => repairTableSyntax("|\n|\n", "renderer", false)).not.toThrow();
+    split.mockRestore();
   });
 });

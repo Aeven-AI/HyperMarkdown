@@ -593,6 +593,103 @@ export interface DocumentPart {
   reasoning: boolean;
 }
 
+/** The tags a model wraps its reasoning in, longest form checked on its own. */
+const reasoningTags = ["think", "thinking", "reasoning"];
+
+interface TagSpan {
+  start: number;
+  end: number;
+}
+
+/** Where a reasoning tag's name ends, or -1 if no name sits at `at`. */
+function reasoningTagName(md: string, at: number, closing: boolean): number {
+  for (const name of reasoningTags) {
+    const end = at + name.length;
+
+    if (md.slice(at, end).toLowerCase() !== name) {
+      continue;
+    }
+
+    const after = md.charAt(end);
+
+    // "think" must not swallow the start of "thinking": the name only ends
+    // here if the tag does too, or if attributes follow it.
+    if (after === ">" || (closing ? after === " " || after === "\t" : /\s/.test(after))) {
+      return end;
+    }
+  }
+
+  return -1;
+}
+
+/**
+ * Find the next reasoning tag at or after `from`.
+ *
+ * The patterns this replaces ended in "(?:\\s[^>]*)?>", which reads ahead to
+ * the first ">" — so a buffer of half-written "<think " openers and no ">" at
+ * all had every one of them scan the whole remaining buffer. The ">" is found
+ * once here and only ever moves forward, and its absence ends the search
+ * outright, since nothing after it could close a tag either.
+ */
+function findReasoningTag(
+  md: string,
+  from: number,
+  closing: boolean,
+): TagSpan | null {
+  let gt = md.indexOf(">", from);
+
+  for (
+    let start = md.indexOf("<", from);
+    start !== -1;
+    start = md.indexOf("<", start + 1)
+  ) {
+    if (gt !== -1 && gt < start) {
+      gt = md.indexOf(">", start);
+    }
+
+    if (gt === -1) {
+      return null;
+    }
+
+    let cursor = start + 1;
+
+    if (closing) {
+      if (md.charAt(cursor) !== "/") {
+        continue;
+      }
+
+      cursor++;
+    }
+
+    const nameEnd = reasoningTagName(md, cursor, closing);
+
+    if (nameEnd === -1) {
+      continue;
+    }
+
+    if (md.charAt(nameEnd) === ">") {
+      return { start, end: nameEnd + 1 };
+    }
+
+    if (!closing) {
+      return { start, end: gt + 1 };
+    }
+
+    // A closing tag allows only spaces and tabs before its ">".
+    let padded = nameEnd;
+
+    while (md.charAt(padded) === " " || md.charAt(padded) === "\t") {
+      padded++;
+    }
+
+    if (md.charAt(padded) === ">") {
+      return { start, end: padded + 1 };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Split a finished document on its reasoning blocks.
  *
@@ -602,31 +699,32 @@ export interface DocumentPart {
 export function splitReasoning(md: string): DocumentPart[] {
   const parts: DocumentPart[] = [];
 
-  let rest = md;
+  let pointer = 0;
 
   for (;;) {
-    const open = patterns.reasoningOpenAnywhereRegex.exec(rest);
+    const open = findReasoningTag(md, pointer, false);
 
     if (!open) {
       break;
     }
 
-    const after = rest.slice(open.index + open[0].length);
-    const closing = patterns.reasoningCloseRegex.exec(after);
+    const closing = findReasoningTag(md, open.end, true);
 
     if (!closing) {
       break;
     }
 
-    const before = rest.slice(0, open.index);
+    const before = md.slice(pointer, open.start);
 
     if (before.trim() !== "") {
       parts.push({ md: before, reasoning: false });
     }
 
-    parts.push({ md: after.slice(0, closing.index), reasoning: true });
-    rest = after.slice(closing.index + closing[0].length);
+    parts.push({ md: md.slice(open.end, closing.start), reasoning: true });
+    pointer = closing.end;
   }
+
+  const rest = md.slice(pointer);
 
   if (rest.trim() !== "") {
     parts.push({ md: rest, reasoning: false });

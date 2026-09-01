@@ -173,4 +173,13 @@ describe("finished reasoning splitting", () => {
       { md: " after", reasoning: false },
     ]);
   });
+
+  it("skips non-closing and malformed closing-tag candidates", () => {
+    expect(splitReasoning("<think>body <span></think>")).toEqual([
+      { md: "body <span>", reasoning: true },
+    ]);
+    expect(splitReasoning("<think>x</think nope></think>")).toEqual([
+      { md: "x</think nope>", reasoning: true },
+    ]);
+  });
 });
