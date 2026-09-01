@@ -17,6 +17,8 @@ on:
       - "website/**"
       - "benchmarks/results/latest.json"
       - ".github/workflows/pages.yml"
+  release:
+    types: [published]
   workflow_dispatch:
 
 concurrency:
@@ -80,7 +82,7 @@ jobs:
 
   deploy:
     name: Deploy
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'release')
     needs: build
     runs-on: ubuntu-latest
     environment:

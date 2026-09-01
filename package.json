@@ -80,6 +80,7 @@
     "bundle-analyzer": "vite-bundle-visualizer",
     "bundle-analyzer-network": "vite-bundle-visualizer -t network",
     "bundle-analyzer-sunburst": "vite-bundle-visualizer -t sunburst",
+    "version": "npm --prefix website install --package-lock-only --ignore-scripts && git add website/package-lock.json",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
