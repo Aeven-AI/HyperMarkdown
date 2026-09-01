@@ -169,6 +169,24 @@ describe("remaining transform branches", () => {
     expect(link.properties["data-animate-key"]).toBe("existing");
   });
 
+  it("preserves animation metadata already attached to a KaTeX root", () => {
+    const katex: any = {
+      type: "element",
+      tagName: "span",
+      properties: {
+        className: ["katex"],
+        "data-animate-word": true,
+        "data-animate-key": "existing-math",
+      },
+      children: [{ type: "text", value: "formula" }],
+    };
+
+    rehypeAnimation()({ type: "root", children: [katex] } as any);
+
+    expect(katex.properties["data-animate-key"]).toBe("existing-math");
+    expect(katex.children).toEqual([{ type: "text", value: "formula" }]);
+  });
+
   it("tolerates matched transform roots without parent metadata", () => {
     const pre: any = {
       type: "element",

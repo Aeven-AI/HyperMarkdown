@@ -36,7 +36,6 @@ export function rehypeAnimation() {
       if (isKatex(node)) {
         // Fade the formula in as one unit: KaTeX lays out its own spans, so the
         // root is the only place a fade can attach without breaking the math.
-        node.properties ||= {};
         if (!("data-animate-word" in node.properties)) {
           node.properties["data-animate-word"] = true;
           node.properties["data-animate-key"] = `math-${index}`;
