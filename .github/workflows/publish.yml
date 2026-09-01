@@ -16,6 +16,16 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to publish (e.g. v0.1.7). Leave empty to publish this ref."
+        required: false
+        type: string
+      skip_quality:
+        description: "Skip CI. Only for backfilling a tagged release whose tests already ran."
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,6 +33,7 @@ permissions:
 
 jobs:
   quality:
+    if: github.event_name != 'workflow_dispatch' || inputs.skip_quality != true
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
@@ -32,6 +43,7 @@ jobs:
   publish:
     name: Publish to npm
     needs: quality
+    if: always() && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: npm
@@ -42,6 +54,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          ref: ${{ inputs.tag || github.sha }}
 
       # Do not set registry-url. setup-node writes
       # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} and a dummy token,
@@ -56,12 +69,13 @@ jobs:
         run: npm install -g npm@^11.5.1
 
       - name: Match package version to release tag
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.tag != ''
         run: |
           pkg=$(node -p "require('./package.json').version")
-          tag="${GITHUB_REF_NAME#v}"
+          raw="${{ inputs.tag || github.ref_name }}"
+          tag="${raw#v}"
           if [ "$pkg" != "$tag" ]; then
-            echo "package.json version $pkg does not match release tag $GITHUB_REF_NAME"
+            echo "package.json version $pkg does not match tag $raw"
             exit 1
           fi
 
