@@ -9,6 +9,7 @@ import type {
 } from "../plugin-types";
 
 import Header from "./header";
+import { canRender } from "./renderable";
 
 export interface MermaidDiagramProps {
   chart: string;
@@ -145,6 +146,13 @@ class MermaidDiagram extends Component<
     const diagram = props.diagram;
 
     if (chart === "" || !diagram) {
+      return;
+    }
+
+    // Mid-stream the source can be too unfinished to lay out, in a way the
+    // engine reports by drawing a broken diagram rather than by failing. Keep
+    // the frame already on screen and wait for the next delta.
+    if (!canRender(chart)) {
       return;
     }
 
