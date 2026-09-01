@@ -83,6 +83,12 @@ jobs:
           fi
 
           echo "node $(node --version) npm $(npm --version)"
+          pkg=$(node -p "require('./package.json').version")
+          if npm view "@aeven-ai/hypermarkdown@$pkg" version >/dev/null 2>&1; then
+            echo "@aeven-ai/hypermarkdown@$pkg is already on npm; skipping publish"
+            exit 0
+          fi
+
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
             echo "::error::GitHub OIDC is unavailable. This job needs permissions.id-token: write."
             exit 1
@@ -110,9 +116,4 @@ jobs:
             exit 1
           fi
 
-          pkg=$(node -p "require('./package.json').version")
-          if npm view "@aeven-ai/hypermarkdown@$pkg" version >/dev/null 2>&1; then
-            echo "@aeven-ai/hypermarkdown@$pkg is already on npm; skipping publish"
-            exit 0
-          fi
           npm publish --access public --loglevel verbose
