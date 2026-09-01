@@ -607,16 +607,21 @@ output and measures chunk processing plus synchronous React commits.
 
 ### Releasing
 
-Publishing to npm is triggered by a GitHub Release whose tag matches
-`package.json`:
+The account publishes under two-factor auth, which no runner can satisfy, so
+the publish itself is local:
 
 1. Bump `version` in `package.json` (and the lockfile). `npm version`
    also refreshes `website/package-lock.json` so the docs site records
    that same version.
 2. Commit, tag `vX.Y.Z`, and push.
-3. Create a GitHub Release from that tag. That publishes to npm and
-   deploys the documentation site from the release tag (the playground
-   and docs build that released library).
+3. Create a GitHub Release from that tag. That deploys the documentation
+   site from the release tag (the playground and docs build that
+   released library).
+4. Run `npm publish` locally, from the tag, and complete the 2FA prompt.
+
+A release therefore does not publish. Set up trusted publishing if you want it
+to — see the [publish workflow](.github/workflows/publish.yml), which carries
+the steps and is otherwise only run on demand.
 
 The [publish workflow](.github/workflows/publish.yml) re-runs the CI gates and
 publishes `@aeven-ai/hypermarkdown` with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers)

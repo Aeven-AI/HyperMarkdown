@@ -1,6 +1,14 @@
-# Publishes @aeven-ai/hypermarkdown to npm when a GitHub Release is published.
+# Publishes @aeven-ai/hypermarkdown to npm. Run by hand, never on a release.
 #
-# One-time setup on npmjs.com → package → Settings → Trusted Publisher:
+# The account publishes under two-factor auth held in a keystore, which no
+# runner can satisfy, so releasing is a local `npm publish`. This ran on every
+# published release until v0.2.1, where it failed for want of a credential it
+# was never going to have — turning each release red for a step that could not
+# succeed. It stays here, on demand, for the day trusted publishing is set up.
+#
+# To make it automatic again, add the `release: types: [published]` trigger back
+# and complete the one-time setup on npmjs.com → package → Settings → Trusted
+# Publisher:
 #   Organization or user: Aeven-AI
 #   Repository:           HyperMarkdown
 #   Workflow filename:    publish.yml
@@ -13,8 +21,6 @@
 name: Publish
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
