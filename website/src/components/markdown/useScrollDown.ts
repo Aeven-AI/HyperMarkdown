@@ -23,9 +23,6 @@ export function useScrollDown(container: { current: HTMLElement | null }) {
 
     programmatic.current = true;
     try {
-      if (userScroll.current === true) {
-        return;
-      }
       el.scrollTo({ top: el.scrollHeight, behavior: "instant" });
       currentScrollHeight.current = el.scrollHeight;
       lastScrollTop.current = el.scrollTop;
