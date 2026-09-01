@@ -54,6 +54,8 @@ function InstallCommand() {
 export default function Home() {
   const code = benchmark.fixtures.find((row) => row.fixture === "real-code-os.md")!;
   const table = benchmark.fixtures.find((row) => row.fixture === "real-table-head.md")!;
+  const speedups = benchmark.fixtures.map((row) => row.speedup);
+  const speedupRange = `${Math.min(...speedups).toFixed(1)}×–${Math.max(...speedups).toFixed(1)}×`;
 
   return (
     <Layout
@@ -86,7 +88,7 @@ export default function Home() {
             <section className="home-overview">
               <div className="headline-compare" style={{ margin: "0.8rem 0 1.1rem" }}>
                 <div className="compare-pill">
-                  <strong>1.6×–10.6×</strong>
+                  <strong>{speedupRange}</strong>
                   <span>Faster than the nearest streaming renderer across the suite.</span>
                 </div>
                 <div className="compare-pill">
@@ -108,7 +110,10 @@ export default function Home() {
                     <p className="bench-meta">
                       {benchmark.environment.cpu}, Node {benchmark.environment.node}.
                       Chunk processing plus synchronous React commit. Same Markdown.
-                      Same stream.
+                      Same stream.{" "}
+                      {benchmark.merged
+                        ? "Latest data includes a same-machine partial refresh."
+                        : ""}
                     </p>
                   </div>
                   <Link className="bench-meta" to="/docs/benchmarks">

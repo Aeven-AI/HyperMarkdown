@@ -50,6 +50,7 @@ const fixtures = Object.keys(labels).map((fixture) => {
 const payload = {
   completedAt: source.completedAt,
   environment: source.environment,
+  merged: source.merged ?? null,
   renderers: names,
   fixtures,
 };

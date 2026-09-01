@@ -18,12 +18,14 @@
  *   node run.js --chunk=24 --runs=3 --warmup=1   slower, steadier
  *   node run.js --only=HyperMarkdown,Streamdown  a subset
  *   node run.js --fixture=table                  fixtures matching a substring
+ *   node run.js --only=HyperMarkdown --merge \
+ *     --from=results/partial-only-HyperMarkdown.json
  */
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { arch, cpus, platform, release, totalmem } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const processors = cpus();
@@ -51,6 +53,7 @@ const runs = arg("runs", "1");
 const warmup = arg("warmup", "0");
 const only = arg("only", "");
 const fixtureFilter = arg("fixture", "");
+const from = arg("from", "");
 
 // Re-measure some renderers and keep the rest of `latest` as it stands. The
 // point of a benchmark is that the numbers next to each other were taken the
@@ -78,25 +81,88 @@ const fixtures = readdirSync(join(here, "fixtures"))
 const tty = process.stderr.isTTY === true;
 let lastPrinted = 0;
 const results = [];
+let completedAt = null;
 
 const totalJobs = fixtures.length * renderers.length;
 let job = 0;
 
-for (const file of fixtures) {
-  const path = join(here, "fixtures", file);
-  const text = readFileSync(path, "utf8");
-  const chunk = chunkFor(file);
-  const frames = Math.ceil(text.length / Number(chunk));
+if (from) {
+  const sourcePath = resolve(here, from);
 
-  process.stderr.write(`\n${file}  ${text.length} chars, ${frames} chunks of ${chunk}\n`);
+  if (!existsSync(sourcePath)) {
+    process.stderr.write(`\n--from file does not exist: ${sourcePath}\n`);
+    process.exit(1);
+  }
 
-  for (const renderer of renderers) {
-    job++;
-    const measured = await measure(renderer, path, job, chunk);
-    results.push({ fixture: file, renderer: renderer.name, ...measured });
-    print(renderer, measured);
+  const source = JSON.parse(readFileSync(sourcePath, "utf8"));
+  const environmentMismatch = Object.entries(environment)
+    .filter(([key, value]) => source.environment?.[key] !== value)
+    .map(([key, value]) => `${key} ${source.environment?.[key]} vs ${value}`);
+  const mismatch = [
+    source.runs !== Number(runs) ? `runs ${source.runs} vs ${runs}` : null,
+    source.warmup !== Number(warmup) ? `warmup ${source.warmup} vs ${warmup}` : null,
+    typeof source.completedAt !== "string" ? "missing completedAt" : null,
+    ...environmentMismatch,
+  ].filter(Boolean);
+
+  if (mismatch.length > 0) {
+    process.stderr.write(
+      `\n--from refused: the saved run does not match this invocation ` +
+        `(${mismatch.join(", ")}).\n`
+    );
+    process.exit(1);
+  }
+
+  const expected = new Set(
+    fixtures.flatMap((file) => renderers.map((renderer) => `${file}\0${renderer.name}`))
+  );
+  const seen = new Set();
+  const unexpected = [];
+
+  for (const row of source.results ?? []) {
+    const key = `${row.fixture}\0${row.renderer}`;
+
+    if (!expected.has(key) || seen.has(key)) {
+      unexpected.push(`${row.fixture} / ${row.renderer}`);
+      continue;
+    }
+
+    seen.add(key);
+    results.push(row);
+  }
+
+  const missing = [...expected].filter((key) => !seen.has(key));
+
+  if (unexpected.length > 0 || missing.length > 0) {
+    process.stderr.write(
+      `\n--from refused: saved rows do not match the selected fixture/renderer set` +
+        `${unexpected.length ? `; unexpected or duplicate: ${unexpected.join(", ")}` : ""}` +
+        `${missing.length ? `; missing: ${missing.map((key) => key.replace("\0", " / ")).join(", ")}` : ""}.\n`
+    );
+    process.exit(1);
+  }
+
+  completedAt = source.completedAt;
+  process.stderr.write(`\nLoaded ${results.length} measured row(s) from ${sourcePath}.\n`);
+} else {
+  for (const file of fixtures) {
+    const path = join(here, "fixtures", file);
+    const text = readFileSync(path, "utf8");
+    const chunk = chunkFor(file);
+    const frames = Math.ceil(text.length / Number(chunk));
+
+    process.stderr.write(`\n${file}  ${text.length} chars, ${frames} chunks of ${chunk}\n`);
+
+    for (const renderer of renderers) {
+      job++;
+      const measured = await measure(renderer, path, job, chunk);
+      results.push({ fixture: file, renderer: renderer.name, ...measured });
+      print(renderer, measured);
+    }
   }
 }
+
+completedAt ??= new Date().toISOString();
 
 mkdirSync(join(here, "results"), { recursive: true });
 
@@ -150,20 +216,72 @@ if (merge) {
     process.exit(1);
   }
 
+  if (from) {
+    const shapeChanges = results.flatMap((row) => {
+      const old = previous.results.find(
+        (candidate) =>
+          candidate.fixture === row.fixture && candidate.renderer === row.renderer
+      );
+
+      if (!old) {
+        return [`${row.fixture} / ${row.renderer} is missing from latest`];
+      }
+
+      const changed = ["frames", "nodes", "chars"].filter(
+        (field) => old[field] !== row[field]
+      );
+
+      return changed.length
+        ? [`${row.fixture} / ${row.renderer}: ${changed.join(", ")}`]
+        : [];
+    });
+
+    if (shapeChanges.length > 0) {
+      process.stderr.write(
+        `\n--from refused: rendered output shape differs from results/latest.json ` +
+          `(${shapeChanges.join("; ")}). Re-run the benchmark instead of promoting it.\n`
+      );
+      process.exit(1);
+    }
+  }
+
+  const replacementByKey = new Map(
+    results.map((row) => [`${row.fixture}\0${row.renderer}`, row])
+  );
+  const missingBaseline = results.filter(
+    (row) =>
+      !previous.results.some(
+        (candidate) =>
+          candidate.fixture === row.fixture && candidate.renderer === row.renderer
+      )
+  );
+
+  if (missingBaseline.length > 0) {
+    process.stderr.write(
+      `\n--merge refused: ${missingBaseline.length} refreshed row(s) have no ` +
+        `matching row in results/latest.json. Run the complete benchmark instead.\n`
+    );
+    process.exit(1);
+  }
+
   const kept = previous.results.filter((row) => !refreshed.has(row.renderer));
+  const mergedResults = previous.results.map(
+    (row) => replacementByKey.get(`${row.fixture}\0${row.renderer}`) ?? row
+  );
 
   carried = {
     refreshed: [...refreshed],
+    refreshedAt: completedAt,
     previousCompletedAt: previous.completedAt,
     keptRenderers: [...new Set(kept.map((row) => row.renderer))],
   };
 
-  results.push(...kept);
+  results.splice(0, results.length, ...mergedResults);
 }
 
-// A partial run must never overwrite a full one. `latest.*` is reserved for a
-// sweep over every fixture with every renderer; anything narrower writes to a
-// name that says what it was, so a --fixture or --only run cannot silently
+// A partial run must never overwrite a full one unless --merge was explicit
+// and passed the compatibility checks above. Anything else narrower writes to
+// a name that says what it was, so a --fixture or --only run cannot silently
 // destroy the report someone spent an hour measuring.
 const complete =
   merge ||
@@ -194,7 +312,7 @@ writeFileSync(
       runs: Number(runs),
       warmup: Number(warmup),
       aggregation: "median-total run",
-      completedAt: new Date().toISOString(),
+      completedAt,
       environment,
       ...(carried ? { merged: carried } : {}),
       results,
@@ -339,8 +457,8 @@ function report() {
   const out = [
     "# Streaming benchmark",
     "",
-    "Generated by `npm run bench`. These are numbers from one machine on one",
-    "day: regenerate them rather than trusting the absolutes. The ratios are",
+    "Generated by `npm run bench`. These are numbers from one machine:",
+    "regenerate them rather than trusting the absolutes. The ratios are",
     "the part that travels.",
     "",
     `Environment: ${environment.cpu}, ${environment.cores} cores, ` +
@@ -367,7 +485,8 @@ function report() {
   if (carried) {
     out.push(
       `**Partial refresh.** ${carried.refreshed.join(", ")} ` +
-        `${carried.refreshed.length === 1 ? "was" : "were"} re-measured just now; ` +
+        `${carried.refreshed.length === 1 ? "was" : "were"} re-measured in the run of ` +
+        `${carried.refreshedAt}; ` +
         `${carried.keptRenderers.join(", ")} carry over unchanged from the run of ` +
         `${carried.previousCompletedAt}. Same machine, same settings, but the rows ` +
         "were not taken on the same day — regenerate the lot with `npm run bench` " +

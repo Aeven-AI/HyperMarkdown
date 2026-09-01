@@ -10,14 +10,23 @@ node run.js --runs=5 --warmup=1              # publication-quality sweep
 node run.js --chunk=24 --runs=3 --warmup=1   # override every chunk size
 node run.js --only=HyperMarkdown,Streamdown  # a subset
 node run.js --fixture=table                  # one fixture
+node run.js --only=HyperMarkdown --runs=5 --warmup=1 --merge \
+  --from=results/partial-only-HyperMarkdown.json
 ```
 
 Results land in `results/latest.md` and `results/latest.json` — but **only a
-complete sweep writes those**. A run narrowed with `--fixture` or `--only`
-writes `results/partial-*.md` instead and leaves `latest.*` alone, so a quick
-spot-check cannot destroy a full measured report.
+complete sweep or an explicit, validated `--merge` writes those**. A run
+narrowed with `--fixture` or `--only` writes `results/partial-*.md` instead and
+leaves `latest.*` alone, so a quick spot-check cannot destroy a full measured
+report.
 The Markdown report records the median and measured range; the JSON retains
 every raw measured sample plus the runtime and machine environment.
+
+To promote a saved partial run into `latest.*`, use `--merge --from` with the
+same renderer selection, run count, and warm-up count. The runner verifies the
+machine, runtime, complete fixture set, and rendered output shape before it
+replaces that renderer's rows. All other renderer rows remain unchanged, and
+the generated report identifies the partial refresh and both run timestamps.
 
 ## What is measured
 

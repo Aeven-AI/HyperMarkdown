@@ -15,21 +15,21 @@ finished.
 
 ## Performance
 
-**1.6×–10.6× faster than the nearest streaming renderer across our benchmark
+**1.8×–11.0× faster than the nearest streaming renderer across our benchmark
 suite.**
 
 | Workload | HyperMarkdown | Markstream | Streamdown | DeepSeek Harness | react-markdown |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Large code block | **216 ms** | 769 ms | 3,242 ms | 4,416 ms | 2,054 ms |
-| Mixed prose | **153 ms** | 313 ms | 559 ms | 249 ms | 2,629 ms |
-| Captured AI code stream (`real-code-os`) | **659 ms** | 4,417 ms | 12,511 ms | 14,621 ms | 8,008 ms |
-| Captured AI table stream (`real-table-head`) | **654 ms** | 4,948 ms | 11,621 ms | 19,644 ms | 10,236 ms |
-| Large table | **874 ms** | 9,276 ms | 33,142 ms | 55,918 ms | 29,747 ms |
+| Mixed prose | **140 ms** | 313 ms | 559 ms | 249 ms | 2,629 ms |
+| Captured AI code stream (`real-code-os`) | **533 ms** | 4,417 ms | 12,511 ms | 14,621 ms | 8,008 ms |
+| Captured AI table stream (`real-table-head`) | **666 ms** | 4,948 ms | 11,621 ms | 19,644 ms | 10,236 ms |
+| Large table | **846 ms** | 9,276 ms | 33,142 ms | 55,918 ms | 29,747 ms |
 
 The captured model fixtures are not generated stress cases: their content is
 real AI output, replayed in controlled 8-character frames. HyperMarkdown
-renders the code stream in **659 ms** versus **4,417 ms** for the next closest
-streaming renderer, and the table stream in **654 ms** versus **4,948 ms**.
+renders the code stream in **533 ms** versus **4,417 ms** for the next closest
+streaming renderer, and the table stream in **666 ms** versus **4,948 ms**.
 
 On a large streaming table, HyperMarkdown completes the workload in **under
 one second**.
@@ -42,7 +42,8 @@ Same Markdown. Same stream. Very different architecture.
 
 > Production React benchmark on an Apple M2 Max, including chunk processing
 > and synchronous render/commit. Absolute timings vary; the ratios are the
-> useful comparison.
+> useful comparison. HyperMarkdown was refreshed on 2026-09-01; comparison
+> rows carry over from the same-machine, same-settings run on 2026-08-31.
 
 [Read the methodology](./benchmarks/README.md) ·
 [View the full benchmark results](./benchmarks/results/latest.md)

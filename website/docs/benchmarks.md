@@ -33,7 +33,13 @@ The captured fixtures are not generated stress cases. Their content is real AI o
 
 ## How to read the table
 
-Absolute milliseconds are from one machine on one day (Apple M2 Max in the published run). Ratios travel; milliseconds do not.
+Absolute milliseconds are machine-specific (Apple M2 Max in the published
+run). Ratios travel better than milliseconds do.
+
+When only one renderer is refreshed, the generated report identifies both run
+timestamps and the rows carried over unchanged. The current published snapshot
+refreshes HyperMarkdown on the same machine and settings as the comparison run;
+run the complete suite before treating the ratios as publication-grade results.
 
 Read the DOM-nodes and rendered-percent columns before the times. A renderer that defers or skeletons a block is doing less work.
 
