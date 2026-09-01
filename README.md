@@ -556,10 +556,50 @@ can remount rendered elements.
 | `lineNumbers` | `boolean` | Show code line numbers. Defaults to `true`. |
 | `codeBlockMaxHeight` | `number \| string` | Height at which code blocks scroll; numbers are pixels. |
 | `tableMaxHeight` | `number \| string` | Height at which tables scroll; numbers are pixels. |
+| `preview` | `PreviewConfig` | Where a code block's HTML preview opens. Defaults to a page of its own. |
 | `scrollDown` | `() => void` | Runs after each committed update for host scroll management. |
 | `onFullscreenChange` | `(fullscreen: boolean) => void` | Reports code, table, or diagram fullscreen changes. |
 | `onAlert` | `(alert: HyperMarkdownAlert) => void` | Lets the host present block alerts. |
 | `className` | `string` | Additional class on the `.hypermarkdown` root. |
+
+### HTML previews
+
+A code block holding HTML offers a **Preview** button. By default the block
+opens that HTML as a page of its own — a blob URL, so it is a real document
+with a real address that reloads, inspects and views source like any other
+page, and runs in its own scope rather than the app's. Nothing is required of
+the host: no route, no storage, no navigation of your own.
+
+If the window cannot be opened — a blocked popup, or a host embedded without
+`allow-popups` — the block reports it through `onAlert` instead.
+
+To send previews to a page you serve, give `preview` a `url`. The HTML is
+written to `localStorage` first, and the page reads it back:
+
+```tsx
+<HyperMarkdown md={markdown} preview={{ url: "/preview-code/{id}" }} />
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `url` | `string \| (id: string) => string` | The page to open. `{id}` is replaced with the block's id. Unset means the built-in preview. |
+| `storageKey` | `string \| (id: string) => string` | Key the HTML is written to. Defaults to `preview-{id}`. Only used with `url`. |
+
+Both accept a function when substitution is not enough:
+
+```tsx
+<HyperMarkdown
+  md={markdown}
+  preview={{
+    url: (id) => `/preview#${encodeURIComponent(id)}`,
+    storageKey: (id) => `preview:${id}`,
+  }}
+/>
+```
+
+The previewed HTML runs with your origin. Serving your own preview page lets
+you decide how far to trust it — rendering it inside a sandboxed iframe, for
+instance.
 
 ### `HyperMarkdownHandle`
 

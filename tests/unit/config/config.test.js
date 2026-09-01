@@ -4,6 +4,7 @@ import {
   cssLength,
   defaultIcons,
   defaultTranslations,
+  previewValue,
   resolveUi,
 } from "../../../lib/config";
 
@@ -85,5 +86,48 @@ describe.each([
 ])("cssLength(%j)", (input, expected) => {
   it("normalizes the value", () => {
     expect(cssLength(input)).toBe(expected);
+  });
+});
+
+describe("preview config", () => {
+  it("carries nothing of its own until the host says otherwise", () => {
+    // An empty config is what tells a code block to open its own page.
+    expect(resolveUi().preview).toEqual({});
+  });
+
+  it("keeps what the host configured", () => {
+    const ui = resolveUi({
+      preview: { url: "/p/{id}", storageKey: "k-{id}" },
+    });
+
+    expect(ui.preview.url).toBe("/p/{id}");
+    expect(ui.preview.storageKey).toBe("k-{id}");
+  });
+
+  it("copies the config rather than holding the host's object", () => {
+    const preview = { url: "/p/{id}" };
+    const ui = resolveUi({ preview });
+
+    expect(ui.preview).toEqual(preview);
+    expect(ui.preview).not.toBe(preview);
+  });
+});
+
+describe("previewValue", () => {
+  it("replaces every {id} in a template", () => {
+    expect(previewValue("/p/{id}", "7")).toBe("/p/7");
+    expect(previewValue("/p/{id}?k={id}", "7")).toBe("/p/7?k=7");
+    expect(previewValue("/p/none", "7")).toBe("/p/none");
+  });
+
+  it("hands the id to a function, for routes substitution cannot reach", () => {
+    expect(previewValue((id) => `/p#${encodeURIComponent(id)}`, "a b")).toBe(
+      "/p#a%20b",
+    );
+  });
+
+  it("falls back to its own template when nothing is configured", () => {
+    expect(previewValue(undefined, "7", "preview-{id}")).toBe("preview-7");
+    expect(previewValue(undefined, "7", "")).toBe("");
   });
 });

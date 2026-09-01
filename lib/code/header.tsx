@@ -2,7 +2,7 @@ import React, { Component, type MouseEvent, type RefObject } from "react";
 
 import * as runtime from "../runtime";
 import type { Emitter } from "../runtime";
-import { defaultUi } from "../config";
+import { defaultUi, previewValue } from "../config";
 import type { UiConfig } from "../config";
 import Tooltip, { type TooltipHandle } from "../tooltip";
 
@@ -119,9 +119,28 @@ class Header extends Component<HeaderProps> {
       });
     } else {
       if (codeElement && codeElement.textContent) {
-        runtime.setItem(`preview-${guid}`, codeElement.textContent);
+        const html = codeElement.textContent;
 
-        window.open(`/preview-code/${guid}`, "_blank");
+        if (ui.preview.url === undefined) {
+          // Nothing configured: open the HTML as a page in its own right.
+          if (!runtime.openHtmlWindow(html)) {
+            props.events?.dispatchObjectEvent("show:modal", {
+              type: "alertModal",
+              header: ui.translations.previewUnavailableTitle,
+              content: ui.translations.previewUnavailableBody,
+              buttonText: ui.translations.dismiss,
+            });
+          }
+        } else {
+          // Handed off: the page is somewhere the host already built, and
+          // reads the HTML back out of storage under the agreed key.
+          runtime.setItem(
+            previewValue(ui.preview.storageKey, guid, "preview-{id}"),
+            html,
+          );
+
+          window.open(previewValue(ui.preview.url, guid, ""), "_blank");
+        }
       } else {
         props.events?.dispatchObjectEvent("show:modal", {
           type: "alertModal",

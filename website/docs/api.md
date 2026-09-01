@@ -24,6 +24,7 @@ title: API reference
 | `lineNumbers` | `boolean` | Show code line numbers; defaults to true. |
 | `codeBlockMaxHeight` | number or CSS length | Code scrolling threshold. |
 | `tableMaxHeight` | number or CSS length | Table scrolling threshold. |
+| `preview` | `PreviewConfig` | Where a code block's HTML preview opens. |
 | `scrollDown` | callback | Runs after each committed update. |
 | `onFullscreenChange` | callback | Reports fullscreen block state. |
 | `onAlert` | callback | Presents preview alerts through the host. |

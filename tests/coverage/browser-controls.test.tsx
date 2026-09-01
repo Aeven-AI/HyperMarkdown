@@ -74,6 +74,7 @@ describe("toolbar controls", () => {
       <HyperMarkdown
         md={"```html\n<strong>preview</strong>\n```\n"}
         onAlert={alerts}
+        preview={{ url: "/preview-code/{id}" }}
       />,
     );
 

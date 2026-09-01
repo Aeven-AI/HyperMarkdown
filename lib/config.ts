@@ -160,6 +160,34 @@ export interface UiConfig {
   codeBlockMaxHeight: number | string | undefined;
   /** Max height for a table before it scrolls. Numbers are px. */
   tableMaxHeight: number | string | undefined;
+  /** Where a code block's HTML preview opens. */
+  preview: PreviewConfig;
+}
+
+/**
+ * Where a code block's HTML preview opens.
+ *
+ * Left alone, the block opens the HTML as a page of its own, from a blob URL:
+ * a real document with a real address, which reloads, inspects and views its
+ * source like any other page, and needs nothing of the host to do it.
+ *
+ * Give it a `url` and the page is handed off instead — the HTML is written to
+ * storage under `storageKey`, and that URL is opened to read it back, which is
+ * how a host serves a preview page it has already built.
+ */
+export interface PreviewConfig {
+  /**
+   * The page to open. `{id}` in a string is replaced with the block's id; a
+   * function is called with it, for hosts whose routes need more than
+   * substitution.
+   */
+  url?: string | ((id: string) => string) | undefined;
+  /**
+   * The localStorage key the HTML is written to before that page opens.
+   * Defaults to `preview-{id}`. Only used when `url` is set — the built-in
+   * preview holds the HTML in memory and stores nothing.
+   */
+  storageKey?: string | ((id: string) => string) | undefined;
 }
 
 export interface UiOptions {
@@ -169,6 +197,7 @@ export interface UiOptions {
   lineNumbers?: boolean | undefined;
   codeBlockMaxHeight?: number | string | undefined;
   tableMaxHeight?: number | string | undefined;
+  preview?: PreviewConfig | undefined;
 }
 
 export function resolveUi(options: UiOptions = {}): UiConfig {
@@ -184,7 +213,29 @@ export function resolveUi(options: UiOptions = {}): UiConfig {
     lineNumbers: options.lineNumbers !== false,
     codeBlockMaxHeight: options.codeBlockMaxHeight,
     tableMaxHeight: options.tableMaxHeight,
+    preview: { ...options.preview },
   };
+}
+
+/**
+ * Fill one of the preview config's templates. A function is handed the id; a
+ * string has `{id}` replaced wherever it appears, so a route, a query string
+ * and a hash are all reachable without the host writing a function.
+ */
+export function previewValue(
+  template: string | ((id: string) => string) | undefined,
+  id: string,
+  fallback = "",
+): string {
+  if (typeof template === "function") {
+    return template(id);
+  }
+
+  if (typeof template !== "string") {
+    return fallback.split("{id}").join(id);
+  }
+
+  return template.split("{id}").join(id);
 }
 
 /** CSS length from a config value: bare numbers mean pixels. */

@@ -32,6 +32,44 @@ export function getItem(key: string): string | null {
   }
 }
 
+/**
+ * Open HTML as a page of its own, and hand back whether a window was had.
+ *
+ * A blank window written into with `document.write` is gone the moment the
+ * reader reloads it, which is the first thing anyone does to a preview they
+ * are debugging. A blob URL is a real address instead: the window reloads,
+ * inspects and views source like any other page.
+ *
+ * The URL is deliberately never revoked. Revoking is what frees the blob, and
+ * the reload the reader is about to do has to fetch it again. It lives as long
+ * as the document that made it, which is the page holding the code block.
+ */
+export function openHtmlWindow(html: string): boolean {
+  let url;
+  let opened;
+
+  if (typeof window === "undefined" || typeof URL.createObjectURL !== "function") {
+    return false;
+  }
+
+  try {
+    url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+  } catch {
+    return false;
+  }
+
+  opened = window.open(url, "_blank");
+
+  if (!opened) {
+    // Blocked, or a host embedded without `allow-popups`: nothing is going to
+    // read this blob, so let it go.
+    URL.revokeObjectURL(url);
+    return false;
+  }
+
+  return true;
+}
+
 export function currentPath(): string {
   return typeof window === "undefined" ? "" : window.location.pathname;
 }

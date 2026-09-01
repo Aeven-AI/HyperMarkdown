@@ -13,7 +13,12 @@ import Renderer from "./lib/renderer";
 
 import type { PluginConfig } from "./lib/plugin-types";
 import type { AllowedTags, LinkSafetyConfig } from "./lib/sanitize";
-import type { ControlsConfig, IconMap, Translations } from "./lib/config";
+import type {
+  ControlsConfig,
+  IconMap,
+  PreviewConfig,
+  Translations,
+} from "./lib/config";
 import type { HtmlMode, RendererComponents } from "./lib/processors";
 import { guid } from "./lib/runtime";
 
@@ -87,6 +92,13 @@ export interface HyperMarkdownProps {
   codeBlockMaxHeight?: number | string | undefined;
   /** Max height of a table before it scrolls. Numbers are px. */
   tableMaxHeight?: number | string | undefined;
+  /**
+   * Where a code block's HTML preview opens.
+   *
+   * By default the block opens the HTML as a page of its own, which needs
+   * nothing of the host. Point `url` at a page you serve to take it over.
+   */
+  preview?: PreviewConfig | undefined;
   /** Called after each render, so a host can keep the view pinned to the bottom. */
   scrollDown?: (() => void) | undefined;
   /**
@@ -310,6 +322,7 @@ export type {
   ControlsConfig,
   BlockControls,
   IconMap,
+  PreviewConfig,
   Translations,
 } from "./lib/config";
 export type {
