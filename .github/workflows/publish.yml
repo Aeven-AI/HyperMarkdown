@@ -34,7 +34,9 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: npm
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@aeven-ai/hypermarkdown
     permissions:
       contents: read
       id-token: write
@@ -44,8 +46,8 @@ jobs:
           persist-credentials: false
 
       # Do not set registry-url. setup-node writes
-      # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN} and a dummy token,
-      # which makes npm skip OIDC trusted publishing and fail with E404.
+      # //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}, which makes npm
+      # skip OIDC trusted publishing and fail with E404 or ENEEDAUTH.
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -72,12 +74,45 @@ jobs:
         run: npm run build
 
       - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ""
         run: |
+          set -euo pipefail
+          unset NODE_AUTH_TOKEN NPM_TOKEN || true
+          npmrc="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          if [ -f "$npmrc" ]; then
+            sed -i '/_authToken/d' "$npmrc"
+          fi
+
+          echo "node $(node --version) npm $(npm --version)"
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::GitHub OIDC is unavailable. This job needs permissions.id-token: write."
+            exit 1
+          fi
+
+          audience='npm:registry.npmjs.org'
+          id_token=$(curl -fsSL \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience}" \
+            | jq -r '.value // empty')
+          if [ -z "$id_token" ]; then
+            echo "::error::GitHub did not issue an OIDC token for audience ${audience}."
+            exit 1
+          fi
+
+          http_code=$(curl -sS -o /tmp/npm-oidc.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer ${id_token}" \
+            -H "Content-Type: application/json" \
+            "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@aeven-ai%2fhypermarkdown")
+          echo "npm OIDC token exchange HTTP ${http_code}"
+          jq 'del(.token)' /tmp/npm-oidc.json 2>/dev/null || head -c 500 /tmp/npm-oidc.json
+          if [ "$http_code" != "201" ] && [ "$http_code" != "200" ]; then
+            echo "::error::npm trusted publisher exchange failed (HTTP ${http_code}). On npmjs.com → @aeven-ai/hypermarkdown → Settings → Trusted Publisher, set Organization=Aeven-AI, Repository=HyperMarkdown, Workflow filename=publish.yml, Environment name=npm, Allowed actions=npm publish. The environment name is required and must match this job."
+            exit 1
+          fi
+
           pkg=$(node -p "require('./package.json').version")
           if npm view "@aeven-ai/hypermarkdown@$pkg" version >/dev/null 2>&1; then
             echo "@aeven-ai/hypermarkdown@$pkg is already on npm; skipping publish"
             exit 0
           fi
-          npm publish --access public
+          npm publish --access public --loglevel verbose

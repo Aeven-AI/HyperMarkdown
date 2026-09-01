@@ -617,8 +617,11 @@ Publishing to npm is triggered by a GitHub Release whose tag matches
 The [publish workflow](.github/workflows/publish.yml) re-runs the CI gates and
 publishes `@aeven-ai/hypermarkdown` with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers)
 (OIDC, no long-lived token, provenance generated automatically). Do not set
-`NODE_AUTH_TOKEN` or `setup-node`'s `registry-url`; those force classic auth
-and the publish fails with `E404`.
+`NODE_AUTH_TOKEN` (even to an empty string) or `setup-node`'s `registry-url`;
+those force classic auth and the publish fails with `E404` or `ENEEDAUTH`.
+The Trusted Publisher **Environment name** on npmjs.com must be `npm`, matching
+the GitHub Environment this workflow deploys to. Leaving that field blank
+makes OIDC token exchange fail.
 
 One-time setup on [npmjs.com](https://www.npmjs.com/package/@aeven-ai/hypermarkdown)
 → package Settings → Trusted Publisher:
