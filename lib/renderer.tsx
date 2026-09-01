@@ -1093,6 +1093,8 @@ class Renderer {
       <MarkdownTable
         stream={stream}
         renderer={vm}
+        events={vm.events}
+        ui={vm.ui}
         scrollDown={vm.options.scrollDown}
       >
         <thead>{vm.tableCache.head}</thead>
