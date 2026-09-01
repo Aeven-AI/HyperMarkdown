@@ -89,31 +89,17 @@ jobs:
             exit 0
           fi
 
+          # OIDC is the whole credential: no token is configured anywhere, so
+          # without it npm has nothing to authenticate with.
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
             echo "::error::GitHub OIDC is unavailable. This job needs permissions.id-token: write."
             exit 1
           fi
 
-          audience='npm:registry.npmjs.org'
-          id_token=$(curl -fsSL \
-            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience}" \
-            | jq -r '.value // empty')
-          if [ -z "$id_token" ]; then
-            echo "::error::GitHub did not issue an OIDC token for audience ${audience}."
-            exit 1
-          fi
-
-          http_code=$(curl -sS -o /tmp/npm-oidc.json -w '%{http_code}' \
-            -X POST \
-            -H "Authorization: Bearer ${id_token}" \
-            -H "Content-Type: application/json" \
-            "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@aeven-ai%2fhypermarkdown")
-          echo "npm OIDC token exchange HTTP ${http_code}"
-          jq 'del(.token)' /tmp/npm-oidc.json 2>/dev/null || head -c 500 /tmp/npm-oidc.json
-          if [ "$http_code" != "201" ] && [ "$http_code" != "200" ]; then
-            echo "::error::npm trusted publisher exchange failed (HTTP ${http_code}). On npmjs.com → @aeven-ai/hypermarkdown → Settings → Trusted Publisher, set Organization=Aeven-AI, Repository=HyperMarkdown, Workflow filename=publish.yml, Environment name=npm, Allowed actions=npm publish. The environment name is required and must match this job."
-            exit 1
-          fi
-
+          # npm does the trusted-publishing exchange itself, from these same
+          # ACTIONS_ID_TOKEN_* variables. This step used to run that exchange by
+          # hand first and throw the resulting token away, publishing without
+          # it — so the call proved nothing about the publish, but its failure
+          # still blocked one. It is npm's own endpoint to call, and its errors
+          # are the ones worth reading.
           npm publish --access public --loglevel verbose

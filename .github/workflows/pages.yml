@@ -21,9 +21,15 @@ on:
     types: [published]
   workflow_dispatch:
 
+# One group for the one Pages environment, and no cancelling. Keying this by
+# ref put a release and the push of its own release commit in separate groups,
+# so both ran, and whichever reached the deploy second was rejected outright —
+# GitHub refuses a deployment while another is in flight rather than queueing
+# it. Sharing the group makes the second wait for the first instead of failing;
+# cancelling would instead drop a deploy that is already partway through.
 concurrency:
-  group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 permissions:
   contents: read
