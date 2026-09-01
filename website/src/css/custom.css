@@ -108,7 +108,7 @@ html {
 
 .footer .footer__copyright {
   color: var(--home-muted);
-  font-size: 0.85rem;
+  font-size: 16px;
   font-weight: 700;
 }
 
