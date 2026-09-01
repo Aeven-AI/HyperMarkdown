@@ -35,4 +35,7 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
 ```
 
+Using Next.js? See [SSR, hydration, and Next.js](/docs/ssr) for App Router and
+Pages Router setup, client boundaries, plugins, and streaming.
+
 Next: [Finished Markdown](/docs/finished) or [Streaming and delta rendering](/docs/streaming).

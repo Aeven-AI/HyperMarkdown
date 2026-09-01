@@ -246,6 +246,52 @@ Do not put the growing Markdown string in React state just to feed it back as a
 prop on every token. In streaming mode, HyperMarkdown owns that buffer so your
 component tree does not have to.
 
+## Next.js
+
+HyperMarkdown supports Next.js server rendering and hydration. Its public
+component entry includes `"use client"`, so an App Router Server Component can
+import it directly. The Client Component is still prerendered into the initial
+HTML and hydrated in the browser.
+
+Import the stylesheet once in the root layout:
+
+```tsx
+// app/layout.tsx
+import "@aeven-ai/hypermarkdown/styles.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+Then render finished Markdown from a Server Component:
+
+```tsx
+// app/page.tsx
+import { HyperMarkdown } from "@aeven-ai/hypermarkdown";
+
+export default async function Page() {
+  const markdown = await loadMarkdown();
+  return <HyperMarkdown md={markdown} />;
+}
+```
+
+The `md` prop is serializable and can cross the Server Component boundary.
+Create plugins, component overrides, refs, and callbacks inside a Client
+Component because they contain functions. Streaming through the imperative
+handle also belongs in a Client Component.
+
+HyperMarkdown does not normally need `dynamic(..., { ssr: false })`; disabling
+SSR removes the rendered Markdown from the initial HTML.
+
+See the full [SSR, hydration, and Next.js guide](https://aeven-ai.github.io/HyperMarkdown/docs/ssr)
+for App Router plugins and streaming, Pages Router SSR, and hydration-mismatch
+guidance.
+
 ## Migrating
 
 ### From react-markdown or another prop-based renderer

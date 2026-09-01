@@ -12,6 +12,7 @@ const sidebars: SidebarsConfig = {
         "finished",
         "streaming",
         "handle",
+        "ssr",
       ],
     },
     {
@@ -37,7 +38,6 @@ const sidebars: SidebarsConfig = {
         "security",
         "performance",
         "benchmarks",
-        "ssr",
         "api",
         "faq",
       ],
