@@ -86,11 +86,6 @@ const config: Config = {
     },
     navbar: {
       title: "HyperMarkdown",
-      logo: {
-        alt: "HyperMarkdown",
-        src: "img/logo.svg",
-        srcDark: "img/logo-dark.svg",
-      },
       items: [
         {
           type: "docSidebar",
@@ -113,7 +108,7 @@ const config: Config = {
     },
     footer: {
       style: "light",
-      copyright: `MIT © Æven`,
+      copyright: `© 2026 Æven`,
     },
     prism: {
       theme: prismThemes.github,

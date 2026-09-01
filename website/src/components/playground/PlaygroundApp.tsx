@@ -4,6 +4,7 @@ import {
   type HyperMarkdownHandle,
 } from "@aeven-ai/hypermarkdown";
 import { pluginsFor } from "../markdown/sitePlugins";
+import { useScrollDown } from "../markdown/useScrollDown";
 import {
   cjkDemo,
   mathDemo,
@@ -77,6 +78,8 @@ export default function PlaygroundApp() {
     [],
   );
   const renderer = useRef<HyperMarkdownHandle>(null);
+  const output = useRef<HTMLDivElement>(null);
+  const { scrollDown, resetScroll } = useScrollDown(output);
   const [source, setSource] = useState(playgroundDemo);
   const [example, setExample] = useState(initial.example);
   const [mode, setMode] = useState<Mode>(initial.mode);
@@ -125,9 +128,10 @@ export default function PlaygroundApp() {
         setPaused(false);
         resetMetrics();
         renderer.current?.reset();
+        resetScroll();
       })
       .catch(() => setSource(playgroundDemo));
-  }, [example, baseUrl]);
+  }, [example, baseUrl, resetScroll]);
 
   const stopTimer = () => {
     if (timer.current !== null) window.clearTimeout(timer.current);
@@ -159,7 +163,8 @@ export default function PlaygroundApp() {
     setPaused(false);
     resetMetrics();
     renderer.current?.reset();
-  }, []);
+    resetScroll();
+  }, [resetScroll]);
 
   const step = useCallback(() => {
     const handle = renderer.current;
@@ -189,6 +194,7 @@ export default function PlaygroundApp() {
     stopTimer();
     renderer.current?.reset();
     resetMetrics();
+    resetScroll();
     started.current = performance.now();
     setPlaying(true);
     setPaused(false);
@@ -327,13 +333,14 @@ ${mode === "stream" ? `ref.current?.write("", true);` : ""}
         <div className="playground-editor">
           <textarea value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
         </div>
-        <div className="playground-output">
+        <div className="playground-output" ref={output}>
           <HyperMarkdown
             ref={renderer}
             streaming={mode === "stream" || playing}
             animation={animation}
             md={mode === "static" && !playing ? source : undefined}
             plugins={plugins}
+            scrollDown={scrollDown}
             className="assistant-message"
           />
         </div>

@@ -162,11 +162,13 @@ export default function Home() {
           <div className="home-wrap">
             <article className="cache-card">
               <header>
-                <h2>Completed work stays completed</h2>
-                <p className="bench-meta">
-                  Block-level freezing cannot help a 1,000-line fence that is
-                  still open. HyperMarkdown caches inside the active block.
-                </p>
+                <div>
+                  <h2>Completed work stays completed</h2>
+                  <p className="bench-meta">
+                    Block-level freezing cannot help a 1,000-line fence that is
+                    still open. HyperMarkdown caches inside the active block.
+                  </p>
+                </div>
               </header>
               <div className="cache-flow">
                 <div className="cache-col">

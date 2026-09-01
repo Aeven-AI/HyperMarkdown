@@ -134,6 +134,8 @@ html {
 
 .home-wrap {
   width: min(var(--content-width), calc(100% - 3rem));
+  max-width: 100%;
+  min-width: 0;
   margin: 0 auto;
 }
 
@@ -274,6 +276,13 @@ html {
   border-bottom: 0;
 }
 
+.bench-card header > div,
+.demo-card header > div,
+.cache-card header > div {
+  min-width: 0;
+  flex: 1;
+}
+
 .demo-pause {
   flex-shrink: 0;
   align-self: flex-start;
@@ -307,7 +316,10 @@ html {
 
 .bench-table-wrap {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .bench-table {
@@ -325,6 +337,14 @@ html {
   text-align: right;
   border: 0;
   white-space: nowrap;
+  background: transparent;
+}
+
+.bench-table thead,
+.bench-table thead tr,
+.bench-table tbody tr,
+.bench-table tr:nth-child(2n) {
+  background: transparent;
 }
 
 .bench-table th:first-child,
@@ -386,6 +406,8 @@ html {
 .demo-frame {
   height: 560px;
   overflow: auto;
+  overflow-anchor: none;
+  scroll-behavior: smooth;
   overscroll-behavior: contain;
   padding: 1rem clamp(2rem, 5vw, 4.5rem) 3.5rem;
   background: var(--home-card);
@@ -580,6 +602,11 @@ html {
   gap: 1.4rem;
 }
 
+.install-grid > *,
+.feature-grid > * {
+  min-width: 0;
+}
+
 .feature-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -611,7 +638,16 @@ html {
   color: #fff;
   padding: 0.9rem 1rem;
   border-radius: 10px;
-  overflow: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.install-card pre code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  white-space: pre;
 }
 
 .used-by {
@@ -715,8 +751,8 @@ html {
 .playground-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 62vh;
   gap: 1.15rem;
-  min-height: 62vh;
   background: transparent;
   border: 0;
 }
@@ -724,6 +760,8 @@ html {
 .playground-editor,
 .playground-output {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   background: var(--home-card);
   border-radius: 16px;
 }
@@ -736,7 +774,7 @@ html {
 .playground-editor textarea {
   width: 100%;
   height: 100%;
-  min-height: 62vh;
+  min-height: 0;
   resize: none;
   border: 0;
   border-radius: 0;
@@ -750,6 +788,10 @@ html {
 .playground-output {
   padding: 1.35rem 1.45rem;
   overflow: auto;
+  overflow-anchor: none;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .playground-code {
@@ -1143,17 +1185,42 @@ table td {
     display: none;
   }
 
+  .playground-grid {
+    grid-template-rows: 28vh 50vh;
+  }
+
   .playground-editor {
     border-right: 0;
     border-bottom: 0;
   }
 
   .playground-editor textarea {
-    min-height: 28vh;
+    min-height: 0;
   }
 
   .bench-table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
     font-size: 0.8rem;
+  }
+
+  .bench-table th,
+  .bench-table td {
+    padding: 0.8rem 1rem;
+  }
+
+  .bench-table th:first-child,
+  .bench-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--home-card);
+    box-shadow: 8px 0 8px -8px rgba(0, 0, 0, 0.12);
+  }
+
+  .install-card pre {
+    font-size: 0.78rem;
   }
 }
 
