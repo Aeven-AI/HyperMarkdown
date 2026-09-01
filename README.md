@@ -611,7 +611,8 @@ Publishing to npm is triggered by a GitHub Release whose tag matches
 `package.json`:
 
 1. Bump `version` in `package.json` (and the lockfile).
-2. Commit, tag `vX.Y.Z`, and push.
+2. Commit, tag `vX.Y.Z`, and push. The documentation site links the
+   local package, so GitHub Pages builds that same version.
 3. Create a GitHub Release from that tag.
 
 The [publish workflow](.github/workflows/publish.yml) re-runs the CI gates and

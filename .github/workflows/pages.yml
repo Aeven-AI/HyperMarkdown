@@ -52,6 +52,10 @@ jobs:
       - name: Build library
         run: npm run build
 
+      - name: Sync website lockfile to the current library version
+        run: npm install --package-lock-only --ignore-scripts
+        working-directory: website
+
       - name: Install website
         run: npm ci
         working-directory: website
