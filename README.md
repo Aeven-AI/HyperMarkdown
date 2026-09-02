@@ -566,8 +566,13 @@ can remount rendered elements.
 
 A diagram can be zoomed and panned in place, so a wide flowchart or a dense
 sequence diagram stays readable without opening it fullscreen. The toolbar
-carries **Zoom in**, **Zoom out** and **Reset zoom and pan**; the wheel zooms
-and dragging pans, by mouse or touch.
+carries **Zoom in**, **Zoom out** and **Reset zoom and pan**. Dragging pans,
+by mouse, pen or touch, and holding **Ctrl** (or **⌘**) while scrolling zooms —
+a trackpad pinch arrives as exactly that, so pinching zooms too.
+
+A plain scroll is left to the page. A diagram that swallowed the wheel would
+trap the reader every time one passed under the cursor, and a document can be
+mostly diagram.
 
 It is on by default. Turn it off and the diagram keeps its copy and fullscreen
 buttons:
@@ -683,33 +688,8 @@ the publish itself is local:
    released library).
 4. Run `npm publish` locally, from the tag, and complete the 2FA prompt.
 
-A release therefore does not publish. Set up trusted publishing if you want it
-to — see the [publish workflow](.github/workflows/publish.yml), which carries
-the steps and is otherwise only run on demand.
-
-The [publish workflow](.github/workflows/publish.yml) re-runs the CI gates and
-publishes `@aeven-ai/hypermarkdown` with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers)
-(OIDC, no long-lived token, provenance generated automatically). Do not set
-`NODE_AUTH_TOKEN` (even to an empty string) or `setup-node`'s `registry-url`;
-those force classic auth and the publish fails with `E404` or `ENEEDAUTH`.
-The Trusted Publisher **Environment name** on npmjs.com must be `npm`, matching
-the GitHub Environment this workflow deploys to. Leaving that field blank
-makes OIDC token exchange fail.
-
-One-time setup on [npmjs.com](https://www.npmjs.com/package/@aeven-ai/hypermarkdown)
-→ package Settings → Trusted Publisher:
-
-| Field | Value |
-| --- | --- |
-| Organization or user | `Aeven-AI` |
-| Repository | `HyperMarkdown` |
-| Workflow filename | `publish.yml` |
-| Environment name | `npm` |
-| Allowed actions | `npm publish` |
-
-Create a GitHub Environment named `npm` if it does not exist. Optional
-required reviewers on that environment add a human approval step before npm
-sees the package.
+A GitHub Release therefore does not publish to npm. npm publishing is always
+performed locally with the account's two-factor authentication.
 
 <details>
 <summary>Project layout</summary>

@@ -33,8 +33,8 @@ these controls become active after hydration.
 ```
 
 Passing `false` for code, table, or diagram disables that block's controls.
-Set `diagram.panZoom` to `false` to disable the diagram's zoom buttons, wheel
-zoom, and pointer or touch panning. Passing `reasoning: false` keeps the
+Set `diagram.panZoom` to `false` to disable the diagram's zoom buttons,
+Ctrl/⌘ wheel zoom, and pointer or touch panning. Passing `reasoning: false` keeps the
 reasoning content but removes its disclosure wrapper.
 
 ## Host callbacks

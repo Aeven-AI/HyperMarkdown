@@ -95,7 +95,7 @@ describe("Mermaid pan and zoom", () => {
     act(() => root.unmount());
   });
 
-  it("zooms with a non-passive wheel handler", () => {
+  it("zooms on a modifier wheel with a non-passive handler", () => {
     let wheel;
 
     const { host, root } = mount(
@@ -109,6 +109,7 @@ describe("Mermaid pan and zoom", () => {
       bubbles: true,
       cancelable: true,
       deltaY: -10,
+      ctrlKey: true,
     });
 
     act(() => wrapper.dispatchEvent(wheel));
@@ -120,9 +121,148 @@ describe("Mermaid pan and zoom", () => {
       bubbles: true,
       cancelable: true,
       deltaY: 10,
+      ctrlKey: true,
     });
     act(() => wrapper.dispatchEvent(wheel));
     expect(content.style.transform).toBe("translate(0px, 0px) scale(1)");
+
+    // A trackpad pinch is a wheel event with ctrlKey set, so it zooms; ⌘ is
+    // accepted for the same reason ctrl is.
+    wheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -10,
+      metaKey: true,
+    });
+    act(() => wrapper.dispatchEvent(wheel));
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1.1)");
+
+    act(() => root.unmount());
+  });
+
+  it("keeps zooming while the button is held, and stops when released", () => {
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"],
+    });
+
+    const { host, root } = mount(
+      <PanZoom enabled fullscreen={false} svg="<svg />" />,
+    );
+    const content = host.querySelector<HTMLElement>(
+      ".mermaid-pan-zoom-content",
+    )!;
+    const zoomIn = host.querySelector<HTMLButtonElement>(
+      ".mermaid-pan-zoom-button.first",
+    )!;
+
+    act(() => zoomIn.dispatchEvent(pointer("pointerdown", 0, 0)));
+
+    // Below the delay a press is just a click, and the click is what steps.
+    act(() => vi.advanceTimersByTime(200));
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1)");
+
+    // Past it the zoom walks on its own, one step per interval.
+    act(() => vi.advanceTimersByTime(240));
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1.1)");
+    act(() => vi.advanceTimersByTime(160));
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1.3)");
+
+    act(() => zoomIn.dispatchEvent(pointer("pointerup", 0, 0)));
+    act(() => vi.advanceTimersByTime(400));
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1.3)");
+
+    // The click that ends a hold must not add a step on top of it.
+    act(() => zoomIn.click());
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1.3)");
+
+    // A later, ordinary click still steps once.
+    act(() => zoomIn.click());
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(1.4)");
+
+    act(() => root.unmount());
+    vi.useRealTimers();
+  });
+
+  it("drops a hold that is cancelled rather than released", () => {
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"],
+    });
+
+    const { host, root } = mount(
+      <PanZoom enabled fullscreen={false} svg="<svg />" />,
+    );
+    const content = host.querySelector<HTMLElement>(
+      ".mermaid-pan-zoom-content",
+    )!;
+    const zoomOut = host.querySelectorAll<HTMLButtonElement>(
+      ".mermaid-pan-zoom-button",
+    )[1]!;
+
+    act(() => zoomOut.dispatchEvent(pointer("pointerdown", 0, 0)));
+    act(() => vi.advanceTimersByTime(440));
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(0.9)");
+
+    // A cancelled gesture ends the hold: it cannot outlive the finger.
+    act(() => zoomOut.dispatchEvent(pointer("pointercancel", 0, 0)));
+    act(() => vi.advanceTimersByTime(800));
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(0.9)");
+
+    // And the click closing that hold does not step again, zooming out as
+    // much as zooming in.
+    act(() => zoomOut.click());
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(0.9)");
+
+    act(() => zoomOut.click());
+    expect(content.style.transform).toBe("translate(0px, 0px) scale(0.8)");
+
+    act(() => root.unmount());
+    vi.useRealTimers();
+  });
+
+  it("does not leave a hold running after the diagram unmounts", () => {
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"],
+    });
+
+    const { host, root } = mount(
+      <PanZoom enabled fullscreen={false} svg="<svg />" />,
+    );
+    const zoomIn = host.querySelector<HTMLButtonElement>(
+      ".mermaid-pan-zoom-button.first",
+    )!;
+
+    act(() => zoomIn.dispatchEvent(pointer("pointerdown", 0, 0)));
+    act(() => root.unmount());
+
+    // Nothing left to fire into a component that is gone.
+    expect(() => act(() => vi.advanceTimersByTime(2000))).not.toThrow();
+
+    vi.useRealTimers();
+  });
+
+  it("lets a plain wheel scroll the page instead of zooming", () => {
+    const { host, root } = mount(
+      <PanZoom enabled fullscreen={false} svg="<svg />" />,
+    );
+    const wrapper = host.querySelector<HTMLElement>(".mermaid-pan-zoom")!;
+    const content = host.querySelector<HTMLElement>(
+      ".mermaid-pan-zoom-content",
+    )!;
+    const before = content.style.transform;
+
+    const wheel = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      deltaY: -10,
+    });
+
+    act(() => wrapper.dispatchEvent(wheel));
+
+    // Nothing prevented, nothing zoomed: the reader scrolls past a diagram
+    // the way they scroll past a paragraph.
+    expect(wheel.defaultPrevented).toBe(false);
+    expect(content.style.transform).toBe(before);
 
     act(() => root.unmount());
   });
@@ -236,10 +376,12 @@ describe("Mermaid pan and zoom", () => {
         />,
       ),
     );
+    // Modifier held, so a live handler is the only thing that could prevent it.
     wheel = new WheelEvent("wheel", {
       bubbles: true,
       cancelable: true,
       deltaY: -10,
+      ctrlKey: true,
     });
     act(() => wrapper.dispatchEvent(wheel));
     expect(wheel.defaultPrevented).toBe(true);

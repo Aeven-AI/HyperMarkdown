@@ -23,6 +23,14 @@ const MIN_ZOOM = 0.5;
 const ZOOM_STEP = 0.1;
 
 /**
+ * How long a press waits before it starts repeating, and how fast it repeats
+ * after that. The delay is what separates a click from a hold: below it every
+ * press would run away from the reader.
+ */
+const HOLD_DELAY = 350;
+const HOLD_INTERVAL = 80;
+
+/**
  * A dependency-free interaction layer around Mermaid's rendered SVG.
  *
  * Panning writes one compositor transform per animation frame instead of
@@ -31,6 +39,9 @@ const ZOOM_STEP = 0.1;
  */
 class PanZoom extends Component<PanZoomProps, PanZoomState> {
   private activePointerId: number | null = null;
+  private holdTimeout: ReturnType<typeof setTimeout> | null = null;
+  private holdInterval: ReturnType<typeof setInterval> | null = null;
+  private holdRepeated = false;
   private frame: number | null = null;
   private panX = 0;
   private panY = 0;
@@ -56,6 +67,9 @@ class PanZoom extends Component<PanZoomProps, PanZoomState> {
     this.resetView = this.resetView.bind(this);
     this.zoomIn = this.zoomIn.bind(this);
     this.zoomOut = this.zoomOut.bind(this);
+    this.holdZoomIn = this.holdZoomIn.bind(this);
+    this.holdZoomOut = this.holdZoomOut.bind(this);
+    this.endHold = this.endHold.bind(this);
   }
 
   override componentDidMount() {
@@ -89,16 +103,56 @@ class PanZoom extends Component<PanZoomProps, PanZoomState> {
     }
 
     vm.rootRef.current?.removeEventListener("wheel", vm.handleWheel);
+    vm.endHold();
   }
 
   zoomIn() {
     const vm = this;
+
+    // A hold has already zoomed; the click that ends it must not add a step.
+    if (vm.holdRepeated === true) {
+      vm.holdRepeated = false;
+      return;
+    }
+
     vm.changeZoom(ZOOM_STEP);
   }
 
   zoomOut() {
     const vm = this;
+
+    if (vm.holdRepeated === true) {
+      vm.holdRepeated = false;
+      return;
+    }
+
     vm.changeZoom(-ZOOM_STEP);
+  }
+
+  holdZoomIn() {
+    this.startHold(ZOOM_STEP);
+  }
+
+  holdZoomOut() {
+    this.startHold(-ZOOM_STEP);
+  }
+
+  /**
+   * Stop repeating. Bound to every way a press can end — released, cancelled,
+   * or dragged off the button — so a hold cannot outlive the finger.
+   */
+  endHold() {
+    const vm = this;
+
+    if (vm.holdTimeout !== null) {
+      clearTimeout(vm.holdTimeout);
+      vm.holdTimeout = null;
+    }
+
+    if (vm.holdInterval !== null) {
+      clearInterval(vm.holdInterval);
+      vm.holdInterval = null;
+    }
   }
 
   resetView() {
@@ -116,6 +170,17 @@ class PanZoom extends Component<PanZoomProps, PanZoomState> {
     const vm = this;
 
     if (vm.props.enabled !== true || event.deltaY === 0) {
+      return;
+    }
+
+    // The page has to keep scrolling under the pointer. A diagram that took
+    // every wheel event would trap the reader each time one passed beneath
+    // the cursor, and a document with a dozen diagrams is mostly diagram.
+    //
+    // Ctrl is what the browser itself zooms on, and a trackpad pinch arrives
+    // as a wheel event with ctrlKey already set — so pinching still zooms the
+    // diagram, and two fingers still scroll the page.
+    if (event.ctrlKey !== true && event.metaKey !== true) {
       return;
     }
 
@@ -208,6 +273,10 @@ class PanZoom extends Component<PanZoomProps, PanZoomState> {
               title={translations.zoomIn}
               disabled={state.zoom >= MAX_ZOOM}
               onClick={vm.zoomIn}
+              onPointerDown={vm.holdZoomIn}
+              onPointerUp={vm.endHold}
+              onPointerLeave={vm.endHold}
+              onPointerCancel={vm.endHold}
             >
               <span
                 className="button-icon"
@@ -221,6 +290,10 @@ class PanZoom extends Component<PanZoomProps, PanZoomState> {
               title={translations.zoomOut}
               disabled={state.zoom <= MIN_ZOOM}
               onClick={vm.zoomOut}
+              onPointerDown={vm.holdZoomOut}
+              onPointerUp={vm.endHold}
+              onPointerLeave={vm.endHold}
+              onPointerCancel={vm.endHold}
             >
               <span
                 className="button-icon"
@@ -241,24 +314,50 @@ class PanZoom extends Component<PanZoomProps, PanZoomState> {
             </button>
           </div>
         )}
-        <div
-          ref={vm.contentRef}
-          className="mermaid-pan-zoom-content"
-          onPointerDown={vm.handlePointerDown}
-          onPointerMove={vm.handlePointerMove}
-          onPointerUp={vm.handlePointerUp}
-          onPointerCancel={vm.handlePointerUp}
-          style={{ transform: vm.transform() }}
-        >
+        {/*
+          The content moves; this does not. The edge fade is a mask on the
+          viewport, so it stays pinned to the border while the diagram scales
+          and pans underneath — on the content it would scale with it.
+        */}
+        <div className="mermaid-pan-zoom-viewport">
           <div
-            className="mermaid-svg"
-            role="img"
-            aria-label={translations.diagram}
-            dangerouslySetInnerHTML={{ __html: props.svg }}
-          ></div>
+            ref={vm.contentRef}
+            className="mermaid-pan-zoom-content"
+            onPointerDown={vm.handlePointerDown}
+            onPointerMove={vm.handlePointerMove}
+            onPointerUp={vm.handlePointerUp}
+            onPointerCancel={vm.handlePointerUp}
+            style={{ transform: vm.transform() }}
+          >
+            <div
+              className="mermaid-svg"
+              role="img"
+              aria-label={translations.diagram}
+              dangerouslySetInnerHTML={{ __html: props.svg }}
+            ></div>
+          </div>
         </div>
       </div>
     );
+  }
+
+  /**
+   * Begin a press-and-hold. The first step is the click's to make, so this
+   * only waits, then repeats: holding the button walks the zoom rather than
+   * asking for a click per tenth.
+   */
+  private startHold(delta: number) {
+    const vm = this;
+
+    vm.endHold();
+    vm.holdRepeated = false;
+
+    vm.holdTimeout = setTimeout(() => {
+      vm.holdRepeated = true;
+      vm.holdInterval = setInterval(() => {
+        vm.changeZoom(delta);
+      }, HOLD_INTERVAL);
+    }, HOLD_DELAY);
   }
 
   private changeZoom(delta: number) {

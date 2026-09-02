@@ -64,8 +64,11 @@ that keep Mermaid isolated from the page remain enforced.
 ## Controls
 
 Finished and streaming diagrams provide source copy and fullscreen controls.
-They can also be zoomed with the buttons or mouse wheel and panned with a
-mouse, pen, or touch gesture. The reset button restores the original view.
+They can also be zoomed with the buttons, or by holding Ctrl (or ⌘) while
+scrolling — which is what a trackpad pinch sends, so pinching zooms as well. A
+plain scroll is left to the page, so a diagram under the cursor never traps it.
+Panning works with a mouse, pen, or touch gesture, and the reset button
+restores the original view.
 
 ```tsx
 <HyperMarkdown

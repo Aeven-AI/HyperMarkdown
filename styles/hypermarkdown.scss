@@ -1106,6 +1106,7 @@
 
         padding-left: 24px;
         padding-right: 24px;
+        padding-bottom: 24px;
 
         border-radius: 0px;
 
@@ -1407,7 +1408,7 @@
         padding-right: 16px;
 
         padding-top: 50px;
-        padding-bottom: 16px;
+        padding-bottom: 30px;
 
         margin-block-end: 0px;
         margin-block-start: -50px;
@@ -1503,6 +1504,64 @@
                 color: var(--hm-toolbar-color);
                 background-color: transparent;
               }
+            }
+
+            /*
+             * The soft border. A mask rather than a painted overlay: it fades
+             * to transparent, so it sits over whatever the host puts behind a
+             * diagram — a panel, a page, nothing — without being told the
+             * colour, which a gradient in `--hm-background` would need and
+             * would get wrong the moment a host changed it.
+             *
+             * Two gradients intersected fade all four edges. Rounded corners
+             * need nothing extra: the arc is clipped by the container and
+             * falls inside the faded band, so the corners soften instead of
+             * meeting the mask at a seam.
+             */
+            .mermaid-pan-zoom-viewport {
+              display: flex;
+              position: relative;
+
+              width: 100%;
+              min-width: 0;
+
+              --hm-diagram-fade: 10px;
+
+              mask-image:
+                linear-gradient(
+                  to right,
+                  transparent,
+                  #000 var(--hm-diagram-fade),
+                  #000 calc(100% - var(--hm-diagram-fade)),
+                  transparent
+                ),
+                linear-gradient(
+                  to bottom,
+                  transparent,
+                  #000 var(--hm-diagram-fade),
+                  #000 calc(100% - var(--hm-diagram-fade)),
+                  transparent
+                );
+              mask-repeat: no-repeat;
+              mask-composite: intersect;
+
+              -webkit-mask-image:
+                linear-gradient(
+                  to right,
+                  transparent,
+                  #000 var(--hm-diagram-fade),
+                  #000 calc(100% - var(--hm-diagram-fade)),
+                  transparent
+                ),
+                linear-gradient(
+                  to bottom,
+                  transparent,
+                  #000 var(--hm-diagram-fade),
+                  #000 calc(100% - var(--hm-diagram-fade)),
+                  transparent
+                );
+              -webkit-mask-repeat: no-repeat;
+              -webkit-mask-composite: source-in;
             }
 
             .mermaid-pan-zoom-content {
@@ -1736,7 +1795,6 @@
         @media screen and (max-width: 640px) {
           padding-left: 16px;
           padding-right: 16px;
-          padding-bottom: 16px;
         }
 
         .mermaid-scroll {
@@ -2225,6 +2283,7 @@
 
           padding-left: 24px;
           padding-right: 24px;
+          padding-bottom: 24px;
 
           @media screen and (max-width: 640px) {
             padding-left: 16px;
