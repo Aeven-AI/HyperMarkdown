@@ -1,6 +1,6 @@
 {
   "name": "@aeven-ai/hypermarkdown",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Ridiculously fast Markdown for React and AI. Streaming-native renderer that caches settled code lines, table rows, and list items so growing LLM output does not re-parse finished work.",
   "author": "Aeven",
   "repository": {
