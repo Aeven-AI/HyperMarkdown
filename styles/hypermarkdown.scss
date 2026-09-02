@@ -489,6 +489,21 @@
     text-align: left;
   }
 
+  /*
+   * The marker is CSS, not a text node, so the word-fade pass has nothing to
+   * wrap and it would otherwise land at full opacity beside words still
+   * fading in. The animation pass marks the item; the marker fades on the
+   * same curve and duration as the words it belongs to.
+   */
+  ul li[data-animate-marker="true"]::before,
+  ol li[data-animate-marker="true"]::before,
+  dl dt[data-animate-marker="true"]::before {
+    will-change: opacity;
+    opacity: 0;
+
+    animation: hm-word-fade-in 1s var(--hm-ease-linear) forwards;
+  }
+
   blockquote {
     position: relative;
     padding-left: 24px;

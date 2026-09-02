@@ -33,6 +33,14 @@ export function rehypeAnimation() {
     // Raw-text elements hold text and nothing else; React drops a <script>
     // whose child is an element, taking its content with it.
     if (isHastElement(node)) {
+      // A list marker is drawn by CSS, not written in the document, so there
+      // is no text node here to wrap and it arrives at full opacity while the
+      // words beside it are still fading in. Mark the item and let the
+      // stylesheet fade the marker on the same curve.
+      if (node.tagName === "li" || node.tagName === "dt") {
+        node.properties["data-animate-marker"] = true;
+      }
+
       if (isKatex(node)) {
         // Fade the formula in as one unit: KaTeX lays out its own spans, so the
         // root is the only place a fade can attach without breaking the math.

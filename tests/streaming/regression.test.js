@@ -421,6 +421,53 @@ describe("HyperMarkdown streaming math", () => {
     expect(markup).toContain("x^2");
   });
 
+  it("fades a list marker in with the words beside it", () => {
+    let markup;
+    let renderDom;
+    let renderer;
+
+    renderer = createRenderer({ streaming: true, animation: true });
+    renderStream(
+      renderer,
+      splitChunks("- first item\n- second item\n\n1. one\n2. two\n\n", 5),
+      true,
+    );
+
+    markup = renderToStaticMarkup(renderer.render());
+    renderDom = new JSDOM("<body>" + markup + "</body>");
+
+    // The bullet and the number are drawn by the stylesheet, so there is no
+    // text node to wrap: the item carries the mark instead, and the stylesheet
+    // fades the marker from it.
+    expect(
+      renderDom.window.document.querySelectorAll(
+        'ul li[data-animate-marker="true"]',
+      ).length,
+    ).toBe(2);
+    expect(
+      renderDom.window.document.querySelectorAll(
+        'ol li[data-animate-marker="true"]',
+      ).length,
+    ).toBe(2);
+  });
+
+  it("leaves the marker alone when nothing is animating", () => {
+    let markup;
+    let renderDom;
+    let renderer;
+
+    renderer = createRenderer({ streaming: true, animation: false });
+    renderStream(renderer, splitChunks("- first item\n- second item\n\n", 5), true);
+
+    markup = renderToStaticMarkup(renderer.render());
+    renderDom = new JSDOM("<body>" + markup + "</body>");
+
+    expect(renderDom.window.document.querySelectorAll("li").length).toBe(2);
+    expect(
+      renderDom.window.document.querySelectorAll("[data-animate-marker]").length,
+    ).toBe(0);
+  });
+
   it("leaves katex output out of the word animation", () => {
     let markup;
     let katexEl;
