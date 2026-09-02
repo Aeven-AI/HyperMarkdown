@@ -3,7 +3,10 @@ import {
   ICON_COPY,
   ICON_MAXIMIZE,
   ICON_MINIMIZE,
+  ICON_RESET_VIEW,
   ICON_RUN,
+  ICON_ZOOM_IN,
+  ICON_ZOOM_OUT,
 } from "./icons";
 
 /**
@@ -27,6 +30,9 @@ export interface Translations {
   /** The same button once the block is expanded. */
   exitFullScreen: string;
   preview: string;
+  zoomIn: string;
+  zoomOut: string;
+  resetView: string;
 
   tableCopied: string;
   tablePartiallyCopied: string;
@@ -53,6 +59,9 @@ export const defaultTranslations: Translations = {
   fullScreen: "Full screen",
   exitFullScreen: "Exit full screen",
   preview: "Preview",
+  zoomIn: "Zoom in",
+  zoomOut: "Zoom out",
+  resetView: "Reset zoom and pan",
 
   tableCopied: "Table copied",
   tablePartiallyCopied: "Table partially copied",
@@ -76,6 +85,9 @@ export interface IconMap {
   maximize: string;
   minimize: string;
   run: string;
+  zoomIn: string;
+  zoomOut: string;
+  resetView: string;
   /** The disclosure arrow on a reasoning block. */
   chevron: string;
 }
@@ -85,6 +97,9 @@ export const defaultIcons: IconMap = {
   maximize: ICON_MAXIMIZE,
   minimize: ICON_MINIMIZE,
   run: ICON_RUN,
+  zoomIn: ICON_ZOOM_IN,
+  zoomOut: ICON_ZOOM_OUT,
+  resetView: ICON_RESET_VIEW,
   chevron: ICON_CHEVRON,
 };
 
@@ -96,18 +111,27 @@ export interface BlockControls {
   preview?: boolean | undefined;
 }
 
+export interface DiagramControls extends BlockControls {
+  /** Show zoom buttons and allow wheel/touch/mouse panning. */
+  panZoom?: boolean | undefined;
+}
+
 export interface ControlsConfig {
   /** Reasoning blocks. `false` renders the reasoning without its wrapper. */
   reasoning?: boolean | undefined;
   table?: boolean | BlockControls | undefined;
   code?: boolean | BlockControls | undefined;
-  diagram?: boolean | BlockControls | undefined;
+  diagram?: boolean | DiagramControls | undefined;
 }
 
 export interface ResolvedControls {
   copy: boolean;
   fullscreen: boolean;
   preview: boolean;
+}
+
+export interface ResolvedDiagramControls extends ResolvedControls {
+  panZoom: boolean;
 }
 
 const ALL_ON: ResolvedControls = {
@@ -139,6 +163,24 @@ function resolveBlock(
   };
 }
 
+function resolveDiagram(
+  value: boolean | DiagramControls | undefined,
+): ResolvedDiagramControls {
+  let controls;
+
+  controls = resolveBlock(value);
+
+  return {
+    ...controls,
+    panZoom:
+      value === false
+        ? false
+        : typeof value === "object"
+          ? value.panZoom !== false
+          : true,
+  };
+}
+
 /**
  * Everything about how the renderer presents itself, resolved once so the
  * components deep in a rendered document read plain values rather than
@@ -150,7 +192,7 @@ export interface UiConfig {
   controls: {
     table: ResolvedControls;
     code: ResolvedControls;
-    diagram: ResolvedControls;
+    diagram: ResolvedDiagramControls;
     /** False renders reasoning inline, without its collapsible wrapper. */
     reasoning: boolean;
   };
@@ -207,7 +249,7 @@ export function resolveUi(options: UiOptions = {}): UiConfig {
     controls: {
       table: resolveBlock(options.controls?.table),
       code: resolveBlock(options.controls?.code),
-      diagram: resolveBlock(options.controls?.diagram),
+      diagram: resolveDiagram(options.controls?.diagram),
       reasoning: options.controls?.reasoning !== false,
     },
     lineNumbers: options.lineNumbers !== false,

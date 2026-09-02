@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 
+import { defaultUi } from "../config";
 import type { Emitter } from "../runtime";
 import type { UiConfig } from "../config";
 import type {
@@ -9,6 +10,7 @@ import type {
 } from "../plugin-types";
 
 import Header from "./header";
+import PanZoom from "./pan-zoom";
 import { canRender } from "./renderable";
 
 export interface MermaidDiagramProps {
@@ -30,7 +32,6 @@ class MermaidDiagram extends Component<
   MermaidDiagramProps,
   MermaidDiagramState
 > {
-  private readonly mermaidRef = React.createRef<HTMLDivElement>();
   private readonly wrapperRef = React.createRef<HTMLDivElement>();
   private readonly mermaidSandboxes = new Set<HTMLDivElement>();
   private userScroll = false;
@@ -268,6 +269,7 @@ class MermaidDiagram extends Component<
 
     const props = vm.props;
     const state = vm.state;
+    const ui = props.ui ?? defaultUi;
 
     svg = state.data?.svg ?? "";
 
@@ -300,11 +302,12 @@ class MermaidDiagram extends Component<
           />
           <div className="mermaid-content">
             <div className="mermaid-scroll no-scrollbar">
-              <div
-                ref={vm.mermaidRef}
-                className="mermaid-svg"
-                dangerouslySetInnerHTML={{ __html: svg }}
-              ></div>
+              <PanZoom
+                enabled={ui.controls.diagram.panZoom}
+                fullscreen={state.fullscreen}
+                svg={svg}
+                ui={props.ui}
+              />
             </div>
           </div>
         </div>

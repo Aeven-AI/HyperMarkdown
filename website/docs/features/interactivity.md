@@ -1,6 +1,6 @@
 ---
 title: Block controls
-description: Configure copy, fullscreen, HTML preview, translations, icons, and host callbacks for rich Markdown blocks.
+description: Configure copy, fullscreen, Mermaid pan and zoom, HTML preview, translations, icons, and host callbacks for rich Markdown blocks.
 ---
 
 # Block controls and interactivity
@@ -15,7 +15,7 @@ these controls become active after hydration.
 | --- | --- |
 | Code | Copy, fullscreen, and HTML preview for finished `html` fences |
 | Table | Copy and fullscreen |
-| Mermaid | Copy diagram source and fullscreen |
+| Mermaid | Copy diagram source, fullscreen, pan, zoom, and reset view |
 | Reasoning | Expand and collapse |
 
 ## Configure each block
@@ -27,14 +27,15 @@ these controls become active after hydration.
     reasoning: true,
     code: { copy: true, fullscreen: true, preview: false },
     table: { copy: true, fullscreen: false },
-    diagram: false,
+    diagram: { copy: true, fullscreen: true, panZoom: false },
   }}
 />
 ```
 
-Passing `false` for code, table, or diagram hides that toolbar. Passing
-`reasoning: false` keeps the reasoning content but removes its disclosure
-wrapper.
+Passing `false` for code, table, or diagram disables that block's controls.
+Set `diagram.panZoom` to `false` to disable the diagram's zoom buttons, wheel
+zoom, and pointer or touch panning. Passing `reasoning: false` keeps the
+reasoning content but removes its disclosure wrapper.
 
 ## Host callbacks
 
@@ -64,4 +65,3 @@ icons can be replaced with inline SVG markup through `icons`. See
 - [Configuration](/docs/configuration)
 - [Code blocks](/docs/features/code-blocks)
 - [Reasoning blocks](/docs/reasoning)
-

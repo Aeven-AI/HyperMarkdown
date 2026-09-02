@@ -1,6 +1,6 @@
 ---
 title: Mermaid diagrams
-description: Render lazy-loaded Mermaid diagrams with streaming-aware error handling, copy, and fullscreen controls.
+description: Render lazy-loaded Mermaid diagrams with streaming-aware error handling, copy, fullscreen, pan, zoom, and reset controls.
 ---
 
 # Mermaid diagrams
@@ -63,17 +63,22 @@ that keep Mermaid isolated from the page remain enforced.
 
 ## Controls
 
-Finished and streaming diagrams provide source copy and fullscreen controls:
+Finished and streaming diagrams provide source copy and fullscreen controls.
+They can also be zoomed with the buttons or mouse wheel and panned with a
+mouse, pen, or touch gesture. The reset button restores the original view.
 
 ```tsx
 <HyperMarkdown
   md={markdown}
   plugins={plugins}
-  controls={{ diagram: { copy: true, fullscreen: true } }}
+  controls={{
+    diagram: { copy: true, fullscreen: true, panZoom: true },
+  }}
 />
 ```
 
-Pass `diagram: false` to hide the toolbar.
+Pass `diagram: false` to disable every diagram control, or set only
+`diagram.panZoom` to `false` to leave copy and fullscreen available.
 
 ## Keep the plugin stable
 

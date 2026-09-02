@@ -550,7 +550,7 @@ can remount rendered elements.
 | `allowedTags` | `Record<string, string[]>` | Additional sanitized tags and attributes. |
 | `linkSafety` | `LinkSafetyConfig` | Allowed URL protocols and prefixes. |
 | `reasoningTarget` | `HTMLElement \| null \| () => HTMLElement \| null` | Optional portal target for reasoning. |
-| `controls` | `ControlsConfig` | Configure or hide reasoning, code, table, and diagram controls. |
+| `controls` | `ControlsConfig` | Configure or hide reasoning, code, table, and diagram controls. Diagrams add `panZoom`. |
 | `translations` | `Partial<Translations>` | Override UI strings. |
 | `icons` | `Partial<IconMap>` | Override toolbar icons with inline SVG strings. |
 | `lineNumbers` | `boolean` | Show code line numbers. Defaults to `true`. |
@@ -561,6 +561,30 @@ can remount rendered elements.
 | `onFullscreenChange` | `(fullscreen: boolean) => void` | Reports code, table, or diagram fullscreen changes. |
 | `onAlert` | `(alert: HyperMarkdownAlert) => void` | Lets the host present block alerts. |
 | `className` | `string` | Additional class on the `.hypermarkdown` root. |
+
+### Diagram pan and zoom
+
+A diagram can be zoomed and panned in place, so a wide flowchart or a dense
+sequence diagram stays readable without opening it fullscreen. The toolbar
+carries **Zoom in**, **Zoom out** and **Reset zoom and pan**; the wheel zooms
+and dragging pans, by mouse or touch.
+
+It is on by default. Turn it off and the diagram keeps its copy and fullscreen
+buttons:
+
+```tsx
+<HyperMarkdown
+  md={markdown}
+  plugins={plugins}
+  controls={{ diagram: { copy: true, fullscreen: true, panZoom: false } }}
+/>
+```
+
+`panZoom` is the one control diagrams have that code blocks and tables do not,
+which is why `controls.diagram` takes a `DiagramControls` rather than the
+`BlockControls` the others use. Its three labels — `zoomIn`, `zoomOut` and
+`resetView` — and its three icons are overridable like any others through
+`translations` and `icons`.
 
 ### HTML previews
 

@@ -226,7 +226,7 @@ class Header extends Component<HeaderProps> {
         >
           <button
             type="button"
-            className="codeblock-icon-button first"
+            className="codeblock-icon-button first preview"
             aria-label={ui.translations.preview}
             onClick={(event) => {
               vm.openPreviewCode(event);

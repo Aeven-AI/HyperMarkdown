@@ -22,7 +22,41 @@ describe("resolveUi", () => {
       preview: true,
     });
     expect(ui.controls.code).toEqual(ui.controls.table);
+    expect(ui.controls.diagram).toEqual({
+      copy: true,
+      fullscreen: true,
+      preview: true,
+      panZoom: true,
+    });
     expect(ui.lineNumbers).toBe(true);
+  });
+
+  it("turns pan and zoom off with the rest of a hidden diagram toolbar", () => {
+    // `false` hides the toolbar, and there is nothing left to pan or zoom
+    // with. The object form is the one that keeps copy and fullscreen while
+    // dropping only the zoom controls.
+    expect(resolveUi({ controls: { diagram: false } }).controls.diagram).toEqual({
+      copy: false,
+      fullscreen: false,
+      preview: false,
+      panZoom: false,
+    });
+
+    expect(resolveUi({ controls: { diagram: true } }).controls.diagram.panZoom).toBe(
+      true,
+    );
+
+    // Absent means on, like every other diagram control.
+    expect(resolveUi({ controls: {} }).controls.diagram.panZoom).toBe(true);
+
+    expect(
+      resolveUi({ controls: { diagram: { panZoom: false } } }).controls.diagram,
+    ).toEqual({
+      copy: true,
+      fullscreen: true,
+      preview: true,
+      panZoom: false,
+    });
   });
 
   it("merges partial translations and icons without dropping defaults", () => {
@@ -42,7 +76,7 @@ describe("resolveUi", () => {
       controls: {
         table: false,
         code: true,
-        diagram: { copy: false, fullscreen: false },
+        diagram: { copy: false, fullscreen: false, panZoom: false },
       },
     });
 
@@ -60,6 +94,7 @@ describe("resolveUi", () => {
       copy: false,
       fullscreen: false,
       preview: true,
+      panZoom: false,
     });
   });
 

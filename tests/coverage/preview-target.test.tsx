@@ -50,10 +50,32 @@ function mount(ui: React.ReactElement) {
 
 const md = "```html\n<strong>preview</strong>\n```\n";
 
-/** The preview button, which sits first on a settled HTML block's toolbar. */
+/** The preview button, by the class its styling hangs off. */
 function previewButton(host: HTMLElement) {
-  return host.querySelectorAll<HTMLButtonElement>(".codeblock-icon-button")[0]!;
+  return host.querySelector<HTMLButtonElement>(".codeblock-icon-button.preview")!;
 }
+
+describe("the preview button", () => {
+  it("is the only toolbar button receding while the block streams", () => {
+    const { host, root } = mount(<HyperMarkdown md={md} />);
+
+    // The stylesheet dims `.preview` inside a streaming block and leaves copy
+    // and fullscreen alone: both act on a block that is still being written,
+    // while preview needs the finished document. Without this class the rule
+    // has nothing to hang off and would go back to dimming the whole row.
+    const preview = host.querySelector(".codeblock-icon-button.preview");
+    expect(preview).not.toBeNull();
+    expect(preview!.getAttribute("aria-label")).toBe("Preview");
+
+    const dimmable = host.querySelectorAll(".codeblock-icon-button.preview");
+    expect(dimmable).toHaveLength(1);
+
+    const all = host.querySelectorAll(".codeblock-icon-button");
+    expect(all.length).toBeGreaterThan(1);
+
+    act(() => root.unmount());
+  });
+});
 
 describe("the built-in preview", () => {
   it("opens the html as a page of its own, with nothing configured", () => {

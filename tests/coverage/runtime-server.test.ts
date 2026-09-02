@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { currentPath, onViewportScroll } from "../../lib/runtime";
 import MermaidDiagram from "../../lib/mermaid";
+import PanZoom from "../../lib/mermaid/pan-zoom";
 import "../../index";
 
 describe("runtime SSR adapters", () => {
@@ -28,6 +29,17 @@ describe("runtime SSR adapters", () => {
     instance.renderMermaidDiagram();
     await Promise.resolve();
     expect(render).toHaveBeenCalledWith(expect.any(String), "graph", undefined);
+  });
+
+  it("cleans up a queued pan frame without a browser window", () => {
+    const instance: any = new (PanZoom as any)({
+      enabled: true,
+      fullscreen: false,
+      svg: "<svg />",
+    });
+
+    instance.frame = 1;
+    expect(() => instance.componentWillUnmount()).not.toThrow();
   });
 
   it("loads in a fresh browser-like module realm", async () => {

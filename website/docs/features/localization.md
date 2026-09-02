@@ -31,7 +31,8 @@ reasoning duration.
 | --- | --- |
 | Block titles | `table`, `diagram` |
 | Reasoning | `thinking`, `thoughtFor` |
-| Actions | `copy`, `copyCode`, `fullScreen`, `preview`, `dismiss` |
+| Actions | `copy`, `copyCode`, `fullScreen`, `exitFullScreen`, `preview`, `dismiss` |
+| Diagram view | `zoomIn`, `zoomOut`, `resetView` |
 | Copy feedback | `tableCopied`, `tablePartiallyCopied`, `codeCopied`, `codePartiallyCopied` |
 | HTML preview | `previewPendingTitle`, `previewPendingBody`, `previewUnavailableTitle`, `previewUnavailableBody` |
 
@@ -49,8 +50,8 @@ system without adding an icon dependency:
 />
 ```
 
-The available icon keys are `copy`, `maximize`, `minimize`, `run`, and
-`chevron`.
+The available icon keys are `copy`, `maximize`, `minimize`, `run`, `zoomIn`,
+`zoomOut`, `resetView`, and `chevron`.
 
 ## Keep configuration stable
 

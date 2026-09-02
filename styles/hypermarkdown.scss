@@ -1407,7 +1407,7 @@
         padding-right: 16px;
 
         padding-top: 50px;
-        padding-bottom: 30px;
+        padding-bottom: 16px;
 
         margin-block-end: 0px;
         margin-block-start: -50px;
@@ -1422,13 +1422,131 @@
 
           overflow-x: auto;
 
+          .mermaid-pan-zoom {
+            display: flex;
+            position: relative;
+
+            width: 100%;
+            min-width: 100%;
+
+            overflow: hidden;
+            contain: paint;
+
+            border-top: 1px solid var(--hm-background);
+
+            .mermaid-pan-zoom-controls {
+              display: flex;
+              position: absolute;
+
+              z-index: 4;
+
+              left: 8px;
+              bottom: 8px;
+
+              padding: 4px;
+
+              flex-direction: column;
+
+              border: 1px solid var(--hm-background);
+              border-radius: 9px;
+
+              background-color: rgba(255, 255, 255, 0.82);
+              backdrop-filter: blur(4px);
+              -webkit-backdrop-filter: blur(4px);
+
+              .mermaid-pan-zoom-button {
+                display: flex;
+                position: relative;
+
+                width: 28px;
+                height: 28px;
+
+                border-radius: 5px;
+
+                align-items: center;
+                justify-content: center;
+
+                color: var(--hm-toolbar-color);
+
+                transition:
+                  color 0.15s var(--hm-ease),
+                  background-color 0.15s var(--hm-ease),
+                  opacity 0.15s var(--hm-ease);
+
+                .button-icon {
+                  display: flex;
+
+                  width: 15px;
+                  height: 15px;
+
+                  align-items: center;
+                  justify-content: center;
+
+                  svg {
+                    width: 100%;
+                    height: 100%;
+                  }
+                }
+              }
+
+              .mermaid-pan-zoom-button:hover {
+                color: var(--hm-button-color);
+                background-color: var(--hm-background);
+              }
+
+              .mermaid-pan-zoom-button:disabled {
+                opacity: 0.35;
+                cursor: not-allowed;
+              }
+
+              .mermaid-pan-zoom-button:disabled:hover {
+                color: var(--hm-toolbar-color);
+                background-color: transparent;
+              }
+            }
+
+            .mermaid-pan-zoom-content {
+              display: flex;
+              position: relative;
+
+              width: 100%;
+
+              transform-origin: center center;
+
+              justify-content: center;
+
+              transition: transform 0.15s ease-out;
+            }
+          }
+
+          .mermaid-pan-zoom[data-pan-zoom="true"] {
+            .mermaid-pan-zoom-content {
+              cursor: grab;
+              touch-action: none;
+            }
+          }
+
+          .mermaid-pan-zoom[data-pan-zoom="true"]:hover,
+          .mermaid-pan-zoom[data-pan-zoom="true"]:focus-within,
+          .mermaid-pan-zoom.panning {
+            .mermaid-pan-zoom-content {
+              will-change: transform;
+            }
+          }
+
+          .mermaid-pan-zoom.panning {
+            .mermaid-pan-zoom-content {
+              cursor: grabbing;
+              user-select: none;
+              transition: none;
+            }
+          }
+
           .mermaid-svg {
             display: flex;
             position: relative;
 
             width: 100%;
-
-            border-top: 1px solid var(--hm-background);
 
             justify-content: center;
           }
@@ -1547,6 +1665,9 @@
     }
 
     .mermaid-container {
+      height: 100%;
+      min-height: 0;
+
       .mermaid-header {
         top: 0px;
         border: none;
@@ -1602,19 +1723,44 @@
 
       .mermaid-content {
         flex-grow: 1;
+        min-height: 0;
+
+        overflow: hidden;
 
         padding-left: 24px;
         padding-right: 24px;
+        padding-bottom: 24px;
 
         border-radius: 0px;
 
         @media screen and (max-width: 640px) {
           padding-left: 16px;
           padding-right: 16px;
+          padding-bottom: 16px;
         }
 
         .mermaid-scroll {
-          height: fit-content;
+          height: 100%;
+          min-height: 0;
+
+          overflow: hidden;
+
+          flex-grow: 1;
+
+          .mermaid-pan-zoom,
+          .mermaid-pan-zoom-content,
+          .mermaid-svg {
+            height: 100%;
+          }
+
+          .mermaid-pan-zoom-content,
+          .mermaid-svg {
+            align-items: center;
+          }
+
+          .mermaid-svg > svg {
+            max-height: 100%;
+          }
         }
       }
     }
@@ -1974,7 +2120,14 @@
             opacity: 0.3;
           }
 
-          .codeblock-button-container {
+          /*
+           * Only preview is held back. Copy and fullscreen work on a block
+           * that is still being written — copying what has arrived, or
+           * expanding it to watch the rest — so dimming them said otherwise.
+           * Preview needs the finished document, and stays receded until the
+           * fence closes.
+           */
+          .codeblock-button-container .codeblock-icon-button.preview {
             opacity: 0.3;
           }
         }
