@@ -58,7 +58,7 @@
     "benchmark": "node benchmarks/run.js --runs=5 --warmup=1",
     "build": "tsc -b && vite build && npm run verify:client-boundary && npm run build:css",
     "website:benchmarks": "node website/scripts/generate-benchmarks.mjs",
-    "website:dev": "npm run website:benchmarks && npm --prefix website start",
+    "website:dev": "npm run build && npm run website:benchmarks && npm --prefix website start",
     "website:build": "npm run website:benchmarks && npm --prefix website run build",
     "website:preview": "npm --prefix website run serve -- --port 3000",
     "typecheck": "tsc -b && npm run typecheck:react18 && npm run typecheck:react19",

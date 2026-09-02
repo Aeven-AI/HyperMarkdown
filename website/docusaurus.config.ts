@@ -59,6 +59,7 @@ const config: Config = {
         language: ["en"],
         highlightSearchTermsOnTargetPage: true,
         docsRouteBasePath: "/docs",
+        indexBlog: false,
         indexPages: true,
       },
     ],

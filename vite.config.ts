@@ -24,6 +24,11 @@ export default defineConfig({
     }),
   ],
   build: {
+    // The documentation site consumes this package through a local symlink.
+    // Keep existing outputs in place while rebuilding so its active Webpack
+    // watcher never observes an exported file disappearing between Vite's JS
+    // build and the separate CSS build that follows it.
+    emptyOutDir: false,
     lib: {
       // The plugins are separate entries so importing the component never
       // pulls katex, highlight.js or mermaid into the consumer's bundle.
