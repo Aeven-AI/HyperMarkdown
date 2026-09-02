@@ -77,6 +77,19 @@ const config: Config = {
         theme: {
           customCss: "./src/css/custom.css",
         },
+        /*
+         * Google Analytics. The preset's own plugin rather than a script tag
+         * in `headTags`: the site is a single-page app after first paint, so
+         * a bare gtag snippet would record the entry page and nothing after
+         * it. This sends a page_view on every client-side navigation too.
+         *
+         * It is a production-only plugin. `docusaurus start` deliberately
+         * loads no tag, so local browsing never reaches the property.
+         */
+        gtag: {
+          trackingID: "G-FXDEPBSKWG",
+          anonymizeIP: true,
+        },
       } satisfies Preset.Options,
     ],
   ],
