@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
-import { currentPath, onViewportScroll } from "../../lib/runtime";
+import { currentPath, onViewportScroll, watchStickyHeader } from "../../lib/runtime";
 import MermaidDiagram from "../../lib/mermaid";
 import PanZoom from "../../lib/mermaid/pan-zoom";
 import "../../index";
@@ -19,6 +19,11 @@ describe("runtime SSR adapters", () => {
     const stop = onViewportScroll(handler);
     expect(() => stop()).not.toThrow();
     expect(handler).not.toHaveBeenCalled();
+    const watch = watchStickyHeader(() => null, () => null, () => false);
+    expect(() => {
+      watch.update();
+      watch.stop();
+    }).not.toThrow();
   });
 
   it("renders diagrams without a DOM sandbox during SSR", async () => {

@@ -41,7 +41,7 @@ class Header extends Component<HeaderProps> {
   override componentDidMount() {
     const vm = this;
     vm.stickyHeader = runtime.watchStickyHeader(
-      () => vm.props.wrapperRef?.current ?? null,
+      () => vm.props.wrapperRef.current,
       () => vm.headerRef.current,
       () => vm.props.fullscreen === true,
     );

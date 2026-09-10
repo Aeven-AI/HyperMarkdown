@@ -276,9 +276,9 @@ export function watchStickyHeader(
 
   return {
     update() {
-      if (entry.target === null) return;
-      if (fullscreen()) setStuck(entry, false);
-      else if (stickyOnScreen.has(entry)) setStuck(entry, isStuck(entry));
+      if (entry.target !== null && (fullscreen() || stickyOnScreen.has(entry))) {
+        setStuck(entry, isStuck(entry));
+      }
     },
     stop() {
       setStuck(entry, false);
