@@ -19,13 +19,12 @@ interface HeaderProps {
 }
 
 class Header extends Component<HeaderProps> {
-  private ticking = false;
   private tippyCopyTimeout: ReturnType<typeof setTimeout> | undefined;
   private readonly guid = runtime.guid();
   private readonly headerRef = React.createRef<HTMLDivElement>();
   private readonly tippyFullScreenRef = React.createRef<TooltipHandle>();
   private readonly tippyCopyContentRef = React.createRef<TooltipHandle>();
-  private stopWatchingScroll: (() => void) | undefined;
+  private stickyHeader: runtime.StickyHeaderWatch | undefined;
 
   constructor(props: HeaderProps) {
     super(props);
@@ -41,9 +40,10 @@ class Header extends Component<HeaderProps> {
 
   override componentDidMount() {
     const vm = this;
-    vm.updateHeaderScrollClass();
-    vm.stopWatchingScroll = runtime.onViewportScroll(
-      vm.updateHeaderScrollClass,
+    vm.stickyHeader = runtime.watchStickyHeader(
+      () => vm.props.wrapperRef?.current ?? null,
+      () => vm.headerRef.current,
+      () => vm.props.fullscreen === true,
     );
   }
 
@@ -171,41 +171,7 @@ class Header extends Component<HeaderProps> {
   }
 
   updateHeaderScrollClass() {
-    const vm = this;
-
-    if (vm.ticking !== true) {
-      requestAnimationFrame(() => {
-        let rec;
-        let top;
-        let height;
-
-        const wrapper = vm.props.wrapperRef?.current;
-
-        if (vm.props.fullscreen === true) {
-          vm.headerRef?.current?.classList?.remove("scroll");
-        } else {
-          if (wrapper) {
-            rec = wrapper.getBoundingClientRect();
-            top = rec?.top || 0;
-            height = rec?.height || 0;
-
-            if (top >= 56) {
-              vm.headerRef?.current?.classList?.remove("scroll");
-            } else {
-              if (height + top > 106) {
-                vm.headerRef?.current?.classList?.add("scroll");
-              } else {
-                vm.headerRef?.current?.classList?.remove("scroll");
-              }
-            }
-          }
-        }
-
-        vm.ticking = false;
-      });
-
-      vm.ticking = true;
-    }
+    this.stickyHeader?.update();
   }
 
   previewButtonComponent(props: HeaderProps) {
@@ -248,7 +214,7 @@ class Header extends Component<HeaderProps> {
 
   override componentWillUnmount() {
     const vm = this;
-    vm.stopWatchingScroll?.();
+    vm.stickyHeader?.stop();
   }
 
   override render() {

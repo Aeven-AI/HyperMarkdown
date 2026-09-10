@@ -93,14 +93,11 @@ describe("remaining component branches", () => {
     });
     expect(() => diagramHeader.copyContent(clickEvent)).not.toThrow();
 
-    const frame = vi
-      .spyOn(globalThis, "requestAnimationFrame")
-      .mockImplementation((callback) => {
-        callback(0);
-        return 1;
-      });
-    diagramHeader.updateHeaderScrollClass();
-    expect(frame).toHaveBeenCalled();
+    // An unmounted header holds no sticky watch, so an update schedules nothing.
+    const frame = vi.spyOn(globalThis, "requestAnimationFrame");
+    expect(() => diagramHeader.updateHeaderScrollClass()).not.toThrow();
+    expect(() => codeHeader.updateHeaderScrollClass()).not.toThrow();
+    expect(frame).not.toHaveBeenCalled();
   });
 
   it("covers defensive diagram cleanup without a parent or mounted wrapper", () => {

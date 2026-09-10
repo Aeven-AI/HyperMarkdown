@@ -12,12 +12,6 @@ import { defaultUi } from "../config";
 import type { UiConfig } from "../config";
 import Tooltip, { type TooltipHandle } from "../tooltip";
 
-/** Distance from the sticky chat header at which the toolbar goes flat. */
-const HEADER_OFFSET = 56;
-
-/** Below this the table is nearly scrolled past, so the toolbar drops away. */
-const HEADER_MIN_VISIBLE = 106;
-
 interface TableHeaderProps {
   /** This renderer's own bus, so blocks report only to the renderer that made them. */
   events?: Emitter | undefined;
@@ -42,51 +36,31 @@ function TableHeaderComponent(props: TableHeaderProps) {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const tippyCopyRef = useRef<TooltipHandle | null>(null);
 
-  // The scroll handler is registered once but reads the current fullscreen
-  // value, so it goes through a ref rather than the closed-over state.
-  const tickingRef = useRef(false);
+  // The watch is registered once but reads the current fullscreen value, so
+  // it goes through a ref rather than the closed-over prop.
+  const fullscreenRef = useRef(fullscreen);
+  fullscreenRef.current = fullscreen;
+  const stickyHeaderRef = useRef<runtime.StickyHeaderWatch | null>(null);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
 
-  const updateHeaderScrollClass = useCallback(() => {
-    if (tickingRef.current === true) {
-      return;
-    }
-
-    tickingRef.current = true;
-
-    requestAnimationFrame(() => {
-      const header = headerRef.current;
-      const wrapper = wrapperRef.current;
-
-      tickingRef.current = false;
-
-      if (!header) {
-        return;
-      }
-
-      if (fullscreen === true || !wrapper) {
-        header.classList.remove("scroll");
-        return;
-      }
-
-      const rect = wrapper.getBoundingClientRect();
-      const top = rect?.top || 0;
-      const height = rect?.height || 0;
-
-      if (top < HEADER_OFFSET && height + top > HEADER_MIN_VISIBLE) {
-        header.classList.add("scroll");
-      } else {
-        header.classList.remove("scroll");
-      }
-    });
-  }, [fullscreen, wrapperRef]);
+  useEffect(() => {
+    const watch = runtime.watchStickyHeader(
+      () => wrapperRef.current,
+      () => headerRef.current,
+      () => fullscreenRef.current === true,
+    );
+    stickyHeaderRef.current = watch;
+    return () => {
+      stickyHeaderRef.current = null;
+      watch.stop();
+    };
+  }, [wrapperRef]);
 
   useEffect(() => {
-    updateHeaderScrollClass();
-    return runtime.onViewportScroll(updateHeaderScrollClass);
-  }, [updateHeaderScrollClass]);
+    stickyHeaderRef.current?.update();
+  }, [fullscreen]);
 
   useEffect(() => {
     return () => {
