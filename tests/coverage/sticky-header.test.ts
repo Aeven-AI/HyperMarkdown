@@ -68,7 +68,7 @@ describe("watchStickyHeader", () => {
     expect(recorder.takeRecords().length + records.length).toBe(1);
 
     visible.rect.top = 80;
-    window.dispatchEvent(new Event("scroll"));
+    visible.watch.update();
     expect(visible.header.classList.contains("scroll")).toBe(false);
 
     visible.watch.stop();
@@ -117,5 +117,22 @@ describe("watchStickyHeader", () => {
     watch.stop();
     expect(header.classList.contains("scroll")).toBe(false);
     other.watch.stop();
+  });
+
+  it("ignores a stopped block's queued intersection and stops a registration that never attached", () => {
+    const stopped = block({ top: 0, height: 400 });
+    flushFrames();
+    // Off screen, an explicit update measures nothing.
+    deliver(stopped.wrapper, false);
+    stopped.watch.update();
+    expect(stopped.measure).not.toHaveBeenCalled();
+    stopped.watch.stop();
+    deliver(stopped.wrapper, true);
+    expect(stopped.header.classList.contains("scroll")).toBe(false);
+
+    const neverAttached = watchStickyHeader(() => null, () => null, () => false);
+    neverAttached.stop();
+    flushFrames();
+    expect(observed.size).toBe(0);
   });
 });
