@@ -9,6 +9,10 @@ interface LineNumberProps {
    * `textContent` back off the DOM — that re-serialises the whole fence on
    * every chunk, so a long block spends more time counting its gutter than
    * rendering its code.
+   *
+   * The caller may stop passing it — there is nothing left to count once the
+   * block has settled, and a host with no cache never passes it at all. The
+   * last tally is kept, so a withdrawn tally cannot take the gutter with it.
    */
   lineCount?: number | undefined;
 }
@@ -28,6 +32,9 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
    */
   private cachedGroups: ReactNode[] = [];
   private cachedAnimation: boolean | undefined;
+
+  /** The last tally the caller gave, kept for when it is withdrawn. */
+  private lastKnownTotal = 0;
 
   /** Lines per memoised group. Small enough that the tail stays cheap. */
   private static readonly groupSize = 64;
@@ -69,15 +76,21 @@ class LineNumber extends Component<LineNumberProps, LineNumberState> {
    * state only catches up in componentDidUpdate, which would render the gutter
    * from the previous count and leave every line number one pass behind the
    * line it belongs to.
+   *
+   * It is remembered as well as returned, because the caller may withdraw it.
+   * Nothing has been counted while the prop was there, so state would still be
+   * zero, and that zero renders the empty-state span for a pass — unmounting
+   * every entry and restarting the fade on all of them.
    */
   private total(): number {
     const vm = this;
 
     if (typeof vm.props.lineCount === "number") {
-      return vm.props.lineCount;
+      vm.lastKnownTotal = vm.props.lineCount;
+      return vm.lastKnownTotal;
     }
 
-    return vm.state.lineNumberTotal;
+    return vm.state.lineNumberTotal || vm.lastKnownTotal;
   }
 
   lineNumberCount() {

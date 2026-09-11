@@ -200,6 +200,62 @@ describe("renderer defensive and callback paths", () => {
     expect(scrollDown).toHaveBeenCalled();
   });
 
+  it("drops a booked settled pass when the renderer resets", () => {
+    vi.useFakeTimers();
+
+    try {
+      const renderer: any = new Renderer({ streaming: true, animation: true });
+
+      // Finalizing closes the block, which books its settled pass.
+      renderer.streamMd("text\n\n", true, true, true);
+      expect(renderer.settleTimers.size).toBe(1);
+
+      const settle = vi.spyOn(renderer, "settleBlock");
+
+      renderer.reset();
+
+      expect(renderer.settleTimers.size).toBe(0);
+
+      // The cancelled pass must not run against the reset state.
+      vi.advanceTimersByTime(5000);
+      expect(settle).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores a settled pass whose block, or rebuild, is gone", () => {
+    const renderer: any = new Renderer({ streaming: true, animation: true });
+
+    // The block is not in the map any more: nothing to replace, nothing added.
+    expect(() => renderer.settleBlock(404, () => <div>gone</div>)).not.toThrow();
+    expect(renderer.streamDataMap.size).toBe(0);
+
+    // The block is there, but its rebuild came back with nothing to show.
+    renderer.streamDataMap.set(7, {
+      key: 7,
+      time: 0,
+      element: <div>streamed</div>,
+    });
+
+    renderer.settleBlock(7, () => null);
+
+    expect(renderer.streamDataMap.get(7).element).toBeTruthy();
+  });
+
+  it("books no settled pass for a close that was never streaming", () => {
+    const renderer: any = new Renderer({ streaming: false, animation: true });
+
+    renderer.streamMd("text\n\n", false, true, true);
+
+    // The block did close...
+    expect(renderer.streamData.length).toBe(1);
+
+    // ...but a non-streaming close already rendered through the plain shape,
+    // so there is nothing to strip and no pass is booked.
+    expect(renderer.settleTimers.size).toBe(0);
+  });
+
   it("falls back to the regular processor for an unknown internal shape", () => {
     const processor = createProcessor("unknown" as any, {} as any);
     expect(processor.processSync("text").result).toBeTruthy();

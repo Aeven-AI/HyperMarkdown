@@ -22,7 +22,11 @@ export interface CodeBlockProps {
   events?: Emitter | undefined;
   ui?: UiConfig | undefined;
   scrollDown?: unknown;
-  /** Line total from the streaming cache, when it is the one rendering. */
+  /**
+   * Line total from the code cache. It is passed in both phases: the settled
+   * tree holds the same lines, and withdrawing the tally at the settle is what
+   * made the gutter rebuild every entry it had.
+   */
   lineCount?: number | undefined;
 }
 
@@ -37,6 +41,8 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
   private currentScrollHeight = 0;
   private readonly codeRef = React.createRef<HTMLDivElement>();
   private readonly wrapperRef = React.createRef<HTMLDivElement>();
+  /** Whether the settle has been decided; kept apart from what it produced. */
+  private settled = false;
   private settledChildren: ReactNode | undefined;
   private settleTimeout: ReturnType<typeof setTimeout> | undefined;
 
@@ -75,6 +81,7 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
     ) {
       clearTimeout(vm.settleTimeout);
       vm.settleTimeout = undefined;
+      vm.settled = false;
       vm.settledChildren = undefined;
       vm.scheduleSettledChildren();
     }
@@ -204,9 +211,17 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
       fullscreen = " fullscreen";
     }
 
+    // The settle is the final render, so the gutter stops animating with it —
+    // while it is still streaming, and during the wait before the settled tree
+    // is adopted, the entries keep fading in as their lines arrive.
+    const lineAnimation = vm.settled === true ? false : props.animation;
+
     children = props.children;
 
-    if (vm.settledChildren) {
+    // The flag is the decision, the content is only the payload: a settle that
+    // came back with nothing to adopt must leave the cached tree on screen
+    // rather than blank the block.
+    if (vm.settled === true && vm.settledChildren) {
       children = vm.settledChildren;
     }
 
@@ -237,8 +252,8 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
               {ui.lineNumbers === false ? null : (
                 <LineNumber
                   codeRef={vm.codeRef}
-                  animation={props.animation}
-                  lineCount={vm.settledChildren ? undefined : props.lineCount}
+                  animation={lineAnimation}
+                  lineCount={props.lineCount}
                 />
               )}
 
@@ -258,23 +273,38 @@ class MarkdownCode extends PureComponent<CodeBlockProps, CodeBlockState> {
     const vm = this;
     const props = vm.props;
 
-    if (props.stream === true || vm.settleTimeout !== undefined) {
+    if (
+      props.stream === true ||
+      vm.settled === true ||
+      vm.settleTimeout !== undefined
+    ) {
       return;
     }
 
     delay = props.animation === true ? 1000 : 0;
 
     if (delay === 0) {
-      vm.settledChildren = props.preChildren;
-      vm.setState({ finalStream: true });
+      vm.applySettledChildren();
       return;
     }
 
     vm.settleTimeout = setTimeout(() => {
-      vm.settledChildren = vm.props.preChildren;
       vm.settleTimeout = undefined;
-      vm.setState({ finalStream: true });
+      vm.applySettledChildren();
     }, delay);
+  }
+
+  /**
+   * Adopt the settled tree, once. The flag — not the children — is what stops
+   * a second pass, so a settle that produced nothing to adopt cannot put the
+   * block back on the timer or leave the guard re-evaluating on every render.
+   */
+  private applySettledChildren(): void {
+    const vm = this;
+
+    vm.settled = true;
+    vm.settledChildren = vm.props.preChildren;
+    vm.setState({ finalStream: true });
   }
 }
 
