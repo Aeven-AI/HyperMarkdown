@@ -36,6 +36,14 @@ The package does not choose your application font or page layout. The host contr
 
 KaTeX requires its own stylesheet when the math plugin is enabled. Syntax highlighting similarly requires a highlight.js-compatible theme if you want token colors.
 
+The code and diagram toolbars draw their tips with tippy.js, an optional peer dependency. When you render them, import its stylesheet too:
+
+```tsx
+import "tippy.js/dist/tippy.css";
+```
+
+Without it the toolbars still work — the tips just lose their positioning and sizing.
+
 ## Dark mode
 
 Set variables in your application's existing dark-mode selector:

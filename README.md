@@ -124,6 +124,13 @@ Import the component stylesheet once in your application entry point:
 import "@aeven-ai/hypermarkdown/styles.css";
 ```
 
+If you render the code or diagram toolbars, tippy.js — an optional peer — also
+needs its stylesheet, the same way KaTeX does:
+
+```tsx
+import "tippy.js/dist/tippy.css";
+```
+
 Then import the component:
 
 ```tsx

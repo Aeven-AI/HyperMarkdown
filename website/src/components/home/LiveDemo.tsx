@@ -8,6 +8,7 @@ import { useScrollDown } from "../markdown/useScrollDown";
 import { homepageDemo } from "../../data/demoMarkdown";
 import "@aeven-ai/hypermarkdown/styles.css";
 import "katex/dist/katex.min.css";
+import "tippy.js/dist/tippy.css";
 import "highlight.js/styles/github.min.css";
 
 const DELAY_MS = 8;
