@@ -104,6 +104,8 @@ class Renderer {
   private codeCache = new CodeCache();
   private tableCache = new TableCache();
   private listCache = new ListCache();
+  /** Pending settled passes, one per closed block; dropped on reset. */
+  private settleTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private components!: ReturnType<typeof createComponents> & RendererComponents;
   /** Host-supplied component overrides, applied to every component map. */
   private componentOverrides!: RendererComponents;
@@ -275,6 +277,13 @@ class Renderer {
     this.cachedFootnotes = null;
 
     this.resetLineCache();
+
+    this.settleTimers.forEach((timer) => {
+      clearTimeout(timer);
+    });
+
+    this.settleTimers.clear();
+
     this.applyState({});
   }
 
@@ -825,6 +834,14 @@ class Renderer {
         }
       }
 
+      // Only a live block has animation to strip: when the message is not
+      // streaming, processMd() already rendered it through the plain shape.
+      if (streaming === true) {
+        vm.scheduleSettle(blockId, animation, () =>
+          vm.settledMarkupBlock(mdBuffer, streaming),
+        );
+      }
+
       vm.mdBuffer = closeObject.mdNext;
 
       vm.applyState({ md: mdState }, () => {
@@ -1080,14 +1097,19 @@ class Renderer {
   }
 
   // Both the streaming frames and the closed one are built here, so React
-  // sees the same shape throughout and never remounts the table.
-  private tableElement(stream: boolean): ReactElement {
+  // sees the same shape throughout and never remounts the table. The settled
+  // pass brings a cache of its own: the same rows, built without the word
+  // spans the streaming shape wraps them in.
+  private tableElement(
+    stream: boolean,
+    cache: TableCache = this.tableCache,
+  ): ReactElement {
     let hasRows;
 
     const vm = this;
 
     // Only whether any row exists matters; filtering copies the whole array.
-    hasRows = vm.tableCache.data.some((row) => row);
+    hasRows = cache.data.some((row) => row);
 
     return (
       <MarkdownTable
@@ -1097,10 +1119,81 @@ class Renderer {
         ui={vm.ui}
         scrollDown={vm.options.scrollDown}
       >
-        <thead>{vm.tableCache.head}</thead>
-        {hasRows ? <tbody>{vm.tableCache.data}</tbody> : null}
+        <thead>{cache.head}</thead>
+        {hasRows ? <tbody>{cache.data}</tbody> : null}
       </MarkdownTable>
     );
+  }
+
+  /**
+   * Book a settled pass for a closed block.
+   *
+   * Nothing is deferred when the animation is off: the shape it closed in is
+   * already the settled one, so the pass would re-render identical markup.
+   */
+  private scheduleSettle(
+    blockId: number,
+    animation: boolean,
+    rebuild: () => ReactNode,
+  ): void {
+    const vm = this;
+
+    if (animation !== true) {
+      return;
+    }
+
+    vm.settleTimers.set(
+      blockId,
+      setTimeout(() => {
+        vm.settleTimers.delete(blockId);
+        vm.settleBlock(blockId, rebuild);
+      }, 1000),
+    );
+  }
+
+  /**
+   * Replace a closed block's element once its fades have run, so the finished
+   * block is a plain render. Waiting is what makes it invisible: content caught
+   * mid-fade would jump from its partial opacity to full the moment the
+   * animated spans and markers go.
+   */
+  private settleBlock(blockId: number, rebuild: () => ReactNode): void {
+    const vm = this;
+    const block = vm.streamDataMap.get(blockId);
+    const element = rebuild();
+
+    if (!block || !element) {
+      return;
+    }
+
+    block.time = runtime.timeNow();
+    block.element = element;
+    vm.applyState({ md: vm.mdState });
+  }
+
+  /** A closed table's rows again, built without the streaming word spans. */
+  private settledTableBlock(mdBuffer: string): ReactElement {
+    const vm = this;
+    const cache = new TableCache();
+
+    cache.append(mdBuffer, vm.processorFor("cached-table"), {
+      ...cellComponents(vm),
+      ...vm.componentOverrides,
+    });
+
+    return vm.tableElement(false, cache);
+  }
+
+  /**
+   * The same markup again, through the same pipeline minus the animation
+   * stage: prose, lists and maths lose their word spans, links their
+   * `data-animate-key`, and items their fading marker.
+   */
+  private settledMarkupBlock(
+    mdBuffer: string,
+    streaming: boolean,
+  ): ReactNode {
+    return this.processMd(mdBuffer, streaming, false);
   }
 
   // The list wrapper. Its attributes follow from the items themselves: the
@@ -1246,6 +1339,12 @@ class Renderer {
           vm.streamData.push(blockItem);
           vm.streamDataMap.set(blockId, blockItem);
         }
+      }
+
+      if (vm.tableCache.head) {
+        vm.scheduleSettle(blockId, animation, () =>
+          vm.settledTableBlock(mdBuffer),
+        );
       }
 
       vm.mdBuffer = closeObject.mdNext;
