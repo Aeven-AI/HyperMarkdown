@@ -1,15 +1,16 @@
 /*
+ * Toolbar tooltip skin.
+ *
  * Tippy renders its popper beside the application root, not inside the
- * `.hypermarkdown` wrapper. Its positioning, content, transition, and arrow
- * rules therefore have to remain global. The theme-neutral base stylesheet is
- * bundled here so every renderer toolbar works from the single documented
- * `@aeven-ai/hypermarkdown/styles.css` import.
- */
-@use "../node_modules/tippy.js/dist/tippy.css";
-
-/*
- * Toolbar copy/fullscreen tips match the Aeven client Tippy skin. Tippy mounts
- * on the document, so these rules stay unscoped.
+ * `.hypermarkdown` wrapper, so these rules have to stay unscoped. Tippy's own
+ * base stylesheet is deliberately not inlined here: tippy.js is an optional
+ * peer, and a host that renders a toolbar loads its stylesheet from the
+ * package it installed, the same way it loads KaTeX's:
+ *
+ *   import "tippy.js/dist/tippy.css";
+ *
+ * Without it the toolbars still work — the tips just lose their positioning
+ * and sizing — and a host that never renders one ships none of it.
  */
 .tippy-button {
   outline: none !important;
@@ -498,7 +499,7 @@
   ul li[data-animate-marker="true"]::before,
   ol li[data-animate-marker="true"]::before,
   dl dt[data-animate-marker="true"]::before {
-    will-change: opacity;
+    //will-change: opacity;
     opacity: 0;
 
     animation: hm-word-fade-in 1s var(--hm-ease-linear) forwards;
@@ -614,7 +615,7 @@
 
   a[data-animate-word="true"],
   span[data-animate-word="true"] {
-    will-change: opacity;
+    //will-change: opacity;
     opacity: 0;
 
     animation: hm-word-fade-in 1s var(--hm-ease-linear) forwards;
