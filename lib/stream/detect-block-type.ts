@@ -1,4 +1,5 @@
 import { patterns } from "../patterns";
+import { isTableText } from "../table/rows";
 
 import type { BlockType } from "../types";
 
@@ -150,15 +151,21 @@ export function detectBlockType(
   }
 
   function tableBlockPendingCheck(mdBuffer: string): BlockType | undefined {
-    const pipeMatches = mdBuffer.match(patterns.pipeRegex);
-    const pipeCount = pipeMatches ? pipeMatches.length : 0;
+    // Only the block that would be drained decides the type: a table ends at
+    // its first blank line, so everything past that belongs to another block —
+    // prose after a table must not be read as more table rows, and prose before
+    // one must not be read as a table just because pipes follow it.
+    const blank = patterns.blankLineRegex.exec(mdBuffer);
+    const head = blank ? mdBuffer.slice(0, blank.index) : mdBuffer;
 
-    if (pipeCount >= 2) {
-      return "table";
-    } else if (pipeCount === 1) {
-      return "pending";
+    if (!isTableText(head)) {
+      return undefined;
     }
 
-    return undefined;
+    // A head made of rows has at least one pipe in it, so one pipe is a row
+    // whose cells have not arrived and two are a row that can be rendered.
+    const pipeCount = head.match(patterns.pipeRegex)!.length;
+
+    return pipeCount > 1 ? "table" : "pending";
   }
 }

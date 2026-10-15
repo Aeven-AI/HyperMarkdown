@@ -18,6 +18,8 @@ interface CodeRegexConfig {
 export interface FootnoteRefs {
   footnotes: Map<string, string>;
   mdExtra: Map<string, string>;
+  /** True when no further text will arrive, so a trailing line is settled. */
+  finalize: boolean;
 }
 
 /**
@@ -76,6 +78,171 @@ function fenceStartCovering(mdBuffer: string, index: number): number {
 
   // An unclosed region runs to the end of the buffer.
   return openIndex !== -1 && index > openIndex ? openIndex : -1;
+}
+
+/**
+ * One reference label, folded the way CommonMark compares them: case and inner
+ * whitespace do not distinguish two labels that mean the same link.
+ */
+function normaliseLabel(label: string): string {
+  return label.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** The labels a buffer refers to through `[text][label]`. */
+function referenceLabels(md: string): string[] {
+  let match;
+  const labels: string[] = [];
+
+  patterns.referenceLabelRegex.lastIndex = 0;
+
+  while ((match = patterns.referenceLabelRegex.exec(md)) !== null) {
+    // A collapsed reference ("[ref][]") is labelled by its own text.
+    labels.push(normaliseLabel(match[2] !== "" ? match[2]! : match[1]!));
+  }
+
+  return labels;
+}
+
+/**
+ * The labels a buffer defines through a `[label]: destination` line, counting
+ * only the definitions that have settled.
+ *
+ * A definition is settled once the blank line that ends it has arrived, because
+ * until then the run may still be growing and anything carried early is a
+ * reference cut off from the definition that follows it. The last line of a
+ * finalized buffer is settled too: no more text is coming to complete it.
+ *
+ * @param md - the markdown to read definitions from.
+ * @param finalize - true when the buffer is complete.
+ * @returns the labels the buffer defines.
+ */
+function linkDefinitionLabels(md: string, finalize: boolean): Set<string> {
+  const lines = md.split(patterns.lineSplitRegex);
+  const labels = new Set<string>();
+
+  for (let index = 0; index < lines.length; index++) {
+    if (settledDefinition(lines, index, finalize) !== true) {
+      continue;
+    }
+
+    const match = patterns.linkDefinitionLabelRegex.exec(lines[index]!);
+
+    if (match) {
+      labels.add(normaliseLabel(match[1]!));
+    }
+  }
+
+  return labels;
+}
+
+/**
+ * Whether the definition on a line has finished arriving.
+ *
+ * A definition ends at the blank line after it: until that blank line lands the
+ * run may still be growing, and closing the block on the definition alone cuts
+ * the rest of the run off to render as literal text — a shortcut reference
+ * defined in the same run then renders as literal text as well. The last line
+ * of a finalized buffer has nothing more coming, so it counts as settled too.
+ *
+ * @param lines - the buffer, split into lines.
+ * @param index - the line holding the definition.
+ * @param finalize - true when the buffer is complete.
+ * @returns true when the definition is complete.
+ */
+function settledDefinition(
+  lines: string[],
+  index: number,
+  finalize: boolean,
+): boolean {
+  if (finalize === true) {
+    return true;
+  }
+
+  const next = lines[index + 1];
+
+  // A line terminator is not a blank line: "[1]: a\n" ends the definition's
+  // line but not the run, so the run is settled only once a line follows the
+  // blank one — which is what makes the next definition's arrival visible.
+  return next !== undefined && next.trim() === "" && index + 2 < lines.length;
+}
+
+/**
+ * How much of a buffer is a run of link and footnote definitions.
+ *
+ * Definitions are the last thing a document carries and the first thing a block
+ * boundary cuts off, so the run is measured from the start of the remaining
+ * text: the definition lines it opens with, and nothing else. A definition
+ * still being written ends the run: its half-arrived destination would
+ * otherwise be committed as the end of the block, leaving the rest to render as
+ * text.
+ *
+ * @param md - the text following a block boundary.
+ * @param finalize - true when the buffer is complete.
+ * @returns the offset where the run ends.
+ */
+function definitionRunEnd(md: string, finalize: boolean): number {
+  const lines = md.split(patterns.lineSplitRegex);
+  let offset = 0;
+
+  for (const [index, line] of lines.entries()) {
+    if (
+      patterns.definitionLineRegex.test(line) !== true ||
+      settledDefinition(lines, index, finalize) !== true
+    ) {
+      break;
+    }
+
+    offset = Math.min(offset + line.length + 1, md.length);
+  }
+
+  return offset;
+}
+
+/**
+ * Keep a reference definition with the block that uses it.
+ *
+ * A reference renders as literal text when its definition is not in the same
+ * parse, and a blank-line boundary is exactly what separates the two: a
+ * footnote definition sitting between them does not change that. So when a
+ * block refers to a label it does not define itself, the run of definitions
+ * that follows the boundary joins the block.
+ *
+ * @param close - the boundary the block rules found.
+ * @param finalize - true when the buffer is complete.
+ * @returns the boundary, widened to carry the definitions.
+ */
+function withTrailingDefinitions(
+  close: BlockBoundary,
+  finalize: boolean,
+): BlockBoundary {
+  if (close.close !== true) {
+    return close;
+  }
+
+  const used = referenceLabels(close.md);
+
+  if (used.length === 0) {
+    return close;
+  }
+
+  const defined = linkDefinitionLabels(close.md, finalize);
+
+  if (used.every((label) => defined.has(label))) {
+    return close;
+  }
+
+  const end = definitionRunEnd(close.mdNext, finalize);
+
+  if (end === 0) {
+    return close;
+  }
+
+  return {
+    close: true,
+    md: close.md + close.mdNext.slice(0, end),
+    mdClose: close.mdClose,
+    mdNext: close.mdNext.slice(end),
+  };
 }
 
 export function findBlockBoundary(
@@ -146,31 +313,38 @@ export function findBlockBoundary(
       };
     };
 
+    // Blank lines say nothing about references, so a definition can land just
+    // past the boundary that its own usage opened. Every boundary this branch
+    // returns goes through here so the definition travels with its block.
+    const finish = (
+      close: BlockBoundary,
+    ): BlockBoundary => withTrailingDefinitions(close, refs.finalize);
+
     refClose = beforeFence(getRefClose(mdBuffer));
     if (refClose) {
-      return refClose;
+      return finish(refClose);
     }
 
     lineClose = beforeFence(getLineClose(mdBuffer, blockType));
     if (lineClose) {
-      return lineClose;
+      return finish(lineClose);
     }
 
     hrRuleClose = beforeFence(getHrRuleClose(mdBuffer, blockType, hrRegex));
     if (hrRuleClose) {
-      return hrRuleClose;
+      return finish(hrRuleClose);
     }
 
     doubleLineClose = beforeFence(getDoubleLineClose(mdBuffer, blockType, doubleLine));
     if (doubleLineClose) {
-      return doubleLineClose;
+      return finish(doubleLineClose);
     }
 
     codeBlockClose = getCodeBlockClose(mdBuffer, blockType, {
       fencedCodeRegex,
       indentedCodeRegex,
     });
-    return beforeFence(codeBlockClose);
+    return finish(beforeFence(codeBlockClose));
   }
 
   if (blockType === "code") {
