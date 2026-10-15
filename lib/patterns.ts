@@ -96,8 +96,19 @@ export const patterns = {
   partialRowRegex: /^[ \t]{0,3}\|[ \t:|-]*$/,
   blankCharRegex: /[ \t\r\n]/,
 
+  // The blank line that separates blocks.
+  blankLineRegex: /\n[ \t]*\n/,
+
   // "[label]:" or "[^note]:" starting a line — a link or footnote definition.
   definitionLineRegex: /^[ \t]{0,3}\[[^\]]+\]:/,
+  // The same, capturing the label and skipping footnote definitions, whose
+  // label opens with a caret: only a link definition can resolve a reference.
+  // The destination is required, so a definition line still arriving — the
+  // label typed, the URL not yet — does not count as one.
+  linkDefinitionLabelRegex: /^[ \t]{0,3}\[([^\]^][^\]]*)\]:[ \t]*\S/gm,
+  // A reference usage "[text][label]", capturing both brackets so a collapsed
+  // reference ("[ref][]") can fall back to its text for the label.
+  referenceLabelRegex: /\[([^\]]+)\][ \t]*\[([^\]]*)\]/g,
   blankOnlyRegex: /^[ \t]*$/,
   lineSplitRegex: /\r\n?|\n/,
 

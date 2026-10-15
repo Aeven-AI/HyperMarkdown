@@ -48,6 +48,25 @@ export function renderPending(markdown, options = {}) {
   return renderToStaticMarkup(renderer.render());
 }
 
+/**
+ * A finished answer handed over in a single write.
+ *
+ * This is the path a host takes when it is not streaming: a re-opened
+ * conversation, a non-streaming provider, a question echoed back into the
+ * transcript.
+ */
+export function renderOneWrite(markdown, options = {}) {
+  const renderer = new Renderer({
+    streaming: true,
+    animation: false,
+    ...options,
+  });
+
+  renderer.streamMd(markdown, true, false, true);
+
+  return renderToStaticMarkup(renderer.render());
+}
+
 export function parseMarkup(markup) {
   return new JSDOM(`<body>${markup}</body>`, {
     url: "https://hypermarkdown.test/",

@@ -444,8 +444,10 @@ class Renderer {
       closeObject = findBlockBoundary(vm.mdBuffer, blockType, {
         footnotes: vm.footnotes,
         mdExtra: vm.mdExtra,
+        finalize,
       });
       closes = finalize === true || closeObject.close === true;
+
 
       // An open block renders at most once per delta, and only from a delta
       // that consumed nothing before it. Rendering a tail after a boundary has
@@ -499,6 +501,7 @@ class Renderer {
       findBlockBoundary(vm.mdBuffer, blockType, {
         footnotes: vm.footnotes,
         mdExtra: vm.mdExtra,
+        finalize,
       });
 
     if (finalize === true && closeObject && closeObject.close !== true) {
