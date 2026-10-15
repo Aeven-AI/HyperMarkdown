@@ -104,8 +104,10 @@ export const patterns = {
   // The same, capturing the label and skipping footnote definitions, whose
   // label opens with a caret: only a link definition can resolve a reference.
   // The destination is required, so a definition line still arriving — the
-  // label typed, the URL not yet — does not count as one.
-  linkDefinitionLabelRegex: /^[ \t]{0,3}\[([^\]^][^\]]*)\]:[ \t]*\S/gm,
+  // label typed, the URL not yet — does not count as one. It reads one line at
+  // a time, so it carries no flags: a global pattern would keep its lastIndex
+  // between lines and skip the match after each hit.
+  linkDefinitionLabelRegex: /^[ \t]{0,3}\[([^\]^][^\]]*)\]:[ \t]*\S/,
   // A reference usage "[text][label]", capturing both brackets so a collapsed
   // reference ("[ref][]") can fall back to its text for the label.
   referenceLabelRegex: /\[([^\]]+)\][ \t]*\[([^\]]*)\]/g,

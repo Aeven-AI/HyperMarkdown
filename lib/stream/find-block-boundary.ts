@@ -116,24 +116,7 @@ function referenceLabels(md: string): string[] {
  * @param finalize - true when the buffer is complete.
  * @returns the labels the buffer defines.
  */
-function linkDefinitionLabels(md: string, finalize: boolean): Set<string> {
-  const lines = md.split(patterns.lineSplitRegex);
-  const labels = new Set<string>();
 
-  for (let index = 0; index < lines.length; index++) {
-    if (settledDefinition(lines, index, finalize) !== true) {
-      continue;
-    }
-
-    const match = patterns.linkDefinitionLabelRegex.exec(lines[index]!);
-
-    if (match) {
-      labels.add(normaliseLabel(match[1]!));
-    }
-  }
-
-  return labels;
-}
 
 /**
  * Whether the definition on a line has finished arriving.
@@ -214,20 +197,9 @@ function definitionRunEnd(md: string, finalize: boolean): number {
 function withTrailingDefinitions(
   close: BlockBoundary,
   finalize: boolean,
+  usedLabels: string[],
 ): BlockBoundary {
-  if (close.close !== true) {
-    return close;
-  }
-
-  const used = referenceLabels(close.md);
-
-  if (used.length === 0) {
-    return close;
-  }
-
-  const defined = linkDefinitionLabels(close.md, finalize);
-
-  if (used.every((label) => defined.has(label))) {
+  if (close.close !== true || usedLabels.length === 0) {
     return close;
   }
 
@@ -237,12 +209,41 @@ function withTrailingDefinitions(
     return close;
   }
 
+  // Only a definition the block actually refers to is worth carrying: the run
+  // is read on its own rather than scanning the block again for what it
+  // defines.
+  const defines = definitionsIn(close.mdNext.slice(0, end));
+
+  if (usedLabels.some((label) => defines.has(label)) !== true) {
+    return close;
+  }
+
   return {
     close: true,
     md: close.md + close.mdNext.slice(0, end),
     mdClose: close.mdClose,
     mdNext: close.mdNext.slice(end),
   };
+}
+
+/**
+ * The labels a run of definition lines defines.
+ *
+ * @param run - definition lines, as definitionRunEnd() measured them.
+ * @returns the labels they define.
+ */
+function definitionsIn(run: string): Set<string> {
+  const labels = new Set<string>();
+
+  for (const line of run.split(patterns.lineSplitRegex)) {
+    const match = patterns.linkDefinitionLabelRegex.exec(line);
+
+    if (match) {
+      labels.add(normaliseLabel(match[1]!));
+    }
+  }
+
+  return labels;
 }
 
 export function findBlockBoundary(
@@ -316,11 +317,16 @@ export function findBlockBoundary(
     // Blank lines say nothing about references, so a definition can land just
     // past the boundary that its own usage opened. Every boundary this branch
     // returns goes through here so the definition travels with its block.
+    // Read once per boundary: the usage test the guard makes and the labels the
+    // pull needs are the same answer.
+    const usedLabels = referenceLabels(mdBuffer);
+
     const finish = (
       close: BlockBoundary,
-    ): BlockBoundary => withTrailingDefinitions(close, refs.finalize);
+    ): BlockBoundary =>
+      withTrailingDefinitions(close, refs.finalize, usedLabels);
 
-    refClose = beforeFence(getRefClose(mdBuffer));
+    refClose = beforeFence(getRefClose(mdBuffer, usedLabels));
     if (refClose) {
       return finish(refClose);
     }
@@ -416,13 +422,12 @@ export function findBlockBoundary(
     }
   }
 
-  function getRefClose(mdBuffer: string): BlockBoundary | undefined {
-    const usageMatch = mdBuffer.match(patterns.refRegex);
-    const definitionMatch = mdBuffer.match(patterns.definitionRegex);
-
-    const hasUsage = Array.isArray(usageMatch) && usageMatch.length > 0;
-    const hasDefinition =
-      Array.isArray(definitionMatch) && definitionMatch.length > 0;
+  function getRefClose(
+    mdBuffer: string,
+    usedLabels: string[],
+  ): BlockBoundary | undefined {
+    const hasUsage = usedLabels.length > 0;
+    const hasDefinition = patterns.definitionRegex.test(mdBuffer);
 
     if (hasUsage === true && hasDefinition !== true) {
       return {
